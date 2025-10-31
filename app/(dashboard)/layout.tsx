@@ -37,9 +37,15 @@ export default async function DashboardLayout({
           <a href="/dashboard/quotes" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
             見積管理
           </a>
-          <a href="/dashboard/procurement/pending" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-            発注管理
-          </a>
+          <div className="px-4 py-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase">発注管理</p>
+            <a href="/dashboard/procurement/pending" className="block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+              発注待ち
+            </a>
+            <a href="/dashboard/procurement/receiving" className="block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+              入荷登録
+            </a>
+          </div>
           {userData?.role === '営業事務' || userData?.role === '管理者' ? (
             <>
               <a href="/dashboard/billing" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
