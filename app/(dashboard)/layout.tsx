@@ -39,6 +39,9 @@ export default async function DashboardLayout({
           </a>
           <div className="px-4 py-2">
             <p className="text-xs font-semibold text-gray-500 uppercase">発注管理</p>
+            <a href="/dashboard/procurement" className="block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
+              進捗ダッシュボード
+            </a>
             <a href="/dashboard/procurement/pending" className="block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100">
               発注待ち
             </a>
