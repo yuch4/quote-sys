@@ -78,7 +78,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   }
 
   // 明細を行番号順にソート
-  const sortedItems = quote.items?.sort((a, b) => a.line_number - b.line_number) || []
+  const sortedItems = quote.items?.sort((a: any, b: any) => a.line_number - b.line_number) || []
 
   return (
     <div className="space-y-6">
@@ -248,7 +248,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedItems.map((item) => (
+              {sortedItems.map((item: any) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.line_number}</TableCell>
                   <TableCell className="font-medium">{item.product_name}</TableCell>
@@ -290,7 +290,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
         </CardContent>
       </Card>
 
-      <VersionHistory currentQuoteId={quote.id} versions={versions || []} />
+      <VersionHistory currentQuoteId={quote.id} versions={versions as any || []} />
     </div>
   )
 }

@@ -533,7 +533,7 @@ export default function BillingPage() {
                 <Textarea
                   id="notes"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                   placeholder="特記事項があれば入力してください"
                   rows={3}
                 />

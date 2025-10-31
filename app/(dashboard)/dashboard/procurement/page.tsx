@@ -119,14 +119,14 @@ export default function ProcurementDashboardPage() {
         alertCount: alerts.length,
       })
 
-      setOrderedItems(ordered)
-      setAlertItems(alerts)
+      setOrderedItems(ordered as any)
+      setAlertItems(alerts as any)
 
       // 仕入先別サマリー作成
       const supplierMap = new Map<string, SupplierSummary>()
       
       items.forEach((item) => {
-        const supplierName = item.supplier?.supplier_name || '未設定'
+        const supplierName = (item.supplier as any)?.supplier_name || '未設定'
         if (!supplierMap.has(supplierName)) {
           supplierMap.set(supplierName, {
             supplier_name: supplierName,

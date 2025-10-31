@@ -105,7 +105,7 @@ export default function ProcurementPendingPage() {
 
       if (error) throw error
 
-      setItems(itemsData || [])
+      setItems(itemsData as any || [])
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)

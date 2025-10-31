@@ -638,9 +638,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-          </Card>
-        </Link>
-      </div>
-    </div>
-  )
-}
