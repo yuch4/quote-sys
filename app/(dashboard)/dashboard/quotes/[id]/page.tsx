@@ -3,11 +3,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ApprovalActions } from '@/components/quotes/approval-actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
+
+  // 現在のユーザー情報を取得
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: currentUser } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('auth_id', user?.id)
+    .single()
   
   const { data: quote, error } = await supabase
     .from('quotes')
@@ -61,6 +70,13 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           <p className="text-gray-600 mt-2">{quote.quote_number}</p>
         </div>
         <div className="flex gap-2">
+          <ApprovalActions
+            quoteId={quote.id}
+            approvalStatus={quote.approval_status}
+            currentUserId={currentUser?.id || ''}
+            currentUserRole={currentUser?.role || ''}
+            createdBy={quote.created_by}
+          />
           {quote.approval_status === '下書き' && (
             <Link href={`/dashboard/quotes/${quote.id}/edit`}>
               <Button variant="outline">編集</Button>
