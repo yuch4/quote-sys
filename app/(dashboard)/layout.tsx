@@ -37,11 +37,11 @@ export default async function DashboardLayout({
           <a href="/dashboard/quotes" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
             見積管理
           </a>
+          <a href="/dashboard/procurement/pending" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+            発注管理
+          </a>
           {userData?.role === '営業事務' || userData?.role === '管理者' ? (
             <>
-              <a href="/dashboard/procurement" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                発注・入荷管理
-              </a>
               <a href="/dashboard/billing" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                 計上管理
               </a>
