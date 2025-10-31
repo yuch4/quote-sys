@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ApprovalActions } from '@/components/quotes/approval-actions'
+import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -70,6 +71,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           <p className="text-gray-600 mt-2">{quote.quote_number}</p>
         </div>
         <div className="flex gap-2">
+          <PDFGenerateButton
+            quoteId={quote.id}
+            quoteNumber={quote.quote_number}
+            pdfUrl={quote.pdf_url}
+          />
           <ApprovalActions
             quoteId={quote.id}
             approvalStatus={quote.approval_status}
