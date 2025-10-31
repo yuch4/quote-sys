@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ApprovalActions } from '@/components/quotes/approval-actions'
 import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
+import { VersionHistory } from '@/components/quotes/version-history'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -41,6 +42,22 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
   if (error || !quote) {
     notFound()
   }
+
+  // バージョン履歴を取得
+  const baseNumber = quote.quote_number.split('-v')[0]
+  const { data: versions } = await supabase
+    .from('quotes')
+    .select(`
+      id,
+      quote_number,
+      version,
+      issue_date,
+      total_amount,
+      approval_status,
+      created_by_user:users!quotes_created_by_fkey(display_name)
+    `)
+    .like('quote_number', `${baseNumber}%`)
+    .order('version', { ascending: false })
 
   const getApprovalStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -83,6 +100,11 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
             currentUserRole={currentUser?.role || ''}
             createdBy={quote.created_by}
           />
+          {quote.approval_status === '承認済み' && (
+            <Link href={`/dashboard/quotes/${quote.id}/revise`}>
+              <Button variant="outline">改訂</Button>
+            </Link>
+          )}
           {quote.approval_status === '下書き' && (
             <Link href={`/dashboard/quotes/${quote.id}/edit`}>
               <Button variant="outline">編集</Button>
@@ -267,6 +289,8 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
           </div>
         </CardContent>
       </Card>
+
+      <VersionHistory currentQuoteId={quote.id} versions={versions || []} />
     </div>
   )
 }
