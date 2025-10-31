@@ -49,11 +49,11 @@ export default async function DashboardLayout({
               入荷登録
             </a>
           </div>
+          <a href="/dashboard/billing" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
+            計上管理
+          </a>
           {userData?.role === '営業事務' || userData?.role === '管理者' ? (
             <>
-              <a href="/dashboard/billing" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
-                計上管理
-              </a>
               <a href="/dashboard/settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">
                 設定
               </a>
