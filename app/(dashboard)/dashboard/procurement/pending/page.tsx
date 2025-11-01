@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
+
+const ITEMS_PER_PAGE = 20
 
 interface Supplier {
   id: string
@@ -44,10 +55,15 @@ interface ProcurementItem {
 
 export default function ProcurementPendingPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const currentPage = Number(searchParams.get('page')) || 1
 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<ProcurementItem[]>([])
   const [filteredItems, setFilteredItems] = useState<ProcurementItem[]>([])
+  const [paginatedItems, setPaginatedItems] = useState<ProcurementItem[]>([])
+  const [totalPages, setTotalPages] = useState(0)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
 
@@ -145,6 +161,14 @@ export default function ProcurementPendingPage() {
     }
 
     setFilteredItems(filtered)
+
+    // ページネーション処理
+    const total = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+    setTotalPages(total)
+
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    const endIndex = startIndex + ITEMS_PER_PAGE
+    setPaginatedItems(filtered.slice(startIndex, endIndex))
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -364,7 +388,7 @@ export default function ProcurementPendingPage() {
       <Card>
         <CardHeader>
           <CardTitle>発注対象明細</CardTitle>
-          <CardDescription>{filteredItems.length}件の明細</CardDescription>
+          <CardDescription>全{filteredItems.length}件の明細（{currentPage}/{totalPages}ページ）</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -395,14 +419,14 @@ export default function ProcurementPendingPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.length === 0 ? (
+              {paginatedItems.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={11} className="text-center text-gray-500">
                     該当する明細がありません
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => {
+                paginatedItems.map((item) => {
                   const isPending = !item.procurement_status || item.procurement_status === '未発注'
                   return (
                     <TableRow key={item.id}>
@@ -443,6 +467,60 @@ export default function ProcurementPendingPage() {
               )}
             </TableBody>
           </Table>
+
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href={`?page=${currentPage - 1}`}
+                      aria-disabled={currentPage === 1}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNumber = i + 1
+                    const isNearCurrent = Math.abs(pageNumber - currentPage) <= 1
+                    const isFirstTwo = pageNumber <= 2
+                    const isLastTwo = pageNumber > totalPages - 2
+                    const shouldShow = isNearCurrent || isFirstTwo || isLastTwo
+
+                    if (!shouldShow) {
+                      if (pageNumber === currentPage - 2 || pageNumber === currentPage + 2) {
+                        return (
+                          <PaginationItem key={pageNumber}>
+                            <span className="px-2">...</span>
+                          </PaginationItem>
+                        )
+                      }
+                      return null
+                    }
+
+                    return (
+                      <PaginationItem key={pageNumber}>
+                        <PaginationLink
+                          href={`?page=${pageNumber}`}
+                          isActive={pageNumber === currentPage}
+                        >
+                          {pageNumber}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  })}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      href={`?page=${currentPage + 1}`}
+                      aria-disabled={currentPage === totalPages}
+                      className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

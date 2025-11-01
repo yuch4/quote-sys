@@ -3,11 +3,28 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination'
 import Link from 'next/link'
 
-export default async function ProjectsPage() {
+const ITEMS_PER_PAGE = 20
+
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string }
+}) {
   const supabase = await createClient()
   
+  const currentPage = Number(searchParams.page) || 1
+  const offset = (currentPage - 1) * ITEMS_PER_PAGE
+
   // ログインユーザー情報取得
   const { data: { user } } = await supabase.auth.getUser()
   const { data: userData } = await supabase
@@ -15,6 +32,13 @@ export default async function ProjectsPage() {
     .select('role')
     .eq('id', user?.id)
     .single()
+
+  // 総件数を取得
+  const { count: totalCount } = await supabase
+    .from('projects')
+    .select('*', { count: 'exact', head: true })
+
+  const totalPages = totalCount ? Math.ceil(totalCount / ITEMS_PER_PAGE) : 0
 
   // 案件一覧取得（権限に応じてフィルタリング）
   const { data: projects, error } = await supabase
@@ -25,6 +49,7 @@ export default async function ProjectsPage() {
       sales_rep:users!projects_sales_rep_id_fkey(display_name)
     `)
     .order('created_at', { ascending: false })
+    .range(offset, offset + ITEMS_PER_PAGE - 1)
 
   if (error) {
     console.error('Error fetching projects:', error)
@@ -55,10 +80,13 @@ export default async function ProjectsPage() {
       <Card>
         <CardHeader>
           <CardTitle>案件一覧</CardTitle>
-          <CardDescription>登録されている案件情報</CardDescription>
+          <CardDescription>
+            登録されている案件情報（全{totalCount}件）
+          </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {projects && projects.length > 0 ? (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -96,8 +124,65 @@ export default async function ProjectsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                ))}
               </TableBody>
             </Table>
+
+            {totalPages > 1 && (
+              <div className="flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href={`?page=${Math.max(1, currentPage - 1)}`}
+                        aria-disabled={currentPage === 1}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      if (
+                        page === 1 ||
+                        page === 2 ||
+                        page === totalPages - 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href={`?page=${page}`}
+                              isActive={currentPage === page}
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <span className="px-4">...</span>
+                          </PaginationItem>
+                        )
+                      }
+                      return null
+                    })}
+                    
+                    <PaginationItem>
+                      <PaginationNext
+                        href={`?page=${Math.min(totalPages, currentPage + 1)}`}
+                        aria-disabled={currentPage === totalPages}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
           ) : (
             <p className="text-sm text-gray-500 text-center py-8">
               登録されている案件がありません
