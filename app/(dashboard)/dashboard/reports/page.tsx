@@ -309,15 +309,15 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">レポート・業績分析</h1>
-          <p className="text-gray-600 mt-2">営業実績と粗利分析</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">レポート・業績分析</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">営業実績と粗利分析</p>
         </div>
 
         {(currentUser?.role === '営業事務' || currentUser?.role === '管理者') && (
-          <div className="w-64">
+          <div className="w-full sm:w-64">
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
               <SelectTrigger>
                 <SelectValue placeholder="営業担当を選択" />
@@ -338,7 +338,7 @@ export default function ReportsPage() {
       </div>
 
       {/* 全体サマリー */}
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">総売上</CardTitle>

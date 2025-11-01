@@ -193,10 +193,12 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">案件作成</h1>
-        <p className="text-gray-600 mt-2">新しい案件を登録します</p>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">新規案件作成</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">案件情報を入力してください</p>
+        </div>
       </div>
 
       <Card>
@@ -323,7 +325,7 @@ export default function NewProjectPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">カテゴリ *</Label>
                 <Input
