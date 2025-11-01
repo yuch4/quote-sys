@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Toaster } from 'sonner'
 
 export default async function DashboardLayout({
   children,
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-50">
+      <Toaster position="top-right" richColors />
       {/* サイドバー */}
       <aside className="w-64 bg-white border-r">
         <div className="p-4">

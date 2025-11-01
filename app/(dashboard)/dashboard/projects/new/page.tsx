@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Customer, User } from '@/types/database'
 
 export default function NewProjectPage() {
@@ -17,6 +20,17 @@ export default function NewProjectPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [salesReps, setSalesReps] = useState<User[]>([])
   const [currentUserId, setCurrentUserId] = useState<string>('')
+  
+  // 顧客登録ダイアログ
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
+  const [customerFormData, setCustomerFormData] = useState({
+    customer_name: '',
+    contact_person: '',
+    email: '',
+    phone: '',
+    address: '',
+  })
+  const [savingCustomer, setSavingCustomer] = useState(false)
   
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -38,13 +52,7 @@ export default function NewProjectPage() {
       }
       
       // 顧客一覧取得
-      const { data: customerData } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('is_deleted', false)
-        .order('customer_name')
-      
-      if (customerData) setCustomers(customerData)
+      await loadCustomers()
       
       // 営業担当者一覧取得
       const { data: usersData } = await supabase
@@ -58,6 +66,77 @@ export default function NewProjectPage() {
     
     fetchData()
   }, [])
+
+  const loadCustomers = async () => {
+    const supabase = createClient()
+    const { data: customerData } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('is_deleted', false)
+      .order('customer_name')
+    
+    if (customerData) setCustomers(customerData)
+  }
+
+  const handleSaveCustomer = async () => {
+    if (!customerFormData.customer_name) {
+      toast.error('顧客名を入力してください')
+      return
+    }
+
+    setSavingCustomer(true)
+
+    try {
+      const supabase = createClient()
+      
+      // 顧客コードを自動生成
+      const { count } = await supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+      const nextNumber = (count || 0) + 1
+      const customerCode = `CUS-${String(nextNumber).padStart(5, '0')}`
+
+      const { data, error } = await supabase
+        .from('customers')
+        .insert({
+          customer_code: customerCode,
+          customer_name: customerFormData.customer_name,
+          contact_person: customerFormData.contact_person || null,
+          email: customerFormData.email || null,
+          phone: customerFormData.phone || null,
+          address: customerFormData.address || null,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // 顧客リストを再読込
+      await loadCustomers()
+
+      // 新規顧客を選択状態にする
+      if (data) {
+        setFormData(prev => ({ ...prev, customer_id: data.id }))
+      }
+
+      // ダイアログを閉じる
+      setCustomerDialogOpen(false)
+      setCustomerFormData({
+        customer_name: '',
+        contact_person: '',
+        email: '',
+        phone: '',
+        address: '',
+      })
+
+      toast.success('顧客を登録しました')
+    } catch (err) {
+      console.error('顧客登録エラー:', err)
+      toast.error('顧客の登録に失敗しました')
+    } finally {
+      setSavingCustomer(false)
+    }
+  }
 
   const generateProjectNumber = async () => {
     const supabase = createClient()
@@ -92,14 +171,15 @@ export default function NewProjectPage() {
         }])
 
       if (error) {
-        setError('案件の登録に失敗しました: ' + error.message)
+        toast.error('案件の登録に失敗しました: ' + error.message)
         return
       }
 
+      toast.success('案件を登録しました')
       router.push('/dashboard/projects')
       router.refresh()
     } catch (err) {
-      setError('予期しないエラーが発生しました')
+      toast.error('予期しないエラーが発生しました')
     } finally {
       setLoading(false)
     }
@@ -127,7 +207,91 @@ export default function NewProjectPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="customer_id">顧客 *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="customer_id">顧客 *</Label>
+                <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      新規顧客登録
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>顧客新規登録</DialogTitle>
+                      <DialogDescription>
+                        新しい顧客情報を入力してください
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="customer_name">顧客名 *</Label>
+                        <Input
+                          id="customer_name"
+                          value={customerFormData.customer_name}
+                          onChange={(e) =>
+                            setCustomerFormData({ ...customerFormData, customer_name: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="contact_person">担当者</Label>
+                        <Input
+                          id="contact_person"
+                          value={customerFormData.contact_person}
+                          onChange={(e) =>
+                            setCustomerFormData({ ...customerFormData, contact_person: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">メール</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={customerFormData.email}
+                          onChange={(e) =>
+                            setCustomerFormData({ ...customerFormData, email: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">電話番号</Label>
+                        <Input
+                          id="phone"
+                          value={customerFormData.phone}
+                          onChange={(e) =>
+                            setCustomerFormData({ ...customerFormData, phone: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address">住所</Label>
+                        <Input
+                          id="address"
+                          value={customerFormData.address}
+                          onChange={(e) =>
+                            setCustomerFormData({ ...customerFormData, address: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setCustomerDialogOpen(false)}
+                      >
+                        キャンセル
+                      </Button>
+                      <Button type="button" onClick={handleSaveCustomer} disabled={savingCustomer}>
+                        {savingCustomer ? '登録中...' : '登録'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <Select
                 value={formData.customer_id}
                 onValueChange={(value) => setFormData({ ...formData, customer_id: value })}

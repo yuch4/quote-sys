@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface User {
   id: string
@@ -91,7 +92,7 @@ export default function SettingsPage() {
 
     if (userData) {
       if (userData.role !== '営業事務' && userData.role !== '管理者') {
-        alert('この機能は営業事務・管理者のみ利用できます')
+        toast.error('この機能は営業事務・管理者のみ利用できます')
         router.push('/dashboard')
         return
       }
@@ -114,7 +115,7 @@ export default function SettingsPage() {
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)
-      alert('データの読込に失敗しました')
+      toast.error('データの読込に失敗しました')
       setLoading(false)
     }
   }
@@ -153,12 +154,12 @@ export default function SettingsPage() {
         await handleSupplierSubmit()
       }
 
-      alert(dialogMode === 'create' ? '登録しました' : '更新しました')
+      toast.success(dialogMode === 'create' ? '登録しました' : '更新しました')
       setDialogOpen(false)
       loadAllData()
     } catch (error) {
       console.error('保存エラー:', error)
-      alert('保存に失敗しました')
+      toast.error('保存に失敗しました')
     } finally {
       setSubmitting(false)
     }
@@ -268,11 +269,11 @@ export default function SettingsPage() {
 
       if (error) throw error
 
-      alert('削除しました')
+      toast.success('削除しました')
       loadAllData()
     } catch (error) {
       console.error('削除エラー:', error)
-      alert('削除に失敗しました（関連データが存在する可能性があります）')
+      toast.error('削除に失敗しました（関連データが存在する可能性があります）')
     }
   }
 
