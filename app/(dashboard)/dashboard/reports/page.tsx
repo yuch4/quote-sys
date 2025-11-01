@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BarChart3, TrendingUp, DollarSign, Target, Award } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface User {
   id: string
@@ -50,6 +51,7 @@ export default function ReportsPage() {
   const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
   const [users, setUsers] = useState<User[]>([])
+  const [monthlySalesData, setMonthlySalesData] = useState<any[]>([])
 
   useEffect(() => {
     loadCurrentUser()
@@ -217,11 +219,58 @@ export default function ReportsPage() {
       })
 
       setProjectSummaries(summaries)
+
+      // 月次売上推移データ作成（過去6ヶ月）
+      await loadMonthlySalesData()
+
       setLoading(false)
     } catch (error) {
       console.error('レポートデータ読込エラー:', error)
       alert('データの読込に失敗しました')
       setLoading(false)
+    }
+  }
+
+  const loadMonthlySalesData = async () => {
+    try {
+      // 過去6ヶ月のデータを取得
+      const monthlyData = []
+      const now = new Date()
+      
+      for (let i = 5; i >= 0; i--) {
+        const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1)
+        const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59)
+
+        let query = supabase
+          .from('quotes')
+          .select('total_amount, total_cost, project:projects!inner(sales_rep_id)')
+          .eq('approval_status', '承認済み')
+          .gte('created_at', startOfMonth.toISOString())
+          .lte('created_at', endOfMonth.toISOString())
+
+        if (currentUser?.role === '営業') {
+          query = query.eq('project.sales_rep_id', currentUser.id)
+        } else if (selectedUserId !== 'all') {
+          query = query.eq('project.sales_rep_id', selectedUserId)
+        }
+
+        const { data } = await query
+
+        const totalSales = data?.reduce((sum, q) => sum + Number(q.total_amount || 0), 0) || 0
+        const totalCost = data?.reduce((sum, q) => sum + Number(q.total_cost || 0), 0) || 0
+        const profit = totalSales - totalCost
+
+        monthlyData.push({
+          month: `${targetDate.getFullYear()}/${targetDate.getMonth() + 1}`,
+          売上: Math.round(totalSales),
+          粗利: Math.round(profit),
+        })
+      }
+
+      setMonthlySalesData(monthlyData)
+    } catch (error) {
+      console.error('月次データ読込エラー:', error)
     }
   }
 
@@ -341,6 +390,51 @@ export default function ReportsPage() {
               {formatPercentage(overallProfitRate)}
             </div>
             <p className="text-xs text-gray-600 mt-1">全案件平均</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* グラフエリア */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 月次売上推移 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>月次売上・粗利推移</CardTitle>
+            <CardDescription>過去6ヶ月の推移</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={monthlySalesData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} />
+                <Legend />
+                <Line type="monotone" dataKey="売上" stroke="#22c55e" strokeWidth={2} />
+                <Line type="monotone" dataKey="粗利" stroke="#3b82f6" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* 営業別売上ランキング */}
+        <Card>
+          <CardHeader>
+            <CardTitle>営業別売上ランキング</CardTitle>
+            <CardDescription>承認済み見積ベース（上位5名）</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={salesReports.slice(0, 5)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="sales_rep_name" />
+                <YAxis />
+                <Tooltip formatter={(value: number) => `¥${value.toLocaleString()}`} />
+                <Legend />
+                <Bar dataKey="total_sales" name="売上" fill="#22c55e" />
+                <Bar dataKey="total_profit" name="粗利" fill="#3b82f6" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
