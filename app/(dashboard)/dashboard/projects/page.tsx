@@ -66,14 +66,14 @@ export default async function ProjectsPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">案件管理</h1>
-          <p className="text-gray-600 mt-2">案件の作成・管理</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">案件管理</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">案件の作成・管理</p>
         </div>
         <Link href="/dashboard/projects/new">
-          <Button>新規案件作成</Button>
+          <Button className="w-full sm:w-auto">新規案件作成</Button>
         </Link>
       </div>
 
@@ -87,46 +87,93 @@ export default async function ProjectsPage({
         <CardContent className="space-y-4">
           {projects && projects.length > 0 ? (
             <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>案件番号</TableHead>
-                  <TableHead>案件名</TableHead>
-                  <TableHead>顧客名</TableHead>
-                  <TableHead>営業担当</TableHead>
-                  <TableHead>カテゴリ</TableHead>
-                  <TableHead>ステータス</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell className="font-medium">{project.project_number}</TableCell>
-                    <TableCell>{project.project_name}</TableCell>
-                    <TableCell>{project.customer?.customer_name}</TableCell>
-                    <TableCell>{project.sales_rep?.display_name}</TableCell>
-                    <TableCell>{project.category}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(project.status)}>
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Link href={`/dashboard/projects/${project.id}`}>
-                          <Button variant="outline" size="sm">詳細</Button>
+            {/* デスクトップ: テーブル表示 */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>案件番号</TableHead>
+                    <TableHead>案件名</TableHead>
+                    <TableHead>顧客名</TableHead>
+                    <TableHead>営業担当</TableHead>
+                    <TableHead>カテゴリ</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {projects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell className="font-medium">{project.project_number}</TableCell>
+                      <TableCell>{project.project_name}</TableCell>
+                      <TableCell>{project.customer?.customer_name}</TableCell>
+                      <TableCell>{project.sales_rep?.display_name}</TableCell>
+                      <TableCell>{project.category}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Link href={`/dashboard/projects/${project.id}`}>
+                            <Button variant="outline" size="sm">詳細</Button>
+                          </Link>
+                          <Link href={`/dashboard/projects/${project.id}/edit`}>
+                            <Button variant="outline" size="sm">編集</Button>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* モバイル: カード表示 */}
+            <div className="md:hidden space-y-4">
+              {projects.map((project) => (
+                <Card key={project.id}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">{project.project_number}</p>
+                          <p className="text-sm text-gray-600 mt-1">{project.project_name}</p>
+                        </div>
+                        <Badge variant={getStatusBadgeVariant(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">顧客</span>
+                          <span className="font-medium">{project.customer?.customer_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">営業担当</span>
+                          <span className="font-medium">{project.sales_rep?.display_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">カテゴリ</span>
+                          <span className="font-medium">{project.category}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <Link href={`/dashboard/projects/${project.id}`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">詳細</Button>
                         </Link>
-                        <Link href={`/dashboard/projects/${project.id}/edit`}>
-                          <Button variant="outline" size="sm">編集</Button>
+                        <Link href={`/dashboard/projects/${project.id}/edit`} className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">編集</Button>
                         </Link>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
             {totalPages > 1 && (
               <div className="flex justify-center">

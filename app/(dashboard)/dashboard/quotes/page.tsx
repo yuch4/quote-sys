@@ -72,14 +72,14 @@ export default async function QuotesPage({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">見積管理</h1>
-          <p className="text-gray-600 mt-2">見積の作成・管理</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">見積管理</h1>
+          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">見積の作成・管理</p>
         </div>
         <Link href="/dashboard/quotes/new">
-          <Button>新規見積作成</Button>
+          <Button className="w-full sm:w-auto">新規見積作成</Button>
         </Link>
       </div>
 
@@ -93,49 +93,103 @@ export default async function QuotesPage({
         <CardContent className="space-y-4">
           {quotes && quotes.length > 0 ? (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>見積番号</TableHead>
-                    <TableHead>案件名</TableHead>
-                    <TableHead>顧客名</TableHead>
-                    <TableHead>発行日</TableHead>
-                    <TableHead>合計金額</TableHead>
-                    <TableHead>粗利</TableHead>
-                    <TableHead>承認状況</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quotes.map((quote) => (
-                    <TableRow key={quote.id}>
-                      <TableCell className="font-medium">{quote.quote_number}</TableCell>
-                      <TableCell>{quote.project?.project_name}</TableCell>
-                      <TableCell>{quote.project?.customer?.customer_name}</TableCell>
-                      <TableCell>{formatDate(quote.issue_date)}</TableCell>
-                      <TableCell>{formatCurrency(Number(quote.total_amount))}</TableCell>
-                      <TableCell>{formatCurrency(Number(quote.gross_profit))}</TableCell>
-                      <TableCell>
-                        <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
-                          {quote.approval_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Link href={`/dashboard/quotes/${quote.id}`}>
-                            <Button variant="outline" size="sm">詳細</Button>
+              {/* デスクトップ: テーブル表示 */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>見積番号</TableHead>
+                      <TableHead>案件名</TableHead>
+                      <TableHead>顧客名</TableHead>
+                      <TableHead>発行日</TableHead>
+                      <TableHead>合計金額</TableHead>
+                      <TableHead>粗利</TableHead>
+                      <TableHead>承認状況</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quotes.map((quote) => (
+                      <TableRow key={quote.id}>
+                        <TableCell className="font-medium">{quote.quote_number}</TableCell>
+                        <TableCell>{quote.project?.project_name}</TableCell>
+                        <TableCell>{quote.project?.customer?.customer_name}</TableCell>
+                        <TableCell>{formatDate(quote.issue_date)}</TableCell>
+                        <TableCell>{formatCurrency(Number(quote.total_amount))}</TableCell>
+                        <TableCell>{formatCurrency(Number(quote.gross_profit))}</TableCell>
+                        <TableCell>
+                          <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
+                            {quote.approval_status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Link href={`/dashboard/quotes/${quote.id}`}>
+                              <Button variant="outline" size="sm">詳細</Button>
+                            </Link>
+                            {quote.approval_status === '下書き' && (
+                              <Link href={`/dashboard/quotes/${quote.id}/edit`}>
+                                <Button variant="outline" size="sm">編集</Button>
+                              </Link>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* モバイル: カード表示 */}
+              <div className="md:hidden space-y-4">
+                {quotes.map((quote) => (
+                  <Card key={quote.id}>
+                    <CardContent className="pt-6">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
+                            <p className="text-sm text-gray-600 mt-1">{quote.project?.project_name}</p>
+                          </div>
+                          <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
+                            {quote.approval_status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">顧客</span>
+                            <span className="font-medium">{quote.project?.customer?.customer_name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">発行日</span>
+                            <span className="font-medium">{formatDate(quote.issue_date)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">合計金額</span>
+                            <span className="font-semibold text-lg">{formatCurrency(Number(quote.total_amount))}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">粗利</span>
+                            <span className="font-medium">{formatCurrency(Number(quote.gross_profit))}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <Link href={`/dashboard/quotes/${quote.id}`} className="flex-1">
+                            <Button variant="outline" size="sm" className="w-full">詳細</Button>
                           </Link>
                           {quote.approval_status === '下書き' && (
-                            <Link href={`/dashboard/quotes/${quote.id}/edit`}>
-                              <Button variant="outline" size="sm">編集</Button>
+                            <Link href={`/dashboard/quotes/${quote.id}/edit`} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">編集</Button>
                             </Link>
                           )}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
               {totalPages > 1 && (
                 <div className="flex justify-center">
