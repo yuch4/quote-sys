@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Toaster } from 'sonner'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 export default async function DashboardLayout({
   children,
@@ -75,14 +76,17 @@ export default async function DashboardLayout({
             <h2 className="text-lg font-semibold text-gray-800">
               {userData?.display_name} さん ({userData?.role})
             </h2>
-            <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                className="text-sm text-gray-600 hover:text-gray-900"
-              >
-                ログアウト
-              </button>
-            </form>
+            <div className="flex items-center gap-4">
+              <NotificationBell userId={user.id} />
+              <form action="/api/auth/logout" method="POST">
+                <button
+                  type="submit"
+                  className="text-sm text-gray-600 hover:text-gray-900"
+                >
+                  ログアウト
+                </button>
+              </form>
+            </div>
           </div>
         </header>
 
