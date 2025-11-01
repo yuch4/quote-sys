@@ -16,6 +16,7 @@ Excelベースの見積業務を効率化するWebアプリケーション
 - **マスタ管理**: 顧客・仕入先・ユーザーのCRUD（タブUI）
 - **レポート**: 営業担当別実績・粗利分析・グラフ表示（月次売上推移・営業別ランキング）
 - **通知機能**: システム内通知、ベルアイコン、未読件数、リアルタイム更新
+- **メール通知**: 見積承認/却下、計上申請/承認/差戻し、長期未入荷アラート（Resend経由）
 
 ### UI/UX機能
 
@@ -33,9 +34,10 @@ Excelベースの見積業務を効率化するWebアプリケーション
 ## 技術スタック
 
 - **フロントエンド**: Next.js 15 (App Router), React, TypeScript
-- **スタイリング**: Tailwind CSS v4, shadcn/ui
 - **グラフ**: Recharts
 - **通知**: sonner
+- **メール送信**: Resend
+- **バックエンド**: Supabase (PostgreSQL, Auth, Storage, Realtime)
 - **バックエンド**: Supabase (PostgreSQL, Auth, Storage, Realtime)
 - **PDF生成**: @react-pdf/renderer
 
@@ -45,14 +47,27 @@ Excelベースの見積業務を効率化するWebアプリケーション
 
 - Node.js 18以上
 - Supabaseアカウント
-
 ### 環境変数
 
 `.env.local`を作成し、以下を設定：
 
 ```env
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Resend (メール送信)
+RESEND_API_KEY=your_resend_api_key
+EMAIL_FROM=noreply@yourdomain.com
+
+# Cron Secret (オプション)
+CRON_SECRET=your_random_secret_string
+```
+
+詳細は`.env.example`を参照してください。T_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ### インストール
@@ -73,9 +88,14 @@ npm run dev
 
 ### テーブル
 
-- **users**: ユーザー情報（営業/営業事務/管理者）
-- **customers**: 顧客マスタ（自動採番: CUS-00001形式）
-- **suppliers**: 仕入先マスタ
+3. **計上判定**: 全明細が入荷済み → 計上可能
+4. **計上承認フロー**: 未申請 → 申請中 → 承認済み/差戻し
+5. **通知**: 見積承認/差戻、計上承認/差戻、入荷完了時に自動通知
+6. **メール通知**:
+   - 見積承認/却下時: 営業担当へメール送信
+   - 計上申請時: 営業事務へメール送信
+   - 計上承認/差戻し時: 営業担当へメール送信
+   - 長期未入荷アラート: 14日以上未入荷の明細を営業事務へ通知（Cron実行）
 - **projects**: 案件（自動採番: PRJ-YYYY-XXXX形式、営業担当紐付け）
 - **quotes**: 見積（承認ワークフロー、バージョン管理）
 - **quote_items**: 見積明細（仕入要フラグ、発注ステータス）

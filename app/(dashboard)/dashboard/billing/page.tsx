@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { sendBillingRequestEmail } from '@/lib/email/send'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -176,7 +177,6 @@ export default function BillingPage() {
     setNotes('')
     setDialogOpen(true)
   }
-
   const handleSubmitRequest = async () => {
     if (!selectedProject || !billingDate) {
       alert('計上日を入力してください')
@@ -189,28 +189,28 @@ export default function BillingPage() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (!authUser) throw new Error('認証エラー')
 
-      const { error } = await supabase.from('billing_requests').insert({
-        quote_id: selectedProject.quote_id,
-        requested_by: authUser.id,
-        billing_date: billingDate,
-        notes: notes || null,
-        status: '申請中',
-      })
+      const { data: newRequest, error } = await supabase
+        .from('billing_requests')
+        .insert({
+          quote_id: selectedProject.quote_id,
+          requested_by: authUser.id,
+          billing_date: billingDate,
+          notes: notes || null,
+          status: '申請中',
+        })
+        .select()
+        .single()
 
       if (error) throw error
 
+      // メール通知を送信（非同期、エラーでも処理は継続）
+      if (newRequest) {
+        sendBillingRequestEmail(newRequest.id, 'new')
+          .catch(err => console.error('Email send failed:', err))
+      }
+
       alert('計上申請を送信しました')
       setDialogOpen(false)
-      setSelectedProject(null)
-      loadBillableProjects()
-    } catch (error) {
-      console.error('計上申請エラー:', error)
-      alert('計上申請に失敗しました')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const handleApprove = async (billingRequestId: string) => {
     if (!confirm('この計上申請を承認しますか？')) return
 
@@ -225,6 +225,21 @@ export default function BillingPage() {
           approved_by: authUser.id,
           approved_at: new Date().toISOString(),
         })
+        .eq('id', billingRequestId)
+
+      if (error) throw error
+
+      // メール通知を送信（非同期、エラーでも処理は継続）
+      sendBillingRequestEmail(billingRequestId, 'approved')
+        .catch(err => console.error('Email send failed:', err))
+
+      alert('計上申請を承認しました')
+      loadBillableProjects()
+    } catch (error) {
+      console.error('承認エラー:', error)
+      alert('承認に失敗しました')
+    }
+  }     })
         .eq('id', billingRequestId)
 
       if (error) throw error
@@ -251,11 +266,15 @@ export default function BillingPage() {
           status: '差戻し',
           approved_by: authUser.id,
           approved_at: new Date().toISOString(),
-          notes: reason,
+          reject_reason: reason,
         })
         .eq('id', billingRequestId)
 
       if (error) throw error
+
+      // メール通知を送信（非同期、エラーでも処理は継続）
+      sendBillingRequestEmail(billingRequestId, 'rejected')
+        .catch(err => console.error('Email send failed:', err))
 
       alert('計上申請を差戻しました')
       loadBillableProjects()
@@ -263,6 +282,7 @@ export default function BillingPage() {
       console.error('差戻しエラー:', error)
       alert('差戻しに失敗しました')
     }
+  }
   }
 
   const getStatusBadge = (status?: string) => {

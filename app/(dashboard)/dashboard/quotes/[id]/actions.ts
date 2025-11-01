@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendQuoteApprovalEmail } from '@/lib/email/send'
 
 // 承認依頼を送信
 export async function requestApproval(quoteId: string) {
@@ -28,12 +29,18 @@ export async function requestApproval(quoteId: string) {
     return { success: false, message: '承認依頼の送信に失敗しました' }
   }
 }
-
 // 見積を承認
 export async function approveQuote(quoteId: string, userId: string) {
   const supabase = await createClient()
 
   try {
+    // 承認者情報を取得
+    const { data: approverData } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', userId)
+      .single()
+
     const { error } = await supabase
       .from('quotes')
       .update({
@@ -47,26 +54,53 @@ export async function approveQuote(quoteId: string, userId: string) {
 
     if (error) throw error
 
-    revalidatePath(`/dashboard/quotes/${quoteId}`)
-    revalidatePath('/dashboard/quotes')
-
-    return { success: true, message: '見積を承認しました' }
-  } catch (error) {
-    console.error('承認エラー:', error)
-    return { success: false, message: '見積の承認に失敗しました' }
-  }
-}
-
+    // メール通知を送信（非同期、エラーでも処理は継続）
+    if (approverData) {
+      sendQuoteApprovalEmail(
 // 見積を却下
-export async function rejectQuote(quoteId: string, userId: string) {
+export async function rejectQuote(quoteId: string, userId: string, rejectReason?: string) {
   const supabase = await createClient()
 
   try {
+    // 承認者情報を取得
+    const { data: approverData } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', userId)
+      .single()
+
     const { error } = await supabase
       .from('quotes')
       .update({
         approval_status: '却下',
         approved_by: userId,
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', quoteId)
+      .eq('approval_status', '承認待ち')
+
+    if (error) throw error
+
+    // メール通知を送信（非同期、エラーでも処理は継続）
+    if (approverData) {
+      sendQuoteApprovalEmail(
+        quoteId,
+        '却下',
+        approverData.display_name,
+        rejectReason
+      ).catch(err => console.error('Email send failed:', err))
+    }
+
+    revalidatePath(`/dashboard/quotes/${quoteId}`)
+    revalidatePath('/dashboard/quotes')
+
+    return { success: true, message: '見積を却下しました' }
+  } catch (error) {
+    console.error('却下エラー:', error)
+    return { success: false, message: '見積の却下に失敗しました' }
+  }
+}       approved_by: userId,
         approved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
