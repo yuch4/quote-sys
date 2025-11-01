@@ -160,6 +160,38 @@
   - タブレット: 768px~1024px（md~lg）
   - デスクトップ: 1024px以上（lg以上）
 
+### ✅ Phase 8: メール通知機能 - **完了**
+- Resend統合
+  - Resendライブラリインストール・設定（/lib/email/resend.ts）
+  - API Key環境変数設定（RESEND_API_KEY、EMAIL_FROM）
+  - メール送信API Route作成（/app/api/email/send/route.ts）
+- HTMLメールテンプレート作成（/lib/email/templates.ts）
+  - 見積承認/却下通知テンプレート（ステータスバッジ、案件情報、却下理由）
+  - 計上申請/承認/差戻し通知テンプレート（申請タイプ別、差戻し理由）
+  - 長期未入荷アラートテンプレート（明細一覧、経過日数、発注日）
+  - レスポンシブデザイン、ブランドカラー、アクションボタン
+- メール送信ユーティリティ作成（/lib/email/send.ts）
+  - sendQuoteApprovalEmail: 見積承認/却下時に営業担当へ通知
+  - sendBillingRequestEmail: 計上申請・承認・差戻し通知（new/approved/rejected）
+  - sendLongDelayAlertEmail: 14日以上未入荷明細を営業事務へ通知
+- 見積承認フローへの統合
+  - approveQuote: 承認時にメール送信
+  - rejectQuote: 却下時にメール送信（却下理由含む）
+  - /app/(dashboard)/dashboard/quotes/[id]/actions.ts
+- 計上管理フローへの統合
+  - 計上申請時: 営業事務へメール送信（new）
+  - 承認時: 営業担当へメール送信（approved）
+  - 差戻し時: 営業担当へメール送信（rejected、差戻し理由含む）
+  - /app/(dashboard)/dashboard/billing/page.tsx
+- 長期未入荷アラート
+  - Cron Job API作成（/app/api/cron/long-delay-alert/route.ts）
+  - 14日以上未入荷の明細を自動検出
+  - 営業事務・管理者へ一括メール送信
+  - 認証トークン保護（CRON_SECRET）
+- 環境変数設定
+  - .env.exampleファイル作成
+  - README更新（メール通知機能、環境変数説明）
+
 ---
 
 ## 📊 システム概要
