@@ -22,7 +22,7 @@ test.describe('計上申請・承認フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 入荷完了一覧へ移動
     await page.goto('/procurement/completed');
@@ -107,7 +107,7 @@ test.describe('計上申請・承認フロー', () => {
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 10. 計上承認待ち一覧へ移動
     await page.goto('/billing/pending');
@@ -156,7 +156,7 @@ test.describe('計上申請・承認フロー', () => {
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 計上承認待ち一覧から申請を開く
     await page.goto('/billing/pending');
@@ -185,7 +185,7 @@ test.describe('計上申請・承認フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 計上確定一覧へ移動
     await page.goto('/billing/confirmed');
@@ -223,7 +223,7 @@ test.describe('計上申請・承認フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 入荷完了案件を開く
     await page.goto('/procurement/completed');

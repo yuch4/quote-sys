@@ -27,11 +27,14 @@ test.describe('見積作成フロー', () => {
     await page.click('button[type="submit"]');
 
     // 3. ログイン成功後、ダッシュボードにリダイレクト
-    await page.waitForURL('/dashboard');
-    await expect(page.locator('h1')).toContainText('ダッシュボード');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
+    await expect(page.locator('main h1')).toContainText('ダッシュボード');
 
-    // 4. 新規案件作成ボタンをクリック
-    await page.click('button:has-text("新規案件")');
+    // 4. 案件管理ページへ移動
+    await page.goto('/dashboard/projects');
+    
+    // 5. 新規案件作成ボタンをクリック
+    await page.click('button:has-text("新規案件作成")');
     
     // 案件作成フォームが表示される
     await expect(page.locator('form')).toBeVisible();
@@ -109,7 +112,7 @@ test.describe('見積作成フロー', () => {
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', password);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 既存案件を開く（最初の案件）
     await page.goto('/projects');

@@ -20,7 +20,7 @@ test.describe('調達・入荷フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 承認済み見積一覧へ移動
     await page.goto('/quotes?status=approved');
@@ -116,7 +116,7 @@ test.describe('調達・入荷フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 承認済み見積を開く
     await page.goto('/quotes?status=approved');
@@ -147,7 +147,7 @@ test.describe('調達・入荷フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 入荷予定一覧へ移動
     await page.goto('/procurement/pending');
@@ -178,7 +178,7 @@ test.describe('調達・入荷フロー', () => {
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 承認済み見積を開く
     await page.goto('/quotes?status=approved');

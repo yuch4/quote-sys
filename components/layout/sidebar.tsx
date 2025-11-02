@@ -67,7 +67,7 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-6 border-b">
-        <h1 className="text-xl font-bold text-gray-800">見積システム</h1>
+        <div className="text-xl font-bold text-gray-800">見積システム</div>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4">

@@ -23,7 +23,7 @@ test.describe('見積承認フロー', () => {
     await page.fill('input[type="email"]', salesEmail);
     await page.fill('input[type="password"]', salesPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 既存の下書き見積を開く
     await page.goto('/quotes');
@@ -59,7 +59,7 @@ test.describe('見積承認フロー', () => {
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 5. 承認待ち一覧へ移動
     await page.goto('/approvals/pending');
@@ -105,7 +105,7 @@ test.describe('見積承認フロー', () => {
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 承認待ち一覧から見積を開く
     await page.goto('/approvals/pending');
@@ -134,7 +134,7 @@ test.describe('見積承認フロー', () => {
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
     await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
+    await page.waitForURL('/dashboard', { timeout: 10000 });
 
     // 2. 承認待ち一覧へ移動
     await page.goto('/approvals/pending');
