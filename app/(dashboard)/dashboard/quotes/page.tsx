@@ -15,11 +15,10 @@ import Link from 'next/link'
 
 const ITEMS_PER_PAGE = 20
 
-export default async function QuotesPage({
-  searchParams,
-}: {
-  searchParams: { page?: string }
+export default async function QuotesPage(props: {
+  searchParams: Promise<{ page?: string }>
 }) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   
   const currentPage = Number(searchParams.page) || 1

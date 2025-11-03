@@ -239,17 +239,6 @@ export default function BillingPage() {
       console.error('承認エラー:', error)
       alert('承認に失敗しました')
     }
-  }     })
-        .eq('id', billingRequestId)
-
-      if (error) throw error
-
-      alert('計上申請を承認しました')
-      loadBillableProjects()
-    } catch (error) {
-      console.error('承認エラー:', error)
-      alert('承認に失敗しました')
-    }
   }
 
   const handleReject = async (billingRequestId: string) => {
@@ -282,7 +271,6 @@ export default function BillingPage() {
       console.error('差戻しエラー:', error)
       alert('差戻しに失敗しました')
     }
-  }
   }
 
   const getStatusBadge = (status?: string) => {
