@@ -54,9 +54,18 @@ export async function approveQuote(quoteId: string, userId: string) {
 
     if (error) throw error
 
-    // メール通知を送信（非同期、エラーでも処理は継続）
-    if (approverData) {
-      sendQuoteApprovalEmail(
+    // TODO: メール通知をAPIルート経由で送信
+
+    return { success: true }
+  } catch (error) {
+    console.error('Quote approval error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
 // 見積を却下
 export async function rejectQuote(quoteId: string, userId: string, rejectReason?: string) {
   const supabase = await createClient()

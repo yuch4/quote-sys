@@ -47,6 +47,25 @@ export default async function QuotesPage(props: {
 
   if (error) {
     console.error('Error fetching quotes:', error)
+    return (
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">見積管理</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">見積の作成・管理</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center space-y-2">
+              <p className="text-red-600 font-medium">データの読み込みに失敗しました</p>
+              <p className="text-sm text-gray-600">エラー: {error.message}</p>
+              <p className="text-sm text-gray-500">管理者にお問い合わせください</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const getApprovalStatusBadgeVariant = (status: string) => {

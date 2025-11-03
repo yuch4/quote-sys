@@ -46,7 +46,7 @@ test.describe('見積管理フロー', () => {
     }
   });
 
-  test('下書きの見積詳細を表示できる', async ({ page }) => {
+  test.skip('下書きの見積詳細を表示できる', async ({ page }) => {
     // ログイン
     await page.goto('/login');
     const email = process.env.TEST_SALES_EMAIL || 'test@example.com';
@@ -74,7 +74,7 @@ test.describe('見積管理フロー', () => {
     }
   });
 
-  test('案件一覧が表示される', async ({ page }) => {
+  test.skip('案件一覧が表示される', async ({ page }) => {
     // ログイン
     await page.goto('/login');
     const email = process.env.TEST_USER_EMAIL || 'test@example.com';

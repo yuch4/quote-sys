@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { sendBillingRequestEmail } from '@/lib/email/send'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -203,14 +202,18 @@ export default function BillingPage() {
 
       if (error) throw error
 
-      // メール通知を送信（非同期、エラーでも処理は継続）
-      if (newRequest) {
-        sendBillingRequestEmail(newRequest.id, 'new')
-          .catch(err => console.error('Email send failed:', err))
-      }
+      // TODO: メール通知をAPIルート経由で送信
 
       alert('計上申請を送信しました')
       setDialogOpen(false)
+      loadBillableProjects()
+    } catch (error) {
+      console.error('申請エラー:', error)
+      alert('申請に失敗しました')
+    } finally {
+      setSubmitting(false)
+    }
+  }
   const handleApprove = async (billingRequestId: string) => {
     if (!confirm('この計上申請を承認しますか？')) return
 
@@ -229,9 +232,7 @@ export default function BillingPage() {
 
       if (error) throw error
 
-      // メール通知を送信（非同期、エラーでも処理は継続）
-      sendBillingRequestEmail(billingRequestId, 'approved')
-        .catch(err => console.error('Email send failed:', err))
+      // TODO: メール通知をAPIルート経由で送信
 
       alert('計上申請を承認しました')
       loadBillableProjects()
@@ -261,9 +262,7 @@ export default function BillingPage() {
 
       if (error) throw error
 
-      // メール通知を送信（非同期、エラーでも処理は継続）
-      sendBillingRequestEmail(billingRequestId, 'rejected')
-        .catch(err => console.error('Email send failed:', err))
+      // TODO: メール通知をAPIルート経由で送信
 
       alert('計上申請を差戻しました')
       loadBillableProjects()

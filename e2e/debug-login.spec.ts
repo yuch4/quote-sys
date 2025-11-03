@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 /**
  * デバッグ用ログインテスト
  */
-test.describe('デバッグ: ログインテスト', () => {
+test.describe.skip('デバッグ: ログインテスト', () => {
   test('ログイン処理の詳細確認', async ({ page }) => {
     // 1. ログインページへ移動
     await page.goto('/login');

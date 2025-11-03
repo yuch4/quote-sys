@@ -15,11 +15,10 @@ import Link from 'next/link'
 
 const ITEMS_PER_PAGE = 20
 
-export default async function ProjectsPage({
-  searchParams,
-}: {
-  searchParams: { page?: string }
+export default async function ProjectsPage(props: {
+  searchParams: Promise<{ page?: string }>
 }) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   
   const currentPage = Number(searchParams.page) || 1
@@ -53,6 +52,25 @@ export default async function ProjectsPage({
 
   if (error) {
     console.error('Error fetching projects:', error)
+    return (
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">案件管理</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">案件の作成・管理</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center space-y-2">
+              <p className="text-red-600 font-medium">データの読み込みに失敗しました</p>
+              <p className="text-sm text-gray-600">エラー: {error.message}</p>
+              <p className="text-sm text-gray-500">管理者にお問い合わせください</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   const getStatusBadgeVariant = (status: string) => {

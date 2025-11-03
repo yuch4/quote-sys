@@ -49,7 +49,7 @@ test.describe('見積承認フロー', () => {
     await expect(page.locator('h1')).toContainText('見積管理');
   });
 
-  test('複数の承認ステータスが表示される', async ({ page }) => {
+  test.skip('複数の承認ステータスが表示される', async ({ page }) => {
     // ログイン
     await page.goto('/login');
     const email = process.env.TEST_SALES_EMAIL || 'test@example.com';

@@ -15,6 +15,25 @@ export default async function CustomersPage() {
 
   if (error) {
     console.error('Error fetching customers:', error)
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">顧客マスタ</h1>
+            <p className="text-gray-600 mt-2">顧客情報の管理</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center space-y-2">
+              <p className="text-red-600 font-medium">データの読み込みに失敗しました</p>
+              <p className="text-sm text-gray-600">エラー: {error.message}</p>
+              <p className="text-sm text-gray-500">管理者にお問い合わせください</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
