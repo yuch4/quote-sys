@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ApprovalActions } from '@/components/quotes/approval-actions'
 import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
 import { VersionHistory } from '@/components/quotes/version-history'
+import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
+import type { QuoteItem, PurchaseOrder, PurchaseOrderItem } from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -34,7 +36,15 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
       ),
       items:quote_items(
         *,
-        supplier:suppliers(supplier_name)
+        supplier:suppliers(id, supplier_name)
+      ),
+      purchase_orders:purchase_orders(
+        *,
+        supplier:suppliers(id, supplier_name),
+        items:purchase_order_items(
+          *,
+          quote_item:quote_items(id, line_number, product_name)
+        )
       ),
       created_by_user:users!quotes_created_by_fkey(*),
       approved_by_user:users!quotes_approved_by_fkey(*)
@@ -80,8 +90,15 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     return new Date(dateString).toLocaleDateString('ja-JP')
   }
 
-  // 明細を行番号順にソート
-  const sortedItems = quote.items?.sort((a: any, b: any) => a.line_number - b.line_number) || []
+  const quoteItems = (quote.items || []) as QuoteItem[]
+  const sortedItems = [...quoteItems].sort((a, b) => a.line_number - b.line_number)
+  const pendingProcurementItems = quoteItems.filter(
+    (item) => item.requires_procurement && item.procurement_status !== '発注済'
+  )
+  const purchaseOrders = (quote.purchase_orders || []) as PurchaseOrder[]
+  const sortedPurchaseOrders = [...purchaseOrders].sort(
+    (a, b) => new Date(b.order_date || '').getTime() - new Date(a.order_date || '').getTime()
+  )
 
   return (
     <div className="space-y-6">
@@ -95,6 +112,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
             quoteId={quote.id}
             quoteNumber={quote.quote_number}
             pdfUrl={quote.pdf_url}
+          />
+          <PurchaseOrderDialog
+            quoteId={quote.id}
+            quoteNumber={quote.quote_number}
+            items={(quote.items || []) as QuoteItem[]}
           />
           <ApprovalActions
             quoteId={quote.id}
@@ -248,10 +270,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                 <TableHead className="text-right">仕入単価</TableHead>
                 <TableHead className="text-right">粗利</TableHead>
                 <TableHead className="text-center">仕入要</TableHead>
+                <TableHead className="text-center">調達状況</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedItems.map((item: any) => (
+              {sortedItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.line_number}</TableCell>
                   <TableCell className="font-medium">{item.product_name}</TableCell>
@@ -267,6 +290,21 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                       <Badge variant="secondary">要</Badge>
                     ) : (
                       <Badge variant="outline">不要</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {item.requires_procurement ? (
+                      <Badge variant={
+                        item.procurement_status === '入荷済'
+                          ? 'default'
+                          : item.procurement_status === '発注済'
+                            ? 'secondary'
+                            : 'outline'
+                      }>
+                        {item.procurement_status || '未発注'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">対象外</Badge>
                     )}
                   </TableCell>
                 </TableRow>
@@ -293,7 +331,67 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         </CardContent>
       </Card>
 
-      <VersionHistory currentQuoteId={quote.id} versions={versions as any || []} />
+      <Card>
+        <CardHeader>
+          <CardTitle>発注書</CardTitle>
+          <CardDescription>見積に紐づく発注書一覧</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {purchaseOrders.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">
+              発注書はまだ作成されていません（未発注の明細: {pendingProcurementItems.length}件）
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>発注書番号</TableHead>
+                  <TableHead>仕入先</TableHead>
+                  <TableHead>発注日</TableHead>
+                  <TableHead>ステータス</TableHead>
+                  <TableHead className="text-right">発注金額</TableHead>
+                  <TableHead>対象明細</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedPurchaseOrders.map((order) => {
+                  const orderItems = (order.items || []) as PurchaseOrderItem[]
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
+                      <TableCell>{order.supplier?.supplier_name || '未設定'}</TableCell>
+                      <TableCell>
+                        {order.order_date
+                          ? new Date(order.order_date).toLocaleDateString('ja-JP')
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={order.status === '発注済' ? 'secondary' : 'outline'}>
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ¥{Number(order.total_cost || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {orderItems.map((item) => (
+                            <div key={item.id} className="text-sm text-gray-600">
+                              行{item.quote_item?.line_number}: {item.quote_item?.product_name}
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <VersionHistory currentQuoteId={quote.id} versions={versions ?? []} />
     </div>
   )
 }

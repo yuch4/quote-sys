@@ -118,7 +118,7 @@ export default function ReceivingPage() {
           procurement_logs(action_type, action_date)
         `)
         .is('requires_procurement', true)
-        .eq('procurement_status', '発注済み')
+        .eq('procurement_status', '発注済')
 
       if (error) throw error
 
@@ -198,7 +198,7 @@ export default function ReceivingPage() {
       if (receivingQuantity === selectedItem.quantity) {
         const { error: updateError } = await supabase
           .from('quote_items')
-          .update({ procurement_status: '入荷済み' })
+          .update({ procurement_status: '入荷済' })
           .eq('id', selectedItem.id)
 
         if (updateError) throw updateError

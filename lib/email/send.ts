@@ -177,7 +177,7 @@ export async function sendLongDelayAlertEmail() {
       ),
       supplier:suppliers(supplier_name)
     `)
-    .eq('procurement_status', '発注済み')
+    .eq('procurement_status', '発注済')
     .lte('ordered_at', fourteenDaysAgo.toISOString())
 
   if (!longDelayItems || longDelayItems.length === 0) {

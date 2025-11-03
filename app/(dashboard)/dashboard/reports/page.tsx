@@ -278,7 +278,7 @@ export default function ReportsPage() {
             // 全明細入荷済みかチェック
             const procurementItems = approvedQuote.quote_items.filter((item: any) => item.requires_procurement)
             const allReceived = procurementItems.length === 0 || 
-              procurementItems.every((item: any) => item.procurement_status === '入荷済み')
+              procurementItems.every((item: any) => item.procurement_status === '入荷済')
             if (allReceived) {
               salesReport.pending_billing_count++
             }

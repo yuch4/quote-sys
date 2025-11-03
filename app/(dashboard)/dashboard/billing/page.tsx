@@ -136,7 +136,7 @@ export default function BillingPage() {
         .map((quote: any) => {
           const procurementItems = quote.quote_items.filter((item: any) => item.requires_procurement)
           const allReceived = procurementItems.length === 0 || 
-            procurementItems.every((item: any) => item.procurement_status === '入荷済み')
+            procurementItems.every((item: any) => item.procurement_status === '入荷済')
 
           const totalAmount = Number(quote.total_amount)
           const totalCost = Number(quote.total_cost)

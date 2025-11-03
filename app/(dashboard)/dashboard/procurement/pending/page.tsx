@@ -136,9 +136,9 @@ export default function ProcurementPendingPage() {
         (item) => !item.procurement_status || item.procurement_status === '未発注'
       )
     } else if (statusFilter === 'ordered') {
-      filtered = filtered.filter((item) => item.procurement_status === '発注済み')
+      filtered = filtered.filter((item) => item.procurement_status === '発注済')
     } else if (statusFilter === 'received') {
-      filtered = filtered.filter((item) => item.procurement_status === '入荷済み')
+      filtered = filtered.filter((item) => item.procurement_status === '入荷済')
     }
 
     // 仕入先フィルタ
@@ -210,12 +210,15 @@ export default function ProcurementPendingPage() {
       if (!userData) throw new Error('ユーザー情報の取得に失敗しました')
 
       const itemIds = Array.from(selectedItems)
+      const selectedDetails = items.filter((item) => itemIds.includes(item.id))
+      const orderedAt = new Date().toISOString()
 
       // procurement_logsに発注記録を登録
-      const logs = itemIds.map((itemId) => ({
-        quote_item_id: itemId,
+      const logs = selectedDetails.map((item) => ({
+        quote_item_id: item.id,
         action_type: '発注',
-        action_date: new Date().toISOString(),
+        action_date: orderedAt,
+        quantity: Number(item.quantity || 0),
         performed_by: userData.id,
       }))
 
@@ -225,7 +228,7 @@ export default function ProcurementPendingPage() {
       // quote_itemsのstatusを更新
       const { error: updateError } = await supabase
         .from('quote_items')
-        .update({ procurement_status: '発注済み' })
+        .update({ procurement_status: '発注済', ordered_at: orderedAt })
         .in('id', itemIds)
 
       if (updateError) throw updateError
@@ -290,9 +293,9 @@ export default function ProcurementPendingPage() {
   const getStatusBadge = (status: string | null) => {
     if (!status || status === '未発注') {
       return <Badge variant="outline">未発注</Badge>
-    } else if (status === '発注済み') {
+    } else if (status === '発注済') {
       return <Badge variant="secondary">発注済み</Badge>
-    } else if (status === '入荷済み') {
+    } else if (status === '入荷済') {
       return <Badge variant="default">入荷済み</Badge>
     }
     return <Badge variant="outline">{status}</Badge>

@@ -100,8 +100,8 @@ export default function ProcurementDashboardPage() {
 
       // ステータス別カウント
       const pending = items.filter((item) => !item.procurement_status || item.procurement_status === '未発注')
-      const ordered = items.filter((item) => item.procurement_status === '発注済み')
-      const received = items.filter((item) => item.procurement_status === '入荷済み')
+      const ordered = items.filter((item) => item.procurement_status === '発注済')
+      const received = items.filter((item) => item.procurement_status === '入荷済')
 
       // アラート対象（発注から14日以上経過）
       const alerts = ordered.filter((item) => {
@@ -139,7 +139,7 @@ export default function ProcurementDashboardPage() {
         
         if (!item.procurement_status || item.procurement_status === '未発注') {
           summary.pending_count++
-        } else if (item.procurement_status === '発注済み') {
+        } else if (item.procurement_status === '発注済') {
           summary.ordered_count++
         }
         

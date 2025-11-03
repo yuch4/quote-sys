@@ -88,6 +88,7 @@ export interface Quote {
   items?: QuoteItem[]
   created_by_user?: User
   approved_by_user?: User
+  purchase_orders?: PurchaseOrder[]
 }
 
 // 明細型
@@ -116,6 +117,36 @@ export interface QuoteItem {
   // リレーション
   quote?: Quote
   supplier?: Supplier
+  purchase_order_items?: PurchaseOrderItem[]
+}
+
+export type PurchaseOrderStatus = '下書き' | '発注済' | 'キャンセル'
+
+export interface PurchaseOrder {
+  id: string
+  purchase_order_number: string
+  quote_id: string
+  supplier_id: string
+  order_date: string
+  status: PurchaseOrderStatus
+  total_cost: number
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  supplier?: Supplier
+  items?: PurchaseOrderItem[]
+}
+
+export interface PurchaseOrderItem {
+  id: string
+  purchase_order_id: string
+  quote_item_id: string
+  quantity: number
+  unit_cost: number
+  amount: number
+  created_at: string
+  quote_item?: QuoteItem
 }
 
 // 発注・入荷履歴型
