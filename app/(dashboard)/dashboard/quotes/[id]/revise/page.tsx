@@ -227,7 +227,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
       const { data: userData } = await supabase
         .from('users')
         .select('id')
-        .eq('auth_id', user?.id)
+        .eq('id', user?.id)
         .single()
 
       if (!userData) {

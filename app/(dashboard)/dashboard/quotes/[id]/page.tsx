@@ -7,6 +7,7 @@ import { ApprovalActions } from '@/components/quotes/approval-actions'
 import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
 import { VersionHistory } from '@/components/quotes/version-history'
 import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
+import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import type { QuoteItem, PurchaseOrder, PurchaseOrderItem } from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -22,7 +23,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
   const { data: currentUser } = await supabase
     .from('users')
     .select('id, role')
-    .eq('auth_id', user?.id)
+    .eq('id', user?.id)
     .single()
   
   const { data: quote, error } = await supabase
@@ -351,6 +352,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                   <TableHead>ステータス</TableHead>
                   <TableHead className="text-right">発注金額</TableHead>
                   <TableHead>対象明細</TableHead>
+                  <TableHead className="text-right w-[120px]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -381,6 +383,38 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                             </div>
                           ))}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <PurchaseOrderEditDialog
+                          order={{
+                            id: order.id,
+                            purchase_order_number: order.purchase_order_number,
+                            order_date: order.order_date,
+                            status: order.status,
+                            total_cost: Number(order.total_cost || 0),
+                            notes: order.notes,
+                            supplier: order.supplier ?? null,
+                            quote: {
+                              id: quote.id,
+                              quote_number: quote.quote_number,
+                            },
+                            items: orderItems.map((item) => ({
+                              id: item.id,
+                              quantity: Number(item.quantity || 0),
+                              unit_cost: Number(item.unit_cost || 0),
+                              amount: Number(item.amount || 0),
+                              quote_item: item.quote_item
+                                ? {
+                                    id: item.quote_item.id,
+                                    line_number: item.quote_item.line_number,
+                                    product_name: item.quote_item.product_name,
+                                  }
+                                : null,
+                            })),
+                          }}
+                          triggerLabel="編集"
+                          size="sm"
+                        />
                       </TableCell>
                     </TableRow>
                   )

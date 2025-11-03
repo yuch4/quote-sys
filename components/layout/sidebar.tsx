@@ -12,6 +12,7 @@ import {
   TrendingUp,
   CreditCard,
   Settings,
+  ClipboardList,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -47,6 +48,11 @@ const procurementItems = [
     name: '発注待ち',
     href: '/dashboard/procurement/pending',
     icon: ShoppingCart,
+  },
+  {
+    name: '発注書一覧',
+    href: '/dashboard/procurement/purchase-orders',
+    icon: ClipboardList,
   },
   {
     name: '入荷登録',
