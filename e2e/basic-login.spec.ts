@@ -14,9 +14,9 @@ test.describe('基本ログインフロー', () => {
     await page.goto('/login');
     await expect(page).toHaveTitle(/見積システム/);
 
-    // 2. ログイン（環境変数から認証情報を取得）
-    const email = process.env.TEST_USER_EMAIL || 'test@example.com';
-    const password = process.env.TEST_USER_PASSWORD || 'password123';
+    // 2. ログイン（実際のテストユーザー）
+    const email = 'y.hisano@mail.rinnet.co.jp';
+    const password = 'rinnetadmin';
     
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', password);

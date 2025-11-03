@@ -10,12 +10,12 @@ import { test, expect } from './fixtures';
  * 
  * NOTE: billing画面の実装が完成していないため、現在はスキップ
  */
-test.describe.skip('計上申請・承認フロー', () => {
+test.describe('計上申請・承認フロー', () => {
   test('管理者が計上画面にアクセスできる', async ({ page }) => {
     // 1. ログイン
     await page.goto('/login');
-    const adminEmail = process.env.TEST_ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.TEST_ADMIN_PASSWORD || 'password123';
+    const adminEmail = 'yuukihisano@gmail.com';
+    const adminPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
@@ -33,8 +33,8 @@ test.describe.skip('計上申請・承認フロー', () => {
   test('営業担当者が計上画面にアクセスできる', async ({ page }) => {
     // 営業担当者でログイン
     await page.goto('/login');
-    const salesEmail = process.env.TEST_SALES_EMAIL || 'sales@example.com';
-    const salesPassword = process.env.TEST_SALES_PASSWORD || 'password123';
+    const salesEmail = 'y.hisano@mail.rinnet.co.jp';
+    const salesPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', salesEmail);
     await page.fill('input[type="password"]', salesPassword);
@@ -52,8 +52,8 @@ test.describe.skip('計上申請・承認フロー', () => {
   test('承認者が計上画面にアクセスできる', async ({ page }) => {
     // 承認者でログイン
     await page.goto('/login');
-    const approverEmail = process.env.TEST_APPROVER_EMAIL || 'approver@example.com';
-    const approverPassword = process.env.TEST_APPROVER_PASSWORD || 'password123';
+    const approverEmail = 'soc-team@mail.rinnet.co.jp';
+    const approverPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);

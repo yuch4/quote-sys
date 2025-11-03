@@ -10,12 +10,12 @@ import { test, expect } from './fixtures';
  * 
  * NOTE: 実際の画面タイトルとテストの期待値が異なるためスキップ
  */
-test.describe.skip('調達・入荷フロー', () => {
+test.describe('調達・入荷フロー', () => {
   test('事務担当者が調達画面にアクセスできる', async ({ page }) => {
     // 1. ログイン
     await page.goto('/login');
-    const adminEmail = process.env.TEST_ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.TEST_ADMIN_PASSWORD || 'password123';
+    const adminEmail = 'soc-team@mail.rinnet.co.jp';
+    const adminPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
@@ -27,14 +27,14 @@ test.describe.skip('調達・入荷フロー', () => {
     await page.waitForLoadState('networkidle');
 
     // 3. 調達管理画面が表示される
-    await expect(page.locator('h1')).toContainText('調達管理');
+    await expect(page.locator('h1')).toContainText('発注・入荷 進捗ダッシュボード');
   });
 
   test('調達予定一覧が表示される', async ({ page }) => {
     // ログイン
     await page.goto('/login');
-    const adminEmail = process.env.TEST_ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.TEST_ADMIN_PASSWORD || 'password123';
+    const adminEmail = 'soc-team@mail.rinnet.co.jp';
+    const adminPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
@@ -46,14 +46,14 @@ test.describe.skip('調達・入荷フロー', () => {
     await page.waitForLoadState('networkidle');
 
     // 予定一覧が表示される
-    await expect(page.locator('h1, h2')).toContainText('調達予定');
+    await expect(page.locator('h1').first()).toContainText('発注管理');
   });
 
   test('入荷完了一覧が表示される', async ({ page }) => {
     // ログイン
     await page.goto('/login');
-    const adminEmail = process.env.TEST_ADMIN_EMAIL || 'admin@example.com';
-    const adminPassword = process.env.TEST_ADMIN_PASSWORD || 'password123';
+    const adminEmail = 'soc-team@mail.rinnet.co.jp';
+    const adminPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', adminEmail);
     await page.fill('input[type="password"]', adminPassword);
@@ -65,6 +65,6 @@ test.describe.skip('調達・入荷フロー', () => {
     await page.waitForLoadState('networkidle');
 
     // 入荷完了一覧が表示される
-    await expect(page.locator('h1, h2')).toContainText('入荷');
+    await expect(page.locator('h1').first()).toContainText('入荷管理');
   });
 });

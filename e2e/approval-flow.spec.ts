@@ -12,8 +12,8 @@ test.describe('見積承認フロー', () => {
   test('営業担当者が見積一覧を確認できる', async ({ page }) => {
     // 1. ログイン
     await page.goto('/login');
-    const salesEmail = process.env.TEST_SALES_EMAIL || 'sales@example.com';
-    const salesPassword = process.env.TEST_SALES_PASSWORD || 'password123';
+    const salesEmail = 'y.hisano@mail.rinnet.co.jp';
+    const salesPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', salesEmail);
     await page.fill('input[type="password"]', salesPassword);
@@ -32,8 +32,8 @@ test.describe('見積承認フロー', () => {
   test('承認者でログインできる', async ({ page }) => {
     // 承認者でログイン
     await page.goto('/login');
-    const approverEmail = process.env.TEST_APPROVER_EMAIL || 'approver@example.com';
-    const approverPassword = process.env.TEST_APPROVER_PASSWORD || 'password123';
+    const approverEmail = 'yuukihisano@gmail.com';
+    const approverPassword = 'rinnetadmin';
     
     await page.fill('input[type="email"]', approverEmail);
     await page.fill('input[type="password"]', approverPassword);
