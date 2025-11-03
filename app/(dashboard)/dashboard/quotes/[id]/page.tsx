@@ -9,7 +9,10 @@ import { VersionHistory } from '@/components/quotes/version-history'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-export default async function QuoteDetailPage({ params }: { params: { id: string } }) {
+type QuoteDetailParams = { id: string }
+
+export default async function QuoteDetailPage({ params }: { params: Promise<QuoteDetailParams> }) {
+  const { id } = await params
   const supabase = await createClient()
 
   // 現在のユーザー情報を取得
@@ -36,7 +39,7 @@ export default async function QuoteDetailPage({ params }: { params: { id: string
       created_by_user:users!quotes_created_by_fkey(*),
       approved_by_user:users!quotes_approved_by_fkey(*)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !quote) {

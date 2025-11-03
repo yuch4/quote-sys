@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 
 interface Project {
   id: string
@@ -36,8 +36,10 @@ interface QuoteItemFormData {
   requires_procurement: boolean
 }
 
-export default function QuoteEditPage({ params }: { params: { id: string } }) {
+export default function QuoteEditPage() {
   const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const quoteId = params?.id
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
@@ -58,10 +60,11 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
 
   // 初期データ読込
   useEffect(() => {
-    loadInitialData()
-  }, [])
+    if (!quoteId) return
+    loadInitialData(quoteId)
+  }, [quoteId])
 
-  const loadInitialData = async () => {
+  const loadInitialData = async (id: string) => {
     try {
       // 見積データ取得
       const { data: quote, error: quoteError } = await supabase
@@ -70,7 +73,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
           *,
           items:quote_items(*)
         `)
-        .eq('id', params.id)
+        .eq('id', id)
         .single()
 
       if (quoteError || !quote) {
@@ -82,7 +85,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
       // 下書きでない場合は編集不可
       if (quote.approval_status !== '下書き') {
         alert('この見積は編集できません')
-        router.push(`/dashboard/quotes/${params.id}`)
+        router.push(`/dashboard/quotes/${id}`)
         return
       }
 
@@ -198,6 +201,11 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
       return
     }
 
+    if (!quoteId) {
+      alert('見積IDが取得できませんでした')
+      return
+    }
+
     if (items.length === 0) {
       alert('明細を1件以上追加してください')
       return
@@ -227,7 +235,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
           notes: notes || null,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', params.id)
+        .eq('id', quoteId)
 
       if (quoteError) throw quoteError
 
@@ -235,13 +243,13 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
       const { error: deleteError } = await supabase
         .from('quote_items')
         .delete()
-        .eq('quote_id', params.id)
+        .eq('quote_id', quoteId)
 
       if (deleteError) throw deleteError
 
       // 明細を新規登録
       const itemsData = items.map((item) => ({
-        quote_id: params.id,
+        quote_id: quoteId,
         line_number: item.line_number,
         product_name: item.product_name,
         description: item.description || null,
@@ -260,7 +268,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
       if (itemsError) throw itemsError
 
       alert('見積を更新しました')
-      router.push(`/dashboard/quotes/${params.id}`)
+      router.push(`/dashboard/quotes/${quoteId}`)
     } catch (error) {
       console.error('見積更新エラー:', error)
       alert('見積の更新に失敗しました')
@@ -270,6 +278,14 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
   }
 
   const totals = calculateTotals()
+
+  if (!quoteId) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>見積IDが無効です</p>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -286,7 +302,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
           <h1 className="text-3xl font-bold text-gray-900">見積編集</h1>
           <p className="text-gray-600 mt-2">{quoteNumber}</p>
         </div>
-        <Link href={`/dashboard/quotes/${params.id}`}>
+        <Link href={`/dashboard/quotes/${quoteId}`}>
           <Button variant="outline">キャンセル</Button>
         </Link>
       </div>
@@ -504,7 +520,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Link href={`/dashboard/quotes/${params.id}`}>
+          <Link href={`/dashboard/quotes/${quoteId}`}>
             <Button type="button" variant="outline">
               キャンセル
             </Button>

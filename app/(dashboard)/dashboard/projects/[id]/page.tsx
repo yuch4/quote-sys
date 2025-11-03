@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
+type ProjectDetailParams = { id: string }
+
+export default async function ProjectDetailPage({ params }: { params: Promise<ProjectDetailParams> }) {
+  const { id } = await params
   const supabase = await createClient()
-  
+
   const { data: project, error } = await supabase
     .from('projects')
     .select(`
@@ -15,7 +18,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
       customer:customers(*),
       sales_rep:users!projects_sales_rep_id_fkey(*)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !project) {

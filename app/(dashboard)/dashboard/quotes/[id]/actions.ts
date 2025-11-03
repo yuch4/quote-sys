@@ -109,23 +109,6 @@ export async function rejectQuote(quoteId: string, userId: string, rejectReason?
     console.error('却下エラー:', error)
     return { success: false, message: '見積の却下に失敗しました' }
   }
-}       approved_by: userId,
-        approved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', quoteId)
-      .eq('approval_status', '承認待ち')
-
-    if (error) throw error
-
-    revalidatePath(`/dashboard/quotes/${quoteId}`)
-    revalidatePath('/dashboard/quotes')
-
-    return { success: true, message: '見積を却下しました' }
-  } catch (error) {
-    console.error('却下エラー:', error)
-    return { success: false, message: '見積の却下に失敗しました' }
-  }
 }
 
 // 下書きに戻す
