@@ -91,9 +91,8 @@ export default function ProcurementDashboardPage() {
           supplier:suppliers(supplier_name),
           procurement_logs(action_type, action_date)
         `)
-        .eq('requires_procurement', true)
+        .is('requires_procurement', true)
         .eq('quote.approval_status', '承認済み')
-        .order('procurement_logs.action_date', { ascending: false })
 
       if (error) throw error
 

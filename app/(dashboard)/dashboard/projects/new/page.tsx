@@ -58,8 +58,7 @@ export default function NewProjectPage() {
       const { data: usersData } = await supabase
         .from('users')
         .select('*')
-        .eq('is_active', true)
-        .order('display_name')
+        .is('is_active', true)
       
       if (usersData) setSalesReps(usersData)
     }
@@ -72,7 +71,7 @@ export default function NewProjectPage() {
     const { data: customerData } = await supabase
       .from('customers')
       .select('*')
-      .eq('is_deleted', false)
+      .is('is_deleted', false)
       .order('customer_name')
     
     if (customerData) setCustomers(customerData)

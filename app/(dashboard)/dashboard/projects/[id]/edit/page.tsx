@@ -54,10 +54,10 @@ export default function EditProjectPage() {
       }
       
       // 顧客一覧取得
-      const { data: customerData } = await supabase
+      const { data: customersData } = await supabase
         .from('customers')
         .select('*')
-        .eq('is_deleted', false)
+        .is('is_deleted', false)
         .order('customer_name')
       
       if (customerData) setCustomers(customerData)
@@ -66,8 +66,7 @@ export default function EditProjectPage() {
       const { data: usersData } = await supabase
         .from('users')
         .select('*')
-        .eq('is_active', true)
-        .order('display_name')
+        .is('is_active', true)
       
       if (usersData) setSalesReps(usersData)
     }

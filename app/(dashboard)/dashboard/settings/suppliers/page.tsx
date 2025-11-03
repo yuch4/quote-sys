@@ -10,7 +10,7 @@ export default async function SuppliersPage() {
   const { data: suppliers, error } = await supabase
     .from('suppliers')
     .select('*')
-    .eq('is_deleted', false)
+    .is('is_deleted', false)
     .order('supplier_code', { ascending: true })
 
   if (error) {

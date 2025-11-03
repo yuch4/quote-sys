@@ -73,8 +73,7 @@ export default function NewQuotePage() {
       const { data: supplierData } = await supabase
         .from('suppliers')
         .select('*')
-        .eq('is_deleted', false)
-        .order('supplier_name')
+        .is('is_deleted', false)
       
       if (supplierData) setSuppliers(supplierData)
     }

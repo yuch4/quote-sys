@@ -140,7 +140,6 @@ export default function ReportsPage() {
         const { data: allUsers } = await supabase
           .from('users')
           .select('id, display_name, role')
-          .order('display_name')
         if (allUsers) setUsers(allUsers)
       }
     }

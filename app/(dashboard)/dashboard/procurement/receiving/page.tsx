@@ -89,8 +89,7 @@ export default function ReceivingPage() {
       const { data: suppliersData } = await supabase
         .from('suppliers')
         .select('id, supplier_name')
-        .eq('is_active', true)
-        .order('supplier_name')
+        .is('is_deleted', false)
 
       setSuppliers(suppliersData || [])
 
@@ -118,9 +117,8 @@ export default function ReceivingPage() {
           supplier:suppliers(supplier_name),
           procurement_logs(action_type, action_date)
         `)
-        .eq('requires_procurement', true)
+        .is('requires_procurement', true)
         .eq('procurement_status', '発注済み')
-        .order('procurement_logs.action_date', { ascending: false })
 
       if (error) throw error
 

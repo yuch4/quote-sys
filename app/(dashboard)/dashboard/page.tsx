@@ -13,11 +13,25 @@ export default async function DashboardPage() {
   }
 
   // ユーザー情報取得
-  const { data: userData } = await supabase
+  const { data: userData, error: userError } = await supabase
     .from('users')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  if (userError) {
+    console.error('ユーザー情報取得エラー:', userError)
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>エラー</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-red-600">ユーザー情報の取得に失敗しました</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const isAdmin = userData?.role === '管理者' || userData?.role === '営業事務'
 
@@ -36,33 +50,37 @@ export default async function DashboardPage() {
     projectQuery = projectQuery.eq('sales_rep_id', user.id)
   }
 
-  const { count: projectCount } = await projectQuery
+  const { count: projectCount, error: projectError } = await projectQuery
+
+  if (projectError) {
+    console.error('案件数取得エラー:', projectError)
+  }
 
   // 承認済み見積数（今月）
   let quoteQuery = supabase
     .from('quotes')
-    .select('*, project:projects!inner(*)', { count: 'exact', head: true })
+    .select('id, project_id', { count: 'exact', head: true })
     .eq('approval_status', '承認済み')
     .gte('created_at', thisMonth.toISOString())
 
-  if (!isAdmin) {
-    quoteQuery = quoteQuery.eq('project.sales_rep_id', user.id)
-  }
+  const { count: approvedQuoteCount, error: quoteCountError } = await quoteQuery
 
-  const { count: approvedQuoteCount } = await quoteQuery
+  if (quoteCountError) {
+    console.error('見積数取得エラー:', quoteCountError)
+  }
 
   // 今月の売上・粗利（承認済み見積）
   let salesQuery = supabase
     .from('quotes')
-    .select('total_amount, gross_profit, project:projects!inner(*)')
+    .select('total_amount, gross_profit, project_id')
     .eq('approval_status', '承認済み')
     .gte('created_at', thisMonth.toISOString())
 
-  if (!isAdmin) {
-    salesQuery = salesQuery.eq('project.sales_rep_id', user.id)
-  }
+  const { data: salesData, error: salesError } = await salesQuery
 
-  const { data: salesData } = await salesQuery
+  if (salesError) {
+    console.error('売上データ取得エラー:', salesError)
+  }
 
   const totalSales = salesData?.reduce((sum, q) => sum + Number(q.total_amount || 0), 0) || 0
   const totalProfit = salesData?.reduce((sum, q) => sum + Number(q.gross_profit || 0), 0) || 0
@@ -70,50 +88,79 @@ export default async function DashboardPage() {
   // 承認待ち見積（アラート）
   let pendingApprovalQuery = supabase
     .from('quotes')
-    .select('*, project:projects!inner(project_name, customer:customers(customer_name))')
+    .select(`
+      id,
+      quote_number,
+      created_at,
+      approval_status,
+      project_id,
+      projects!inner(
+        project_name,
+        customers(customer_name)
+      )
+    `)
     .eq('approval_status', '承認待ち')
     .order('created_at', { ascending: false })
     .limit(5)
 
-  if (!isAdmin) {
-    pendingApprovalQuery = pendingApprovalQuery.eq('project.sales_rep_id', user.id)
-  }
+  const { data: pendingApprovals, error: pendingError } = await pendingApprovalQuery
 
-  const { data: pendingApprovals } = await pendingApprovalQuery
+  if (pendingError) {
+    console.error('承認待ち見積取得エラー:', pendingError)
+  }
 
   // 長期未入荷アラート（14日以上）
   const fourteenDaysAgo = new Date()
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
 
-  const { data: longDelayItems } = await supabase
+  const { data: longDelayItems, error: delayError } = await supabase
     .from('quote_items')
     .select(`
-      *,
-      quote:quotes!inner(
+      id,
+      product_name,
+      ordered_at,
+      procurement_status,
+      quote_id,
+      supplier_id,
+      quotes!inner(
         quote_number,
-        project:projects!inner(
+        projects!inner(
           project_name,
-          customer:customers(customer_name)
+          customers(customer_name)
         )
       ),
-      supplier:suppliers(supplier_name)
+      suppliers(supplier_name)
     `)
     .eq('procurement_status', '発注済')
     .lte('ordered_at', fourteenDaysAgo.toISOString())
     .limit(5)
 
+  if (delayError) {
+    console.error('長期未入荷データ取得エラー:', delayError)
+  }
+
   // 最近の案件・見積
   let recentActivityQuery = supabase
     .from('quotes')
-    .select('*, project:projects!inner(project_name, customer:customers(customer_name))')
+    .select(`
+      id,
+      quote_number,
+      updated_at,
+      approval_status,
+      project_id,
+      projects!inner(
+        project_name,
+        customers(customer_name)
+      )
+    `)
     .order('updated_at', { ascending: false })
     .limit(5)
 
-  if (!isAdmin) {
-    recentActivityQuery = recentActivityQuery.eq('project.sales_rep_id', user.id)
-  }
+  const { data: recentActivity, error: recentError } = await recentActivityQuery
 
-  const { data: recentActivity } = await recentActivityQuery
+  if (recentError) {
+    console.error('最近の活動取得エラー:', recentError)
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -203,7 +250,7 @@ export default async function DashboardPage() {
                         <div>
                           <p className="font-medium text-sm">{quote.quote_number}</p>
                           <p className="text-xs text-gray-600">
-                            {quote.project?.project_name} - {quote.project?.customer?.customer_name}
+                            {quote.projects?.project_name} - {quote.projects?.customers?.customer_name}
                           </p>
                         </div>
                         <Badge variant="secondary">承認待ち</Badge>
@@ -231,7 +278,7 @@ export default async function DashboardPage() {
                     <div key={item.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
                       <p className="font-medium text-sm">{item.product_name}</p>
                       <p className="text-xs text-gray-600">
-                        {item.quote?.project?.project_name} - {item.supplier?.supplier_name}
+                        {item.quotes?.projects?.project_name} - {item.suppliers?.supplier_name}
                       </p>
                       <p className="text-xs text-red-600 mt-1">
                         発注日: {item.ordered_at ? new Date(item.ordered_at).toLocaleDateString('ja-JP') : '-'}
@@ -264,7 +311,7 @@ export default async function DashboardPage() {
                     <div>
                       <p className="font-medium text-sm">{quote.quote_number}</p>
                       <p className="text-xs text-gray-600">
-                        {quote.project?.project_name} - {quote.project?.customer?.customer_name}
+                        {quote.projects?.project_name} - {quote.projects?.customers?.customer_name}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         更新: {new Date(quote.updated_at).toLocaleDateString('ja-JP')}

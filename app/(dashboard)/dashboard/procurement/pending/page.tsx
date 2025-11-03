@@ -86,8 +86,7 @@ export default function ProcurementPendingPage() {
       const { data: suppliersData } = await supabase
         .from('suppliers')
         .select('id, supplier_name')
-        .eq('is_active', true)
-        .order('supplier_name')
+        .is('is_deleted', false)
 
       setSuppliers(suppliersData || [])
 
@@ -114,10 +113,8 @@ export default function ProcurementPendingPage() {
           ),
           supplier:suppliers(id, supplier_name)
         `)
-        .eq('requires_procurement', true)
+        .is('requires_procurement', true)
         .eq('quote.approval_status', '承認済み')
-        .order('quote.quote_number')
-        .order('line_number')
 
       if (error) throw error
 

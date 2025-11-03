@@ -10,7 +10,7 @@ export default async function CustomersPage() {
   const { data: customers, error } = await supabase
     .from('customers')
     .select('*')
-    .eq('is_deleted', false)
+    .is('is_deleted', false)
     .order('customer_code', { ascending: true })
 
   if (error) {

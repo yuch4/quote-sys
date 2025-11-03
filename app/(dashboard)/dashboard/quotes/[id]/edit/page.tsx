@@ -125,8 +125,7 @@ export default function QuoteEditPage({ params }: { params: { id: string } }) {
       const { data: suppliersData } = await supabase
         .from('suppliers')
         .select('id, supplier_name')
-        .eq('is_active', true)
-        .order('supplier_name')
+        .is('is_deleted', false)
 
       setSuppliers(suppliersData || [])
 
