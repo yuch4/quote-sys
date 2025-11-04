@@ -8,7 +8,16 @@ import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
 import { VersionHistory } from '@/components/quotes/version-history'
 import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
 import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
-import type { QuoteItem, PurchaseOrder, PurchaseOrderItem, QuoteApprovalInstance } from '@/types/database'
+import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
+import type {
+  QuoteItem,
+  PurchaseOrder,
+  PurchaseOrderItem,
+  QuoteApprovalInstance,
+  PurchaseOrderApprovalInstance,
+  ApprovalStatus,
+  PurchaseOrderStatus,
+} from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -45,6 +54,27 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         items:purchase_order_items(
           *,
           quote_item:quote_items(id, line_number, product_name)
+        ),
+        approval_instance:purchase_order_approval_instances(
+          id,
+          status,
+          current_step,
+          requested_by,
+          requested_at,
+          route:approval_routes(
+            id,
+            name
+          ),
+          steps:purchase_order_approval_instance_steps(
+            id,
+            step_order,
+            approver_role,
+            status,
+            approver_user_id,
+            decided_at,
+            notes,
+            approver:users(id, display_name)
+          )
         )
       ),
       approval_instance:quote_approval_instances(
@@ -479,19 +509,24 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>発注書番号</TableHead>
-                  <TableHead>仕入先</TableHead>
-                  <TableHead>発注日</TableHead>
-                  <TableHead>ステータス</TableHead>
-                  <TableHead className="text-right">発注金額</TableHead>
-                  <TableHead>対象明細</TableHead>
-                  <TableHead className="text-right w-[120px]">操作</TableHead>
-                </TableRow>
+        <TableRow>
+          <TableHead>発注書番号</TableHead>
+          <TableHead>仕入先</TableHead>
+          <TableHead>発注日</TableHead>
+          <TableHead>ステータス</TableHead>
+          <TableHead>承認ステータス</TableHead>
+          <TableHead className="text-right">発注金額</TableHead>
+          <TableHead>対象明細</TableHead>
+          <TableHead className="text-right w-[240px]">操作</TableHead>
+        </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedPurchaseOrders.map((order) => {
                   const orderItems = (order.items || []) as PurchaseOrderItem[]
+                  const approvalInstanceRaw = order.approval_instance as PurchaseOrderApprovalInstance | PurchaseOrderApprovalInstance[] | null
+                  const approvalInstance = Array.isArray(approvalInstanceRaw)
+                    ? approvalInstanceRaw[0] ?? null
+                    : approvalInstanceRaw ?? null
                   return (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
@@ -504,6 +539,21 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                       <TableCell>
                         <Badge variant={order.status === '発注済' ? 'secondary' : 'outline'}>
                           {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            order.approval_status === '承認済み'
+                              ? 'default'
+                              : order.approval_status === '承認待ち'
+                                ? 'secondary'
+                                : order.approval_status === '却下'
+                                  ? 'destructive'
+                                  : 'outline'
+                          }
+                        >
+                          {order.approval_status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -519,36 +569,47 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <PurchaseOrderEditDialog
-                          order={{
-                            id: order.id,
-                            purchase_order_number: order.purchase_order_number,
-                            order_date: order.order_date,
-                            status: order.status,
-                            total_cost: Number(order.total_cost || 0),
-                            notes: order.notes,
-                            supplier: order.supplier ?? null,
-                            quote: {
-                              id: quote.id,
-                              quote_number: quote.quote_number,
-                            },
-                            items: orderItems.map((item) => ({
-                              id: item.id,
-                              quantity: Number(item.quantity || 0),
-                              unit_cost: Number(item.unit_cost || 0),
-                              amount: Number(item.amount || 0),
-                              quote_item: item.quote_item
-                                ? {
-                                    id: item.quote_item.id,
-                                    line_number: item.quote_item.line_number,
-                                    product_name: item.quote_item.product_name,
-                                  }
-                                : null,
-                            })),
-                          }}
-                          triggerLabel="編集"
-                          size="sm"
-                        />
+                        <div className="flex flex-col gap-2 items-end">
+                          <PurchaseOrderApprovalActions
+                            purchaseOrderId={order.id}
+                            approvalStatus={order.approval_status as ApprovalStatus}
+                            purchaseOrderStatus={order.status as PurchaseOrderStatus}
+                            currentUserId={currentUser?.id || ''}
+                            currentUserRole={currentUser?.role || ''}
+                            createdBy={order.created_by}
+                            approvalInstance={approvalInstance || undefined}
+                          />
+                          <PurchaseOrderEditDialog
+                            order={{
+                              id: order.id,
+                              purchase_order_number: order.purchase_order_number,
+                              order_date: order.order_date,
+                              status: order.status,
+                              total_cost: Number(order.total_cost || 0),
+                              notes: order.notes,
+                              supplier: order.supplier ?? null,
+                              quote: {
+                                id: quote.id,
+                                quote_number: quote.quote_number,
+                              },
+                              items: orderItems.map((item) => ({
+                                id: item.id,
+                                quantity: Number(item.quantity || 0),
+                                unit_cost: Number(item.unit_cost || 0),
+                                amount: Number(item.amount || 0),
+                                quote_item: item.quote_item
+                                  ? {
+                                      id: item.quote_item.id,
+                                      line_number: item.quote_item.line_number,
+                                      product_name: item.quote_item.product_name,
+                                    }
+                                  : null,
+                              })),
+                            }}
+                            triggerLabel="編集"
+                            size="sm"
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

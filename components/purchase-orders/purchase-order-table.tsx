@@ -2,17 +2,22 @@
 
 import { useMemo, useState } from 'react'
 import { PurchaseOrderEditDialog, type PurchaseOrderEditable } from '@/components/purchase-orders/purchase-order-edit-dialog'
+import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import type { ApprovalStatus, PurchaseOrderStatus, PurchaseOrderApprovalInstance } from '@/types/database'
 
 type StatusFilter = 'all' | '下書き' | '発注済' | 'キャンセル'
 
 export type PurchaseOrderListItem = PurchaseOrderEditable & {
   created_at: string
+  approval_status: ApprovalStatus
+  approval_instance?: PurchaseOrderApprovalInstance | null
+  created_by?: string
   supplier?: {
     id: string
     supplier_name: string | null
@@ -25,6 +30,10 @@ export type PurchaseOrderListItem = PurchaseOrderEditable & {
 
 interface PurchaseOrderTableProps {
   orders: PurchaseOrderListItem[]
+  currentUser?: {
+    id: string
+    role: string
+  }
 }
 
 const statusVariant = {
@@ -45,7 +54,7 @@ const formatCurrency = (value: number) => {
   return `¥${Number(value).toLocaleString()}`
 }
 
-export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
+export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTableProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -70,6 +79,15 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
       return true
     })
   }, [orders, statusFilter, searchQuery])
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case '承認済み': return 'default'
+      case '承認待ち': return 'secondary'
+      case '却下': return 'destructive'
+      default: return 'outline'
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -121,6 +139,7 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                   <TableHead>仕入先</TableHead>
                   <TableHead>見積番号</TableHead>
                   <TableHead>ステータス</TableHead>
+                  <TableHead>承認ステータス</TableHead>
                   <TableHead className="text-right">発注金額</TableHead>
                   <TableHead className="text-right w-[140px]">操作</TableHead>
                 </TableRow>
@@ -142,9 +161,29 @@ export function PurchaseOrderTable({ orders }: PurchaseOrderTableProps) {
                       <TableCell>
                         <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
                       </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(order.approval_status)}>
+                          {order.approval_status}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">{formatCurrency(Number(order.total_cost || 0))}</TableCell>
                       <TableCell className="text-right">
-                        <PurchaseOrderEditDialog order={order} triggerLabel="詳細・編集" size="sm" />
+                        <div className="flex flex-col items-end gap-2">
+                          {currentUser ? (
+                            <PurchaseOrderApprovalActions
+                              purchaseOrderId={order.id}
+                              approvalStatus={order.approval_status}
+                              purchaseOrderStatus={order.status}
+                              currentUserId={currentUser.id}
+                              currentUserRole={currentUser.role}
+                              createdBy={order.created_by || ''}
+                              approvalInstance={(Array.isArray(order.approval_instance)
+                                ? order.approval_instance[0]
+                                : order.approval_instance) || undefined}
+                            />
+                          ) : null}
+                          <PurchaseOrderEditDialog order={order} triggerLabel="詳細・編集" size="sm" />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

@@ -132,7 +132,11 @@ export default async function QuotesPage(props: {
     }
 
     const approverName = currentStep.approver?.display_name
-    return approverName ? `${currentStep.approver_role} (${approverName})` : currentStep.approver_role
+    const roleLabel = currentStep.approver_role
+    const displayName = approverName ? `${roleLabel} (${approverName})` : roleLabel
+    const route = Array.isArray(instance.route) ? instance.route[0] : instance.route
+    const routeName = route?.name
+    return routeName ? `${displayName} / ${routeName}` : displayName
   }
 
   return (

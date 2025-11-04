@@ -48,6 +48,7 @@ interface ApprovalRoute {
   name: string
   description: string | null
   requester_role: string | null
+  target_entity: string
   min_total_amount: number | null
   max_total_amount: number | null
   is_active: boolean
@@ -73,6 +74,7 @@ interface ApprovalRouteFormState {
   name: string
   description: string
   requester_role: string
+  target_entity: string
   min_total_amount: string
   max_total_amount: string
   is_active: boolean
@@ -111,6 +113,7 @@ export default function SettingsPage() {
     name: '',
     description: '',
     requester_role: 'all',
+    target_entity: 'quote',
     min_total_amount: '',
     max_total_amount: '',
     is_active: true,
@@ -203,6 +206,7 @@ export default function SettingsPage() {
         name: route.name,
         description: route.description || '',
         requester_role: route.requester_role || 'all',
+        target_entity: route.target_entity || 'quote',
         min_total_amount: route.min_total_amount != null ? String(Number(route.min_total_amount)) : '',
         max_total_amount: route.max_total_amount != null ? String(Number(route.max_total_amount)) : '',
         is_active: route.is_active,
@@ -220,6 +224,7 @@ export default function SettingsPage() {
         name: '',
         description: '',
         requester_role: 'all',
+        target_entity: 'quote',
         min_total_amount: '',
         max_total_amount: '',
         is_active: true,
@@ -330,6 +335,7 @@ export default function SettingsPage() {
             name: routeForm.name.trim(),
             description: routeForm.description.trim() || null,
             requester_role: requesterRoleValue,
+            target_entity: routeForm.target_entity,
             min_total_amount: minAmount,
             max_total_amount: maxAmount,
             is_active: routeForm.is_active,
@@ -360,6 +366,7 @@ export default function SettingsPage() {
             name: routeForm.name.trim(),
             description: routeForm.description.trim() || null,
             requester_role: requesterRoleValue,
+            target_entity: routeForm.target_entity,
             min_total_amount: minAmount,
             max_total_amount: maxAmount,
             is_active: routeForm.is_active,
@@ -834,8 +841,9 @@ export default function SettingsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>フロー名</TableHead>
-                    <TableHead>申請者条件</TableHead>
-                    <TableHead>金額範囲</TableHead>
+                  <TableHead>対象</TableHead>
+                  <TableHead>申請者条件</TableHead>
+                  <TableHead>金額範囲</TableHead>
                     <TableHead>承認ステップ</TableHead>
                     <TableHead>状態</TableHead>
                     <TableHead>操作</TableHead>
@@ -857,6 +865,7 @@ export default function SettingsPage() {
                             <div className="text-xs text-gray-500 mt-1">{route.description}</div>
                           ) : null}
                         </TableCell>
+                        <TableCell>{route.target_entity === 'purchase_order' ? '発注書' : '見積'}</TableCell>
                         <TableCell>{getRoleLabel(route.requester_role)}</TableCell>
                         <TableCell>{getAmountRangeLabel(route)}</TableCell>
                         <TableCell>
@@ -1074,6 +1083,22 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="route-target">対象</Label>
+              <Select
+                value={routeForm.target_entity}
+                onValueChange={(value) => handleRouteFieldChange('target_entity', value)}
+              >
+                <SelectTrigger id="route-target">
+                  <SelectValue placeholder="対象を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quote">見積</SelectItem>
+                  <SelectItem value="purchase_order">発注書</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

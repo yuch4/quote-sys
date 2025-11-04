@@ -49,8 +49,9 @@ export async function requestApproval(quoteId: string) {
 
     const { data: routesData, error: routesError } = await supabase
       .from('approval_routes')
-      .select('id, name, requester_role, min_total_amount, max_total_amount, is_active, steps:approval_route_steps(id, step_order, approver_role, notes)')
+      .select('id, name, requester_role, target_entity, min_total_amount, max_total_amount, is_active, steps:approval_route_steps(id, step_order, approver_role, notes)')
       .eq('is_active', true)
+      .eq('target_entity', 'quote')
       .order('min_total_amount', { ascending: true })
 
     if (routesError) throw routesError
@@ -164,6 +165,7 @@ export async function requestApproval(quoteId: string) {
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
+    revalidatePath('/dashboard/approvals')
 
     return {
       success: true,
@@ -253,13 +255,14 @@ export async function approveQuote(quoteId: string, userId: string) {
 
       if (instanceUpdateError) throw instanceUpdateError
 
-      revalidatePath(`/dashboard/quotes/${quoteId}`)
-      revalidatePath('/dashboard/quotes')
+    revalidatePath(`/dashboard/quotes/${quoteId}`)
+    revalidatePath('/dashboard/quotes')
+    revalidatePath('/dashboard/approvals')
 
-      return {
-        success: true,
-        message: `承認しました。次の承認者は${nextStep.approver_role}です。`,
-      }
+    return {
+      success: true,
+      message: `承認しました。次の承認者は${nextStep.approver_role}です。`,
+    }
     }
 
     const now = new Date().toISOString()
@@ -292,6 +295,7 @@ export async function approveQuote(quoteId: string, userId: string) {
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
+    revalidatePath('/dashboard/approvals')
 
     return { success: true, message: '承認が完了しました' }
   } catch (error) {
@@ -405,6 +409,7 @@ export async function rejectQuote(quoteId: string, userId: string, rejectReason?
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
+    revalidatePath('/dashboard/approvals')
 
     return { success: true, message: '見積を却下しました' }
   } catch (error) {
@@ -456,6 +461,7 @@ export async function returnToDraft(quoteId: string) {
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
+    revalidatePath('/dashboard/approvals')
 
     return { success: true, message: '下書きに戻しました' }
   } catch (error) {
@@ -470,14 +476,6 @@ type CreatePurchaseOrderPayload = {
   orderDate?: string
   combineBySupplier: boolean
   notes?: string
-}
-
-const formatDateToISO = (date: string) => {
-  const base = new Date(date)
-  if (Number.isNaN(base.getTime())) {
-    return new Date().toISOString()
-  }
-  return new Date(base.toISOString().split('T')[0] + 'T00:00:00.000Z').toISOString()
 }
 
 const computeAmount = (quantity: number, unitCost: number | null, costAmount: number | null) => {
@@ -503,7 +501,6 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
   }
 
   const effectiveOrderDate = orderDate || new Date().toISOString().split('T')[0]
-  const orderedAt = formatDateToISO(effectiveOrderDate)
 
   const { data: items, error: itemsError } = await supabase
     .from('quote_items')
@@ -563,10 +560,13 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
       supplier_id: supplierId,
       purchase_order_number: purchaseOrderNumber,
       order_date: effectiveOrderDate,
-      status: '発注済' as const,
+      status: '下書き' as const,
+      approval_status: '下書き' as const,
       total_cost: totalCost,
       notes: notes || null,
       created_by: user.id,
+      approved_by: null,
+      approved_at: null,
     }
   })
 
@@ -606,37 +606,6 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
     }
   }
 
-  const { error: updateItemsError } = await supabase
-    .from('quote_items')
-    .update({
-      procurement_status: '発注済',
-      ordered_at: orderedAt,
-    })
-    .in('id', itemIds)
-
-  if (updateItemsError) {
-    console.error('Failed to update quote items:', updateItemsError)
-    return { success: false, message: '明細のステータス更新に失敗しました' }
-  }
-
-  const logsPayload = items.map((item) => ({
-    quote_item_id: item.id,
-    action_type: '発注' as const,
-    action_date: orderedAt,
-    quantity: Number(item.quantity || 0),
-    performed_by: user.id,
-    notes: notes || null,
-  }))
-
-  const { error: logError } = await supabase
-    .from('procurement_logs')
-    .insert(logsPayload)
-
-  if (logError) {
-    console.error('Failed to create procurement logs:', logError)
-    return { success: false, message: '発注履歴の登録に失敗しました' }
-  }
-
   revalidatePath(`/dashboard/quotes/${quoteId}`)
   revalidatePath('/dashboard/procurement')
   revalidatePath('/dashboard/procurement/pending')
@@ -644,6 +613,6 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
   return {
     success: true,
     ordersCreated: createdOrders.length,
-    message: `${createdOrders.length}件の発注書を作成しました`,
+    message: `${createdOrders.length}件の発注書を下書きとして作成しました`,
   }
 }

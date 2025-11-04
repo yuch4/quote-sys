@@ -39,8 +39,10 @@ export type PurchaseOrderEditable = {
   purchase_order_number: string
   order_date: string | null
   status: PurchaseOrderStatus
+  approval_status?: '下書き' | '承認待ち' | '承認済み' | '却下'
   total_cost: number
   notes: string | null
+  created_by?: string
   quote?: {
     id: string
     quote_number: string
@@ -88,6 +90,8 @@ export function PurchaseOrderEditDialog({
     if (!order.items) return Number(order.total_cost || 0)
     return order.items.reduce((sum, item) => sum + Number(item.amount || 0), 0)
   }, [order.items, order.total_cost])
+
+  const approvalStatusLabel = order.approval_status || '下書き'
 
   const resetForm = () => {
     setOrderDate(order.order_date ? new Date(order.order_date).toISOString().split('T')[0] : '')
@@ -145,6 +149,11 @@ export function PurchaseOrderEditDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          <div className="text-sm text-gray-600 flex justify-between">
+            <span>承認ステータス: {approvalStatusLabel}</span>
+            <span>発注ステータス: {order.status}</span>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>発注日</Label>

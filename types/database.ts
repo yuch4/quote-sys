@@ -130,6 +130,7 @@ export interface PurchaseOrder {
   supplier_id: string
   order_date: string
   status: PurchaseOrderStatus
+  approval_status: ApprovalStatus
   total_cost: number
   notes: string | null
   created_by: string
@@ -137,6 +138,9 @@ export interface PurchaseOrder {
   updated_at: string
   supplier?: Supplier
   items?: PurchaseOrderItem[]
+  approval_instance?: PurchaseOrderApprovalInstance | PurchaseOrderApprovalInstance[] | null
+  approved_by?: string | null
+  approved_at?: string | null
 }
 
 export interface PurchaseOrderItem {
@@ -173,6 +177,7 @@ export interface ApprovalRoute {
   name: string
   description: string | null
   requester_role: UserRole | null
+  target_entity: 'quote' | 'purchase_order'
   min_total_amount: number | null
   max_total_amount: number | null
   is_active: boolean
@@ -209,6 +214,32 @@ export interface QuoteApprovalInstance {
 }
 
 export interface QuoteApprovalInstanceStep {
+  id: string
+  instance_id: string
+  step_order: number
+  approver_role: UserRole
+  approver_user_id: string | null
+  status: ApprovalStepStatus
+  decided_at: string | null
+  notes: string | null
+  approver?: User
+}
+
+export interface PurchaseOrderApprovalInstance {
+  id: string
+  purchase_order_id: string
+  route_id: string
+  status: ApprovalInstanceStatus
+  current_step: number | null
+  requested_by: string | null
+  requested_at: string
+  updated_at: string
+  rejection_reason: string | null
+  route?: ApprovalRoute
+  steps?: PurchaseOrderApprovalInstanceStep[]
+}
+
+export interface PurchaseOrderApprovalInstanceStep {
   id: string
   instance_id: string
   step_order: number
