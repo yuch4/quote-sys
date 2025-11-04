@@ -40,7 +40,20 @@ export default async function QuotesPage(props: {
         project_name,
         customer:customers(customer_name)
       ),
-      created_by_user:users!quotes_created_by_fkey(display_name)
+      created_by_user:users!quotes_created_by_fkey(display_name),
+      approval_instance:quote_approval_instances(
+        id,
+        status,
+        current_step,
+        route:approval_routes(name),
+        steps:quote_approval_instance_steps(
+          id,
+          step_order,
+          approver_role,
+          status,
+          approver:users(id, display_name)
+        )
+      )
     `)
     .order('created_at', { ascending: false })
     .range(offset, offset + ITEMS_PER_PAGE - 1)
@@ -89,6 +102,39 @@ export default async function QuotesPage(props: {
     return new Date(dateString).toLocaleDateString('ja-JP')
   }
 
+  const getApprovalInstance = (quote: any) => {
+    const raw = quote.approval_instance
+    if (!raw) return null
+    return Array.isArray(raw) ? (raw[0] ?? null) : raw
+  }
+
+  const getCurrentApproverLabel = (quote: any) => {
+    const instance = getApprovalInstance(quote)
+    if (!instance) {
+      return quote.approval_status === '承認待ち' ? '未設定' : '-'
+    }
+
+    if (instance.status !== 'pending') {
+      return instance.status === 'approved'
+        ? '承認完了'
+        : instance.status === 'rejected'
+          ? '却下済み'
+          : '保留なし'
+    }
+
+    const steps = Array.isArray(instance.steps) ? [...instance.steps] : []
+    steps.sort((a, b) => (a.step_order ?? 0) - (b.step_order ?? 0))
+    const currentStepOrder = instance.current_step ?? (steps[0]?.step_order ?? null)
+    const currentStep = steps.find((step) => step.step_order === currentStepOrder && step.status === 'pending')
+
+    if (!currentStep) {
+      return '要確認'
+    }
+
+    const approverName = currentStep.approver?.display_name
+    return approverName ? `${currentStep.approver_role} (${approverName})` : currentStep.approver_role
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -123,6 +169,7 @@ export default async function QuotesPage(props: {
                       <TableHead>合計金額</TableHead>
                       <TableHead>粗利</TableHead>
                       <TableHead>承認状況</TableHead>
+                      <TableHead>現在の承認者</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -140,6 +187,7 @@ export default async function QuotesPage(props: {
                             {quote.approval_status}
                           </Badge>
                         </TableCell>
+                        <TableCell>{getCurrentApproverLabel(quote)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                             <Link href={`/dashboard/quotes/${quote.id}`}>
@@ -190,6 +238,12 @@ export default async function QuotesPage(props: {
                           <div className="flex justify-between">
                             <span className="text-gray-500">粗利</span>
                             <span className="font-medium">{formatCurrency(Number(quote.gross_profit))}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">現在の承認者</span>
+                            <span className="font-medium text-right max-w-[60%]">
+                              {getCurrentApproverLabel(quote)}
+                            </span>
                           </div>
                         </div>
 

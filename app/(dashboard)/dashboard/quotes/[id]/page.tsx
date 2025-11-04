@@ -68,7 +68,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
           approver_user_id,
           decided_at,
           notes,
-          approver_user:users(id, display_name)
+          approver:users(id, display_name)
         )
       ),
       created_by_user:users!quotes_created_by_fkey(*),
@@ -261,7 +261,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                             {getStepStatusLabel(step.status)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{step.approver_user?.display_name || '-'}</TableCell>
+                        <TableCell>{step.approver?.display_name || '-'}</TableCell>
                         <TableCell>
                           {step.decided_at ? new Date(step.decided_at).toLocaleString('ja-JP') : '-'}
                         </TableCell>

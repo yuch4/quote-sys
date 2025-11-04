@@ -13,6 +13,7 @@ import {
   CreditCard,
   Settings,
   ClipboardList,
+  ClipboardCheck,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -35,6 +36,11 @@ const navigationItems = [
     name: '見積管理',
     href: '/dashboard/quotes',
     icon: FileText,
+  },
+  {
+    name: '承認タスク',
+    href: '/dashboard/approvals',
+    icon: ClipboardCheck,
   },
 ]
 
