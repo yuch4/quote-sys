@@ -89,6 +89,7 @@ export interface Quote {
   created_by_user?: User
   approved_by_user?: User
   purchase_orders?: PurchaseOrder[]
+  approval_instance?: QuoteApprovalInstance
 }
 
 // 明細型
@@ -164,6 +165,59 @@ export interface ProcurementLog {
   // リレーション
   quote_item?: QuoteItem
   performed_by_user?: User
+}
+
+// 承認フロー設定
+export interface ApprovalRoute {
+  id: string
+  name: string
+  description: string | null
+  requester_role: UserRole | null
+  min_total_amount: number | null
+  max_total_amount: number | null
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  steps?: ApprovalRouteStep[]
+}
+
+export interface ApprovalRouteStep {
+  id: string
+  route_id: string
+  step_order: number
+  approver_role: UserRole
+  notes: string | null
+  created_at: string
+}
+
+export type ApprovalInstanceStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type ApprovalStepStatus = 'pending' | 'approved' | 'rejected' | 'skipped'
+
+export interface QuoteApprovalInstance {
+  id: string
+  quote_id: string
+  route_id: string
+  status: ApprovalInstanceStatus
+  current_step: number | null
+  requested_by: string | null
+  requested_at: string
+  updated_at: string
+  rejection_reason: string | null
+  route?: ApprovalRoute
+  steps?: QuoteApprovalInstanceStep[]
+}
+
+export interface QuoteApprovalInstanceStep {
+  id: string
+  instance_id: string
+  step_order: number
+  approver_role: UserRole
+  approver_user_id: string | null
+  status: ApprovalStepStatus
+  decided_at: string | null
+  notes: string | null
+  approver?: User
 }
 
 // 計上申請型

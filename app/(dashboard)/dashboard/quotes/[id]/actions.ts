@@ -3,16 +3,158 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendQuoteApprovalEmail } from '@/lib/email/send'
+import type { ApprovalRouteStep } from '@/types/database'
 
 // 承認依頼を送信
 export async function requestApproval(quoteId: string) {
   const supabase = await createClient()
 
   try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, message: 'ユーザー情報の取得に失敗しました' }
+    }
+
+    const { data: requester } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (!requester) {
+      return { success: false, message: '利用者情報を取得できませんでした' }
+    }
+
+    const { data: quote } = await supabase
+      .from('quotes')
+      .select('id, approval_status, total_amount, created_by')
+      .eq('id', quoteId)
+      .single()
+
+    if (!quote) {
+      return { success: false, message: '見積情報が見つかりませんでした' }
+    }
+
+    if (quote.approval_status !== '下書き') {
+      return { success: false, message: '下書き状態の見積のみ承認依頼できます' }
+    }
+
+    const requesterIsOwner = quote.created_by === requester.id
+    const requesterIsBackOffice = requester.role === '営業事務' || requester.role === '管理者'
+    if (!requesterIsOwner && !requesterIsBackOffice) {
+      return { success: false, message: 'この見積の承認依頼権限がありません' }
+    }
+
+    const totalAmount = Number(quote.total_amount || 0)
+
+    const { data: routesData, error: routesError } = await supabase
+      .from('approval_routes')
+      .select('id, name, requester_role, min_total_amount, max_total_amount, is_active, steps:approval_route_steps(id, step_order, approver_role, notes)')
+      .eq('is_active', true)
+      .order('min_total_amount', { ascending: true })
+
+    if (routesError) throw routesError
+
+    const sortedRoutes = (routesData || []).sort((a, b) => {
+      const aMin = a.min_total_amount ?? 0
+      const bMin = b.min_total_amount ?? 0
+      return aMin - bMin
+    })
+
+    const matchedRoute = sortedRoutes.find((route) => {
+      const matchesRole = !route.requester_role || route.requester_role === requester.role
+      const matchesMin = route.min_total_amount == null || totalAmount >= Number(route.min_total_amount)
+      const matchesMax = route.max_total_amount == null || totalAmount <= Number(route.max_total_amount)
+      return matchesRole && matchesMin && matchesMax
+    })
+
+    if (!matchedRoute) {
+      return {
+        success: false,
+        message: '適用可能な承認フローが見つかりません。管理者にお問い合わせください。',
+      }
+    }
+
+    const steps = [...((matchedRoute.steps || []) as ApprovalRouteStep[])].sort(
+      (a, b) => a.step_order - b.step_order
+    )
+
+    if (steps.length === 0) {
+      return { success: false, message: '承認フローに承認ステップが設定されていません' }
+    }
+
+    const { data: existingInstance } = await supabase
+      .from('quote_approval_instances')
+      .select('id, status')
+      .eq('quote_id', quoteId)
+      .maybeSingle()
+
+    if (existingInstance && existingInstance.status === 'pending') {
+      return { success: false, message: '既に承認依頼が進行中です' }
+    }
+
+    let instanceId: string | null = existingInstance?.id ?? null
+
+    if (existingInstance) {
+      // 既存のステップをリセット
+      await supabase
+        .from('quote_approval_instance_steps')
+        .delete()
+        .eq('instance_id', existingInstance.id)
+
+      const { error: updateInstanceError } = await supabase
+        .from('quote_approval_instances')
+        .update({
+          route_id: matchedRoute.id,
+          status: 'pending',
+          current_step: steps[0]?.step_order ?? null,
+          requested_by: requester.id,
+          requested_at: new Date().toISOString(),
+          rejection_reason: null,
+        })
+        .eq('id', existingInstance.id)
+
+      if (updateInstanceError) throw updateInstanceError
+    } else {
+      const { data: newInstance, error: insertInstanceError } = await supabase
+        .from('quote_approval_instances')
+        .insert({
+          quote_id: quoteId,
+          route_id: matchedRoute.id,
+          status: 'pending',
+          current_step: steps[0]?.step_order ?? null,
+          requested_by: requester.id,
+        })
+        .select()
+        .single()
+
+      if (insertInstanceError) throw insertInstanceError
+      instanceId = newInstance.id
+    }
+
+    if (!instanceId) {
+      return { success: false, message: '承認インスタンスの作成に失敗しました' }
+    }
+
+    const stepRows = steps.map((step) => ({
+      instance_id: instanceId,
+      step_order: step.step_order,
+      approver_role: step.approver_role,
+      status: 'pending' as const,
+    }))
+
+    const { error: insertStepsError } = await supabase
+      .from('quote_approval_instance_steps')
+      .insert(stepRows)
+
+    if (insertStepsError) throw insertStepsError
+
     const { error } = await supabase
       .from('quotes')
       .update({
         approval_status: '承認待ち',
+        approved_by: null,
+        approved_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', quoteId)
@@ -23,7 +165,10 @@ export async function requestApproval(quoteId: string) {
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
 
-    return { success: true, message: '承認依頼を送信しました' }
+    return {
+      success: true,
+      message: `${matchedRoute.name} の承認フローに依頼を送信しました`,
+    }
   } catch (error) {
     console.error('承認依頼エラー:', error)
     return { success: false, message: '承認依頼の送信に失敗しました' }
@@ -34,27 +179,126 @@ export async function approveQuote(quoteId: string, userId: string) {
   const supabase = await createClient()
 
   try {
-    const { error } = await supabase
+    const { data: approver } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', userId)
+      .single()
+
+    if (!approver) {
+      return { success: false, message: '承認者情報を取得できませんでした' }
+    }
+
+    const { data: instance } = await supabase
+      .from('quote_approval_instances')
+      .select(`
+        id,
+        status,
+        current_step,
+        quote_id,
+        steps:quote_approval_instance_steps(
+          id,
+          step_order,
+          approver_role,
+          status
+        )
+      `)
+      .eq('quote_id', quoteId)
+      .maybeSingle()
+
+    if (!instance || instance.status !== 'pending') {
+      return { success: false, message: '承認待ちの承認フローが見つかりませんでした' }
+    }
+
+    const orderedSteps = [...(instance.steps || [])].sort((a, b) => a.step_order - b.step_order)
+    const currentStep = orderedSteps.find(
+      (step) =>
+        step.status === 'pending' &&
+        step.step_order === (instance.current_step ?? orderedSteps[0]?.step_order)
+    )
+
+    if (!currentStep) {
+      return { success: false, message: '承認待ちのステップが見つかりませんでした' }
+    }
+
+    if (currentStep.approver_role !== approver.role) {
+      return { success: false, message: `このステップは${currentStep.approver_role}が承認する必要があります` }
+    }
+
+    const { error: stepUpdateError } = await supabase
+      .from('quote_approval_instance_steps')
+      .update({
+        status: 'approved',
+        approver_user_id: userId,
+        decided_at: new Date().toISOString(),
+      })
+      .eq('id', currentStep.id)
+      .eq('status', 'pending')
+
+    if (stepUpdateError) throw stepUpdateError
+
+    const remainingSteps = orderedSteps.filter(
+      (step) => step.step_order > currentStep.step_order && step.status === 'pending'
+    )
+
+    if (remainingSteps.length > 0) {
+      const nextStep = remainingSteps[0]
+      const { error: instanceUpdateError } = await supabase
+        .from('quote_approval_instances')
+        .update({
+          current_step: nextStep.step_order,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', instance.id)
+
+      if (instanceUpdateError) throw instanceUpdateError
+
+      revalidatePath(`/dashboard/quotes/${quoteId}`)
+      revalidatePath('/dashboard/quotes')
+
+      return {
+        success: true,
+        message: `承認しました。次の承認者は${nextStep.approver_role}です。`,
+      }
+    }
+
+    const now = new Date().toISOString()
+
+    const { error: instanceCompleteError } = await supabase
+      .from('quote_approval_instances')
+      .update({
+        status: 'approved',
+        current_step: null,
+        updated_at: now,
+      })
+      .eq('id', instance.id)
+
+    if (instanceCompleteError) throw instanceCompleteError
+
+    const { error: quoteUpdateError } = await supabase
       .from('quotes')
       .update({
         approval_status: '承認済み',
         approved_by: userId,
-        approved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        approved_at: now,
+        updated_at: now,
       })
       .eq('id', quoteId)
       .eq('approval_status', '承認待ち')
 
-    if (error) throw error
+    if (quoteUpdateError) throw quoteUpdateError
 
     // TODO: メール通知をAPIルート経由で送信
 
-    return { success: true }
+    revalidatePath(`/dashboard/quotes/${quoteId}`)
+    revalidatePath('/dashboard/quotes')
+
+    return { success: true, message: '承認が完了しました' }
   } catch (error) {
     console.error('Quote approval error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      message: error instanceof Error ? error.message : '承認処理でエラーが発生しました',
     }
   }
 }
@@ -64,32 +308,97 @@ export async function rejectQuote(quoteId: string, userId: string, rejectReason?
   const supabase = await createClient()
 
   try {
-    // 承認者情報を取得
-    const { data: approverData } = await supabase
+    const { data: approver } = await supabase
       .from('users')
-      .select('display_name')
+      .select('id, role, display_name')
       .eq('id', userId)
       .single()
 
-    const { error } = await supabase
+    if (!approver) {
+      return { success: false, message: '承認者情報を取得できませんでした' }
+    }
+
+    const { data: instance } = await supabase
+      .from('quote_approval_instances')
+      .select(`
+        id,
+        status,
+        current_step,
+        quote_id,
+        steps:quote_approval_instance_steps(
+          id,
+          step_order,
+          approver_role,
+          status
+        )
+      `)
+      .eq('quote_id', quoteId)
+      .maybeSingle()
+
+    if (!instance || instance.status !== 'pending') {
+      return { success: false, message: '却下対象の承認フローが見つかりませんでした' }
+    }
+
+    const orderedSteps = [...(instance.steps || [])].sort((a, b) => a.step_order - b.step_order)
+    const currentStep = orderedSteps.find(
+      (step) =>
+        step.status === 'pending' &&
+        step.step_order === (instance.current_step ?? orderedSteps[0]?.step_order)
+    )
+
+    if (!currentStep) {
+      return { success: false, message: '却下対象のステップが見つかりませんでした' }
+    }
+
+    if (currentStep.approver_role !== approver.role) {
+      return { success: false, message: `このステップは${currentStep.approver_role}が処理する必要があります` }
+    }
+
+    const now = new Date().toISOString()
+
+    const { error: stepRejectError } = await supabase
+      .from('quote_approval_instance_steps')
+      .update({
+        status: 'rejected',
+        approver_user_id: userId,
+        decided_at: now,
+        notes: rejectReason || null,
+      })
+      .eq('id', currentStep.id)
+      .eq('status', 'pending')
+
+    if (stepRejectError) throw stepRejectError
+
+    const { error: instanceRejectError } = await supabase
+      .from('quote_approval_instances')
+      .update({
+        status: 'rejected',
+        current_step: null,
+        rejection_reason: rejectReason || null,
+        updated_at: now,
+      })
+      .eq('id', instance.id)
+
+    if (instanceRejectError) throw instanceRejectError
+
+    const { error: quoteUpdateError } = await supabase
       .from('quotes')
       .update({
         approval_status: '却下',
         approved_by: userId,
-        approved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        approved_at: now,
+        updated_at: now,
       })
       .eq('id', quoteId)
       .eq('approval_status', '承認待ち')
 
-    if (error) throw error
+    if (quoteUpdateError) throw quoteUpdateError
 
-    // メール通知を送信（非同期、エラーでも処理は継続）
-    if (approverData) {
+    if (approver.display_name) {
       sendQuoteApprovalEmail(
         quoteId,
         '却下',
-        approverData.display_name,
+        approver.display_name,
         rejectReason
       ).catch(err => console.error('Email send failed:', err))
     }
@@ -109,6 +418,29 @@ export async function returnToDraft(quoteId: string) {
   const supabase = await createClient()
 
   try {
+    const { data: instance } = await supabase
+      .from('quote_approval_instances')
+      .select('id')
+      .eq('quote_id', quoteId)
+      .maybeSingle()
+
+    if (instance) {
+      await supabase
+        .from('quote_approval_instance_steps')
+        .delete()
+        .eq('instance_id', instance.id)
+
+      await supabase
+        .from('quote_approval_instances')
+        .update({
+          status: 'cancelled',
+          current_step: null,
+          rejection_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', instance.id)
+    }
+
     const { error } = await supabase
       .from('quotes')
       .update({

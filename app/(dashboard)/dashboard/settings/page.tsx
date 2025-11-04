@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -42,6 +43,42 @@ interface Supplier {
   created_at: string
 }
 
+interface ApprovalRoute {
+  id: string
+  name: string
+  description: string | null
+  requester_role: string | null
+  min_total_amount: number | null
+  max_total_amount: number | null
+  is_active: boolean
+  created_at: string
+  steps: ApprovalRouteStep[]
+}
+
+interface ApprovalRouteStep {
+  id: string
+  step_order: number
+  approver_role: string
+  notes: string | null
+}
+
+type ApprovalRouteFormStep = {
+  clientId: string
+  approver_role: string
+  notes: string
+}
+
+interface ApprovalRouteFormState {
+  id?: string
+  name: string
+  description: string
+  requester_role: string
+  min_total_amount: string
+  max_total_amount: string
+  is_active: boolean
+  steps: ApprovalRouteFormStep[]
+}
+
 type DialogMode = 'create' | 'edit'
 type DataType = 'user' | 'customer' | 'supplier'
 
@@ -56,6 +93,7 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [approvalRoutes, setApprovalRoutes] = useState<ApprovalRoute[]>([])
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -66,6 +104,31 @@ export default function SettingsPage() {
   // フォーム
   const [formData, setFormData] = useState<any>({})
   const [submitting, setSubmitting] = useState(false)
+  const [routeDialogOpen, setRouteDialogOpen] = useState(false)
+  const [routeDialogMode, setRouteDialogMode] = useState<DialogMode>('create')
+  const [routeSubmitting, setRouteSubmitting] = useState(false)
+  const [routeForm, setRouteForm] = useState<ApprovalRouteFormState>({
+    name: '',
+    description: '',
+    requester_role: 'all',
+    min_total_amount: '',
+    max_total_amount: '',
+    is_active: true,
+    steps: [],
+  })
+
+  const generateClientId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID()
+    }
+    return Math.random().toString(36).slice(2)
+  }
+
+  const createEmptyStep = (role: string = '営業事務'): ApprovalRouteFormStep => ({
+    clientId: generateClientId(),
+    approver_role: role,
+    notes: '',
+  })
 
   useEffect(() => {
     loadCurrentUser()
@@ -102,21 +165,265 @@ export default function SettingsPage() {
 
   const loadAllData = async () => {
     try {
-      const [usersRes, customersRes, suppliersRes] = await Promise.all([
+      const [usersRes, customersRes, suppliersRes, routesRes] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('approval_routes')
+          .select('*, steps:approval_route_steps(*)')
+          .order('min_total_amount', { ascending: true })
+          .order('step_order', { ascending: true, foreignTable: 'approval_route_steps' }),
       ])
 
       if (usersRes.data) setUsers(usersRes.data)
       if (customersRes.data) setCustomers(customersRes.data)
       if (suppliersRes.data) setSuppliers(suppliersRes.data)
+      if (routesRes.data) {
+        const mapped = routesRes.data.map((route) => ({
+          ...route,
+          steps: (route.steps || []).sort((a: ApprovalRouteStep, b: ApprovalRouteStep) => a.step_order - b.step_order),
+        })) as ApprovalRoute[]
+        setApprovalRoutes(mapped)
+      }
 
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)
       toast.error('データの読込に失敗しました')
       setLoading(false)
+    }
+  }
+
+  const openRouteDialog = (mode: DialogMode, route?: ApprovalRoute) => {
+    setRouteDialogMode(mode)
+    if (mode === 'edit' && route) {
+      setRouteForm({
+        id: route.id,
+        name: route.name,
+        description: route.description || '',
+        requester_role: route.requester_role || 'all',
+        min_total_amount: route.min_total_amount != null ? String(Number(route.min_total_amount)) : '',
+        max_total_amount: route.max_total_amount != null ? String(Number(route.max_total_amount)) : '',
+        is_active: route.is_active,
+        steps: (route.steps && route.steps.length > 0
+          ? route.steps
+          : [createEmptyStep()]
+        ).map((step) => ({
+          clientId: generateClientId(),
+          approver_role: step.approver_role,
+          notes: step.notes || '',
+        })),
+      })
+    } else {
+      setRouteForm({
+        name: '',
+        description: '',
+        requester_role: 'all',
+        min_total_amount: '',
+        max_total_amount: '',
+        is_active: true,
+        steps: [createEmptyStep()],
+      })
+    }
+    setRouteDialogOpen(true)
+  }
+
+  const updateRouteStepRole = (clientId: string, role: string) => {
+    setRouteForm((prev) => ({
+      ...prev,
+      steps: prev.steps.map((step) =>
+        step.clientId === clientId ? { ...step, approver_role: role } : step
+      ),
+    }))
+  }
+
+  const updateRouteStepNotes = (clientId: string, notes: string) => {
+    setRouteForm((prev) => ({
+      ...prev,
+      steps: prev.steps.map((step) =>
+        step.clientId === clientId ? { ...step, notes } : step
+      ),
+    }))
+  }
+
+  const removeRouteStep = (clientId: string) => {
+    setRouteForm((prev) => {
+      if (prev.steps.length <= 1) return prev
+      return {
+        ...prev,
+        steps: prev.steps.filter((step) => step.clientId !== clientId),
+      }
+    })
+  }
+
+  const moveRouteStep = (index: number, direction: 'up' | 'down') => {
+    setRouteForm((prev) => {
+      const steps = [...prev.steps]
+      const targetIndex = direction === 'up' ? index - 1 : index + 1
+      if (targetIndex < 0 || targetIndex >= steps.length) return prev
+      const temp = steps[targetIndex]
+      steps[targetIndex] = steps[index]
+      steps[index] = temp
+      return { ...prev, steps }
+    })
+  }
+
+  const addRouteStep = () => {
+    setRouteForm((prev) => ({
+      ...prev,
+      steps: [...prev.steps, createEmptyStep(prev.steps.at(-1)?.approver_role || '営業事務')],
+    }))
+  }
+
+  const handleRouteFieldChange = (field: keyof ApprovalRouteFormState, value: string | boolean) => {
+    setRouteForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  const formatCurrency = (value: number) => {
+    if (Number.isNaN(value)) return '¥0'
+    return `¥${value.toLocaleString()}`
+  }
+
+  const getAmountRangeLabel = (route: ApprovalRoute) => {
+    const min = route.min_total_amount != null ? Number(route.min_total_amount) : null
+    const max = route.max_total_amount != null ? Number(route.max_total_amount) : null
+    if (min == null && max == null) return 'すべて'
+    if (min != null && max != null) return `${formatCurrency(min)} ～ ${formatCurrency(max)}`
+    if (min != null) return `${formatCurrency(min)} 以上`
+    return `${formatCurrency(max!)} 以下`
+  }
+
+  const getRoleLabel = (role: string | null) => {
+    if (!role || role === 'all') return '全役職'
+    return role
+  }
+
+  const handleSaveRoute = async () => {
+    if (!routeForm.name.trim()) {
+      toast.error('フロー名を入力してください')
+      return
+    }
+    if (routeForm.steps.length === 0) {
+      toast.error('承認ステップを1件以上追加してください')
+      return
+    }
+
+    const minAmount = routeForm.min_total_amount ? Number(routeForm.min_total_amount) : null
+    const maxAmount = routeForm.max_total_amount ? Number(routeForm.max_total_amount) : null
+    if (minAmount != null && maxAmount != null && minAmount > maxAmount) {
+      toast.error('金額範囲の最小値は最大値以下である必要があります')
+      return
+    }
+
+    setRouteSubmitting(true)
+    try {
+      const requesterRoleValue = routeForm.requester_role === 'all' ? null : routeForm.requester_role
+
+      if (routeDialogMode === 'create') {
+        const { data: newRoute, error: insertError } = await supabase
+          .from('approval_routes')
+          .insert({
+            name: routeForm.name.trim(),
+            description: routeForm.description.trim() || null,
+            requester_role: requesterRoleValue,
+            min_total_amount: minAmount,
+            max_total_amount: maxAmount,
+            is_active: routeForm.is_active,
+          })
+          .select()
+          .single()
+
+        if (insertError) throw insertError
+
+        const stepsPayload = routeForm.steps.map((step, index) => ({
+          route_id: newRoute.id,
+          step_order: index + 1,
+          approver_role: step.approver_role,
+          notes: step.notes.trim() ? step.notes.trim() : null,
+        }))
+
+        if (stepsPayload.length > 0) {
+          const { error: stepsError } = await supabase
+            .from('approval_route_steps')
+            .insert(stepsPayload)
+
+          if (stepsError) throw stepsError
+        }
+      } else if (routeForm.id) {
+        const { error: updateError } = await supabase
+          .from('approval_routes')
+          .update({
+            name: routeForm.name.trim(),
+            description: routeForm.description.trim() || null,
+            requester_role: requesterRoleValue,
+            min_total_amount: minAmount,
+            max_total_amount: maxAmount,
+            is_active: routeForm.is_active,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', routeForm.id)
+
+        if (updateError) throw updateError
+
+        await supabase.from('approval_route_steps').delete().eq('route_id', routeForm.id)
+
+        const stepsPayload = routeForm.steps.map((step, index) => ({
+          route_id: routeForm.id,
+          step_order: index + 1,
+          approver_role: step.approver_role,
+          notes: step.notes.trim() ? step.notes.trim() : null,
+        }))
+
+        if (stepsPayload.length > 0) {
+          const { error: stepsError } = await supabase
+            .from('approval_route_steps')
+            .insert(stepsPayload)
+
+          if (stepsError) throw stepsError
+        }
+      }
+
+      toast.success(routeDialogMode === 'create' ? '承認フローを追加しました' : '承認フローを更新しました')
+      setRouteDialogOpen(false)
+      loadAllData()
+    } catch (error) {
+      console.error('承認フロー保存エラー:', error)
+      toast.error('承認フローの保存に失敗しました')
+    } finally {
+      setRouteSubmitting(false)
+    }
+  }
+
+  const handleToggleRoute = async (route: ApprovalRoute) => {
+    try {
+      const { error } = await supabase
+        .from('approval_routes')
+        .update({ is_active: !route.is_active })
+        .eq('id', route.id)
+
+      if (error) throw error
+      toast.success('承認フローのステータスを更新しました')
+      loadAllData()
+    } catch (error) {
+      console.error('承認フローステータス更新エラー:', error)
+      toast.error('承認フローの更新に失敗しました')
+    }
+  }
+
+  const handleDeleteRoute = async (route: ApprovalRoute) => {
+    if (!confirm(`承認フロー「${route.name}」を削除しますか？`)) return
+    try {
+      const { error } = await supabase.from('approval_routes').delete().eq('id', route.id)
+      if (error) throw error
+      toast.success('承認フローを削除しました')
+      loadAllData()
+    } catch (error) {
+      console.error('承認フロー削除エラー:', error)
+      toast.error('承認フローの削除に失敗しました')
     }
   }
 
@@ -289,7 +596,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">設定・マスタ管理</h1>
-        <p className="text-gray-600 mt-2">ユーザー・顧客・仕入先のマスタデータ管理</p>
+        <p className="text-gray-600 mt-2">ユーザー・顧客・仕入先・承認フローの管理</p>
       </div>
 
       <Tabs defaultValue="customers" className="w-full">
@@ -297,6 +604,7 @@ export default function SettingsPage() {
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
           <TabsTrigger value="users">ユーザー管理</TabsTrigger>
+          <TabsTrigger value="approval">承認フロー</TabsTrigger>
         </TabsList>
 
         {/* 顧客マスタ */}
@@ -507,6 +815,96 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="approval">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>承認フロー設定</CardTitle>
+                  <CardDescription>役職や金額条件に応じて承認ステップを構成できます</CardDescription>
+                </div>
+                <Button onClick={() => openRouteDialog('create')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  フローを追加
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>フロー名</TableHead>
+                    <TableHead>申請者条件</TableHead>
+                    <TableHead>金額範囲</TableHead>
+                    <TableHead>承認ステップ</TableHead>
+                    <TableHead>状態</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {approvalRoutes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-gray-500">
+                        承認フローが設定されていません
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    approvalRoutes.map((route) => (
+                      <TableRow key={route.id}>
+                        <TableCell className="font-medium">
+                          <div>{route.name}</div>
+                          {route.description ? (
+                            <div className="text-xs text-gray-500 mt-1">{route.description}</div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>{getRoleLabel(route.requester_role)}</TableCell>
+                        <TableCell>{getAmountRangeLabel(route)}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {route.steps.map((step) => (
+                              <div key={step.id} className="text-sm">
+                                {step.step_order}. {step.approver_role}
+                                {step.notes ? <span className="text-gray-500"> - {step.notes}</span> : null}
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={route.is_active ? 'text-green-600 font-medium' : 'text-gray-500'}
+                          >
+                            {route.is_active ? '有効' : '無効'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openRouteDialog('edit', route)}>
+                              編集
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleRoute(route)}
+                            >
+                              {route.is_active ? '無効化' : '有効化'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteRoute(route)}
+                            >
+                              削除
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* 編集・登録ダイアログ */}
@@ -632,6 +1030,188 @@ export default function SettingsPage() {
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>
               {submitting ? '保存中...' : dialogMode === 'create' ? '登録' : '更新'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={routeDialogOpen} onOpenChange={setRouteDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {routeDialogMode === 'create' ? '承認フローの追加' : '承認フローの編集'}
+            </DialogTitle>
+            <DialogDescription>
+              役職や金額条件に応じた承認ステップを設定してください。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="route-name">フロー名 *</Label>
+                <Input
+                  id="route-name"
+                  value={routeForm.name}
+                  onChange={(e) => handleRouteFieldChange('name', e.target.value)}
+                  placeholder="例: 営業 標準フロー"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="route-requester">適用申請者</Label>
+                <Select
+                  value={routeForm.requester_role}
+                  onValueChange={(value) => handleRouteFieldChange('requester_role', value)}
+                >
+                  <SelectTrigger id="route-requester">
+                    <SelectValue placeholder="対象を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全役職</SelectItem>
+                    <SelectItem value="営業">営業</SelectItem>
+                    <SelectItem value="営業事務">営業事務</SelectItem>
+                    <SelectItem value="管理者">管理者</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="route-description">説明</Label>
+              <Textarea
+                id="route-description"
+                value={routeForm.description}
+                onChange={(e) => handleRouteFieldChange('description', e.target.value)}
+                rows={3}
+                placeholder="フローの補足説明があれば入力してください"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="route-min">最小金額</Label>
+                <Input
+                  id="route-min"
+                  type="number"
+                  min={0}
+                  value={routeForm.min_total_amount}
+                  onChange={(e) => handleRouteFieldChange('min_total_amount', e.target.value)}
+                  placeholder="例: 100000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="route-max">最大金額</Label>
+                <Input
+                  id="route-max"
+                  type="number"
+                  min={0}
+                  value={routeForm.max_total_amount}
+                  onChange={(e) => handleRouteFieldChange('max_total_amount', e.target.value)}
+                  placeholder="未入力の場合は上限なし"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="route-status">ステータス</Label>
+              <Select
+                value={routeForm.is_active ? 'active' : 'inactive'}
+                onValueChange={(value) => handleRouteFieldChange('is_active', value === 'active')}
+              >
+                <SelectTrigger id="route-status">
+                  <SelectValue placeholder="選択してください" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">有効</SelectItem>
+                  <SelectItem value="inactive">無効</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>承認ステップ</Label>
+                <Button variant="outline" size="sm" onClick={addRouteStep}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  ステップ追加
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {routeForm.steps.map((step, index) => (
+                  <div key={step.clientId} className="border rounded-md p-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">ステップ {index + 1}</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => moveRouteStep(index, 'up')}
+                          disabled={index === 0}
+                        >
+                          上へ
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => moveRouteStep(index, 'down')}
+                          disabled={index === routeForm.steps.length - 1}
+                        >
+                          下へ
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => removeRouteStep(step.clientId)}
+                          disabled={routeForm.steps.length === 1}
+                        >
+                          削除
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>承認者の役職</Label>
+                        <Select
+                          value={step.approver_role}
+                          onValueChange={(value) => updateRouteStepRole(step.clientId, value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="役職を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="営業">営業</SelectItem>
+                            <SelectItem value="営業事務">営業事務</SelectItem>
+                            <SelectItem value="管理者">管理者</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>メモ</Label>
+                        <Input
+                          value={step.notes}
+                          onChange={(e) => updateRouteStepNotes(step.clientId, e.target.value)}
+                          placeholder="任意"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRouteDialogOpen(false)}
+              disabled={routeSubmitting}
+            >
+              キャンセル
+            </Button>
+            <Button onClick={handleSaveRoute} disabled={routeSubmitting}>
+              {routeSubmitting ? '保存中...' : '保存する'}
             </Button>
           </DialogFooter>
         </DialogContent>

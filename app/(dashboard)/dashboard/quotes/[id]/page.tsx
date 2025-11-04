@@ -8,7 +8,7 @@ import { PDFGenerateButton } from '@/components/quotes/pdf-generate-button'
 import { VersionHistory } from '@/components/quotes/version-history'
 import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
 import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
-import type { QuoteItem, PurchaseOrder, PurchaseOrderItem } from '@/types/database'
+import type { QuoteItem, PurchaseOrder, PurchaseOrderItem, QuoteApprovalInstance } from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -45,6 +45,30 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         items:purchase_order_items(
           *,
           quote_item:quote_items(id, line_number, product_name)
+        )
+      ),
+      approval_instance:quote_approval_instances(
+        id,
+        status,
+        current_step,
+        requested_by,
+        requested_at,
+        route:approval_routes(
+          id,
+          name,
+          requester_role,
+          min_total_amount,
+          max_total_amount
+        ),
+        steps:quote_approval_instance_steps(
+          id,
+          step_order,
+          approver_role,
+          status,
+          approver_user_id,
+          decided_at,
+          notes,
+          approver_user:users(id, display_name)
         )
       ),
       created_by_user:users!quotes_created_by_fkey(*),
@@ -91,6 +115,33 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     return new Date(dateString).toLocaleDateString('ja-JP')
   }
 
+  const getStepStatusLabel = (status: string) => {
+    switch (status) {
+      case 'approved': return '承認済み'
+      case 'rejected': return '却下'
+      case 'skipped': return 'スキップ'
+      case 'cancelled': return 'キャンセル'
+      case 'pending':
+      default:
+        return '承認待ち'
+    }
+  }
+
+  const getStepBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'approved': return 'default'
+      case 'rejected': return 'destructive'
+      case 'skipped': return 'outline'
+      case 'cancelled': return 'outline'
+      default: return 'secondary'
+    }
+  }
+
+  const getRoleLabel = (role?: string | null) => {
+    if (!role || role === 'all') return '全役職'
+    return role
+  }
+
   const quoteItems = (quote.items || []) as QuoteItem[]
   const sortedItems = [...quoteItems].sort((a, b) => a.line_number - b.line_number)
   const pendingProcurementItems = quoteItems.filter(
@@ -100,6 +151,27 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
   const sortedPurchaseOrders = [...purchaseOrders].sort(
     (a, b) => new Date(b.order_date || '').getTime() - new Date(a.order_date || '').getTime()
   )
+  const approvalInstanceRaw = quote.approval_instance as QuoteApprovalInstance | QuoteApprovalInstance[] | null
+  const approvalInstance = (Array.isArray(approvalInstanceRaw)
+    ? (approvalInstanceRaw[0] ?? null)
+    : approvalInstanceRaw ?? null) as QuoteApprovalInstance | null
+  const approvalSteps = approvalInstance
+    ? [...(approvalInstance.steps || [])].sort((a, b) => a.step_order - b.step_order)
+    : []
+  const approvalAmountRange = approvalInstance?.route
+    ? (() => {
+        const min = approvalInstance.route?.min_total_amount != null
+          ? Number(approvalInstance.route.min_total_amount)
+          : null
+        const max = approvalInstance.route?.max_total_amount != null
+          ? Number(approvalInstance.route.max_total_amount)
+          : null
+        if (min == null && max == null) return 'すべて'
+        if (min != null && max != null) return `${formatCurrency(min)} ～ ${formatCurrency(max)}`
+        if (min != null) return `${formatCurrency(min)} 以上`
+        return `${formatCurrency(max!)} 以下`
+      })()
+    : null
 
   return (
     <div className="space-y-6">
@@ -125,6 +197,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
             currentUserId={currentUser?.id || ''}
             currentUserRole={currentUser?.role || ''}
             createdBy={quote.created_by}
+            approvalInstance={approvalInstance || undefined}
           />
           {quote.approval_status === '承認済み' && (
             <Link href={`/dashboard/quotes/${quote.id}/revise`}>
@@ -141,6 +214,67 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
           </Link>
         </div>
       </div>
+
+      {approvalInstance && (
+        <Card>
+          <CardHeader>
+            <CardTitle>承認フロー状況</CardTitle>
+            <CardDescription>
+              {approvalInstance.route?.name || '承認フロー'} / ステータス: {getStepStatusLabel(approvalInstance.status)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+              <div>
+                <span className="font-medium text-gray-800">申請者条件:</span> {getRoleLabel(approvalInstance.route?.requester_role)}
+              </div>
+              <div>
+                <span className="font-medium text-gray-800">対象金額:</span> {approvalAmountRange || 'すべて'}
+              </div>
+            </div>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px]">順序</TableHead>
+                    <TableHead>承認者ロール</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>承認者</TableHead>
+                    <TableHead>承認日時</TableHead>
+                    <TableHead>メモ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {approvalSteps.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-gray-500">
+                        承認ステップがありません
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    approvalSteps.map((step) => (
+                      <TableRow key={step.id}>
+                        <TableCell>{step.step_order}</TableCell>
+                        <TableCell>{step.approver_role}</TableCell>
+                        <TableCell>
+                          <Badge variant={getStepBadgeVariant(step.status)}>
+                            {getStepStatusLabel(step.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{step.approver_user?.display_name || '-'}</TableCell>
+                        <TableCell>
+                          {step.decided_at ? new Date(step.decided_at).toLocaleString('ja-JP') : '-'}
+                        </TableCell>
+                        <TableCell>{step.notes || '-'}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-3 gap-6">
         <Card className="col-span-2">

@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { requestApproval, approveQuote, rejectQuote, returnToDraft } from '@/app/(dashboard)/dashboard/quotes/[id]/actions'
+import type { QuoteApprovalInstance, QuoteApprovalInstanceStep } from '@/types/database'
 
 interface ApprovalActionsProps {
   quoteId: string
@@ -21,6 +22,7 @@ interface ApprovalActionsProps {
   currentUserId: string
   currentUserRole: string
   createdBy: string
+  approvalInstance?: QuoteApprovalInstance | null
 }
 
 export function ApprovalActions({
@@ -29,6 +31,7 @@ export function ApprovalActions({
   currentUserId,
   currentUserRole,
   createdBy,
+  approvalInstance,
 }: ApprovalActionsProps) {
   const [loading, setLoading] = useState(false)
 
@@ -42,13 +45,15 @@ export function ApprovalActions({
   const handleApprove = async () => {
     setLoading(true)
     const result = await approveQuote(quoteId, currentUserId)
-    alert(result.message)
+    const message = result?.message || (result.success ? '承認処理が完了しました' : '承認処理に失敗しました')
+    alert(message)
     setLoading(false)
   }
 
   const handleReject = async () => {
+    const reason = window.prompt('却下理由（任意）を入力してください') || undefined
     setLoading(true)
-    const result = await rejectQuote(quoteId, currentUserId)
+    const result = await rejectQuote(quoteId, currentUserId, reason)
     alert(result.message)
     setLoading(false)
   }
@@ -64,10 +69,43 @@ export function ApprovalActions({
   const canRequestApproval = approvalStatus === '下書き' && currentUserId === createdBy
 
   // 営業事務/管理者：承認待ちの場合に承認・却下可能
-  const canApprove = approvalStatus === '承認待ち' && (currentUserRole === '営業事務' || currentUserRole === '管理者')
+  const pendingStep: QuoteApprovalInstanceStep | undefined = (() => {
+    if (!approvalInstance || approvalInstance.status !== 'pending') return undefined
+    const steps = [...(approvalInstance.steps || [])].sort((a, b) => a.step_order - b.step_order)
+    return steps.find(
+      (step) =>
+        step.status === 'pending' &&
+        step.step_order === (approvalInstance.current_step ?? steps[0]?.step_order)
+    )
+  })()
+
+  const canApprove =
+    approvalStatus === '承認待ち' &&
+    pendingStep != null &&
+    pendingStep.approver_role === currentUserRole
 
   // 作成者：却下された場合に下書きに戻せる
   const canReturnToDraft = approvalStatus === '却下' && currentUserId === createdBy
+
+  const routeName = Array.isArray(approvalInstance?.route)
+    ? approvalInstance?.route[0]?.name
+    : approvalInstance?.route?.name
+  const nextRoleLabel =
+    pendingStep && approvalInstance?.status === 'pending'
+      ? `現在の承認担当: ${pendingStep.approver_role}`
+      : approvalInstance?.status === 'approved'
+        ? '承認完了'
+        : approvalInstance?.status === 'rejected'
+          ? '却下済み'
+          : approvalInstance?.status === 'cancelled'
+            ? '承認フローはキャンセルされています'
+            : undefined
+  const missingStepWarning =
+    approvalStatus === '承認待ち' &&
+    approvalInstance?.status === 'pending' &&
+    !pendingStep
+      ? '承認ステップが判定できません。フロー設定を確認してください。'
+      : undefined
 
   return (
     <div className="flex gap-2">
@@ -161,6 +199,14 @@ export function ApprovalActions({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {routeName && (
+        <div className="px-3 py-2 border rounded-md text-sm text-gray-600 bg-muted/50">
+          <div className="font-medium text-gray-800">承認フロー: {routeName}</div>
+          {nextRoleLabel ? <div>{nextRoleLabel}</div> : null}
+          {missingStepWarning ? <div className="text-red-600">{missingStepWarning}</div> : null}
+        </div>
       )}
     </div>
   )
