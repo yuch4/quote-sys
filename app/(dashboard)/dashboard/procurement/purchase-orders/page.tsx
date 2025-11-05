@@ -1,6 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { PurchaseOrderTable } from '@/components/purchase-orders/purchase-order-table'
+import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 import type { PurchaseOrderListItem } from '@/components/purchase-orders/purchase-order-table'
+
+type QuoteOption = {
+  id: string
+  quote_number: string
+  project_name: string | null
+}
 
 export default async function PurchaseOrdersPage() {
   const supabase = await createClient()
@@ -41,6 +48,8 @@ export default async function PurchaseOrdersPage() {
         quantity,
         unit_cost,
         amount,
+        manual_name,
+        manual_description,
         quote_item:quote_items(
           id,
           line_number,
@@ -68,6 +77,33 @@ export default async function PurchaseOrdersPage() {
     return <p className="text-sm text-destructive">発注書の取得に失敗しました。</p>
   }
 
+  const { data: quotesData } = await supabase
+    .from('quotes')
+    .select(`
+      id,
+      quote_number,
+      approval_status,
+      project:projects(project_name)
+    `)
+    .order('issue_date', { ascending: false })
+
+  const quoteOptions: QuoteOption[] =
+    (quotesData || [])
+      .filter((quote) => quote.approval_status === '承認済み')
+      .map((quote) => ({
+        id: quote.id,
+        quote_number: quote.quote_number,
+        project_name: quote.project?.project_name ?? null,
+      }))
+
+  const { data: suppliersData } = await supabase
+    .from('suppliers')
+    .select('id, supplier_name')
+    .eq('is_deleted', false)
+    .order('supplier_name', { ascending: true })
+
+  const suppliers = suppliersData || []
+
   const normalized: PurchaseOrderListItem[] = (orders || []).map((order) => {
     const approvalInstanceRaw = order.approval_instance
     const approvalInstance = Array.isArray(approvalInstanceRaw)
@@ -92,6 +128,8 @@ export default async function PurchaseOrdersPage() {
         quantity: Number(item.quantity || 0),
         unit_cost: Number(item.unit_cost || 0),
         amount: Number(item.amount || 0),
+        manual_name: item.manual_name,
+        manual_description: item.manual_description,
         quote_item: item.quote_item
           ? {
               id: item.quote_item.id,
@@ -105,9 +143,12 @@ export default async function PurchaseOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">発注書管理</h1>
-        <p className="text-gray-600 mt-2">作成済みの発注書の一覧と編集</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">発注書管理</h1>
+          <p className="text-gray-600 mt-2">発注書の作成・承認・管理</p>
+        </div>
+        <PurchaseOrderCreateDialog quotes={quoteOptions} suppliers={suppliers} />
       </div>
       <PurchaseOrderTable orders={normalized} currentUser={currentUser} />
     </div>

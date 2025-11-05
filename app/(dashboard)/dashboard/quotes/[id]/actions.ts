@@ -609,6 +609,8 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
   revalidatePath(`/dashboard/quotes/${quoteId}`)
   revalidatePath('/dashboard/procurement')
   revalidatePath('/dashboard/procurement/pending')
+  revalidatePath('/dashboard/procurement/purchase-orders')
+  revalidatePath('/dashboard/approvals')
 
   return {
     success: true,

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import type { ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderStatus } from '@/types/database'
+import type { ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderStatus, PurchaseOrderItem } from '@/types/database'
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 type UpdatePurchaseOrderPayload = {
   purchaseOrderId: string
@@ -145,12 +147,7 @@ export async function updatePurchaseOrder(payload: UpdatePurchaseOrderPayload) {
       }
     }
 
-    revalidatePath(`/dashboard/quotes/${purchaseOrder.quote_id}`)
-    revalidatePath('/dashboard/procurement')
-    revalidatePath('/dashboard/procurement/pending')
-    revalidatePath('/dashboard/procurement/receiving')
-    revalidatePath('/dashboard/procurement/purchase-orders')
-    revalidatePath('/dashboard/approvals')
+    revalidatePurchaseOrderPaths(purchaseOrder.quote_id)
 
     return { success: true, message: '発注書を更新しました' }
   } catch (error) {
@@ -158,8 +155,6 @@ export async function updatePurchaseOrder(payload: UpdatePurchaseOrderPayload) {
     return { success: false, message: '発注書の更新に失敗しました' }
   }
 }
-
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
 const fetchPurchaseOrderWithItems = async (supabase: SupabaseClient, purchaseOrderId: string) => {
   const { data, error } = await supabase
@@ -178,7 +173,9 @@ const fetchPurchaseOrderWithItems = async (supabase: SupabaseClient, purchaseOrd
         quote_item_id,
         quantity,
         unit_cost,
-        amount
+        amount,
+        manual_name,
+        manual_description
       )
     `)
     .eq('id', purchaseOrderId)
@@ -192,13 +189,147 @@ const fetchPurchaseOrderWithItems = async (supabase: SupabaseClient, purchaseOrd
   return data
 }
 
-const revalidatePurchaseOrderPaths = (quoteId: string) => {
-  revalidatePath(`/dashboard/quotes/${quoteId}`)
+const revalidatePurchaseOrderPaths = (quoteId?: string | null) => {
+  if (quoteId) {
+    revalidatePath(`/dashboard/quotes/${quoteId}`)
+  }
   revalidatePath('/dashboard/procurement')
   revalidatePath('/dashboard/procurement/pending')
   revalidatePath('/dashboard/procurement/receiving')
   revalidatePath('/dashboard/procurement/purchase-orders')
   revalidatePath('/dashboard/approvals')
+}
+
+const generatePurchaseOrderNumber = async (supabase: SupabaseClient, orderDate?: string) => {
+  const { count } = await supabase
+    .from('purchase_orders')
+    .select('*', { count: 'exact', head: true })
+
+  const year = orderDate ? new Date(orderDate).getFullYear() : new Date().getFullYear()
+  const sequence = (count || 0) + 1
+  return `PO-${year}-${String(sequence).padStart(4, '0')}`
+}
+
+type ManualPurchaseOrderItemInput = {
+  name: string
+  description?: string
+  quantity: number
+  unitCost: number
+}
+
+type CreateStandalonePurchaseOrderPayload = {
+  supplierId: string
+  orderDate?: string
+  notes?: string
+  items: ManualPurchaseOrderItemInput[]
+}
+
+export async function createStandalonePurchaseOrder(payload: CreateStandalonePurchaseOrderPayload) {
+  const { supplierId, orderDate, notes, items } = payload
+
+  if (!supplierId) {
+    return { success: false, message: '仕入先を選択してください' }
+  }
+
+  if (!items || items.length === 0) {
+    return { success: false, message: '明細を1件以上入力してください' }
+  }
+
+  const invalidItem = items.find((item) => !item.name.trim() || Number(item.quantity) <= 0 || Number(item.unitCost) < 0)
+  if (invalidItem) {
+    return { success: false, message: '明細の入力内容を確認してください' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, message: 'ユーザー情報の取得に失敗しました' }
+  }
+
+  const { data: currentUser } = await supabase
+    .from('users')
+    .select('id, role')
+    .eq('id', user.id)
+    .single()
+
+  if (!currentUser) {
+    return { success: false, message: '利用者情報を取得できませんでした' }
+  }
+
+  const { data: supplier } = await supabase
+    .from('suppliers')
+    .select('id')
+    .eq('id', supplierId)
+    .eq('is_deleted', false)
+    .single()
+
+  if (!supplier) {
+    return { success: false, message: '選択した仕入先が見つかりません' }
+  }
+
+  const { sqlDate } = normalizeDate(orderDate)
+  const purchaseOrderNumber = await generatePurchaseOrderNumber(supabase, sqlDate)
+  const sanitizedNotes = notes?.trim() ? notes.trim() : null
+  const normalizedItems = items.map((item) => {
+    const quantity = Number(item.quantity)
+    const unitCost = Number(item.unitCost)
+    return {
+      name: item.name.trim(),
+      description: item.description?.trim() || null,
+      quantity,
+      unitCost,
+      amount: quantity * unitCost,
+    }
+  })
+  const totalCost = normalizedItems.reduce((sum, item) => sum + item.amount, 0)
+
+  try {
+    const { data: inserted, error: insertError } = await supabase
+      .from('purchase_orders')
+      .insert({
+        purchase_order_number: purchaseOrderNumber,
+        quote_id: null,
+        supplier_id: supplierId,
+        order_date: sqlDate,
+        status: '下書き',
+        approval_status: '下書き',
+        total_cost: totalCost,
+        notes: sanitizedNotes,
+        created_by: currentUser.id,
+      })
+      .select()
+      .single()
+
+    if (insertError || !inserted) {
+      throw insertError
+    }
+
+    const itemsPayload = normalizedItems.map((item) => ({
+      purchase_order_id: inserted.id,
+      quote_item_id: null,
+      quantity: item.quantity,
+      unit_cost: item.unitCost,
+      amount: item.amount,
+      manual_name: item.name,
+      manual_description: item.description,
+    }))
+
+    const { error: itemsError } = await supabase
+      .from('purchase_order_items')
+      .insert(itemsPayload)
+
+    if (itemsError) throw itemsError
+
+    revalidatePurchaseOrderPaths(inserted.quote_id)
+
+    return { success: true, message: '発注書を作成しました' }
+  } catch (error) {
+    console.error('Standalone purchase order creation error:', error)
+    return { success: false, message: '発注書の作成に失敗しました' }
+  }
 }
 
 export async function requestPurchaseOrderApproval(purchaseOrderId: string) {
@@ -485,7 +616,10 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
 
     if (poUpdateError) throw poUpdateError
 
-    const quoteItemIds = (purchaseOrder.items || []).map((item: any) => item.quote_item_id)
+    const orderItems = (purchaseOrder.items || []) as PurchaseOrderItem[]
+    const quoteItemIds = orderItems
+      .map((item) => item.quote_item_id)
+      .filter((id): id is string => Boolean(id))
 
     if (quoteItemIds.length > 0) {
       const { error: itemUpdateError } = await supabase
@@ -500,14 +634,16 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
 
       const { error: logError } = await supabase
         .from('procurement_logs')
-        .insert((purchaseOrder.items || []).map((item: any) => ({
-          quote_item_id: item.quote_item_id,
-          action_type: '発注' as const,
-          action_date: now,
-          quantity: Number(item.quantity || 0),
-          performed_by: userId,
-          notes: purchaseOrder.notes || null,
-        })))
+        .insert(orderItems
+          .filter((item) => item.quote_item_id)
+          .map((item) => ({
+            quote_item_id: item.quote_item_id,
+            action_type: '発注' as const,
+            action_date: now,
+            quantity: Number(item.quantity || 0),
+            performed_by: userId,
+            notes: purchaseOrder.notes || null,
+          })))
 
       if (logError) throw logError
     }

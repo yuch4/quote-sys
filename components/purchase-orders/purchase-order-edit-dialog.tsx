@@ -27,6 +27,8 @@ type PurchaseOrderItemSummary = {
   quantity: number
   unit_cost: number
   amount: number
+  manual_name?: string | null
+  manual_description?: string | null
   quote_item?: {
     id: string
     line_number: number
@@ -199,23 +201,30 @@ export function PurchaseOrderEditDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(order.items || []).map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {item.quote_item ? `行${item.quote_item.line_number}` : '明細'}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {item.quote_item?.product_name || '-'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">{Number(item.quantity || 0).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(Number(item.unit_cost || 0))}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(Number(item.amount || 0))}</TableCell>
-                  </TableRow>
-                ))}
+                {(order.items || []).map((item) => {
+                  const title = item.quote_item
+                    ? `行${item.quote_item.line_number}: ${item.quote_item.product_name}`
+                    : item.manual_name || 'カスタム明細'
+                  const description = item.quote_item
+                    ? item.manual_description || ''
+                    : item.manual_description || ''
+
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{title}</span>
+                          {description ? (
+                            <span className="text-sm text-gray-600">{description}</span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{Number(item.quantity || 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(Number(item.unit_cost || 0))}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(Number(item.amount || 0))}</TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
             <div className="flex justify-between px-4 py-3 border-t bg-muted/50">

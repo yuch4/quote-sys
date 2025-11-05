@@ -126,11 +126,10 @@ export type PurchaseOrderStatus = '下書き' | '発注済' | 'キャンセル'
 export interface PurchaseOrder {
   id: string
   purchase_order_number: string
-  quote_id: string
+  quote_id: string | null
   supplier_id: string
   order_date: string
   status: PurchaseOrderStatus
-  approval_status: ApprovalStatus
   total_cost: number
   notes: string | null
   created_by: string
@@ -138,20 +137,24 @@ export interface PurchaseOrder {
   updated_at: string
   supplier?: Supplier
   items?: PurchaseOrderItem[]
-  approval_instance?: PurchaseOrderApprovalInstance | PurchaseOrderApprovalInstance[] | null
+  approval_status?: ApprovalStatus
   approved_by?: string | null
   approved_at?: string | null
+  approval_instance?: PurchaseOrderApprovalInstance | PurchaseOrderApprovalInstance[] | null
+  quote?: Quote
 }
 
 export interface PurchaseOrderItem {
   id: string
   purchase_order_id: string
-  quote_item_id: string
+  quote_item_id: string | null
   quantity: number
   unit_cost: number
   amount: number
   created_at: string
   quote_item?: QuoteItem
+  manual_name?: string | null
+  manual_description?: string | null
 }
 
 // 発注・入荷履歴型

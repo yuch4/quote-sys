@@ -561,11 +561,18 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          {orderItems.map((item) => (
-                            <div key={item.id} className="text-sm text-gray-600">
-                              行{item.quote_item?.line_number}: {item.quote_item?.product_name}
-                            </div>
-                          ))}
+                          {orderItems.map((item) => {
+                            const label = item.quote_item
+                              ? `行${item.quote_item.line_number}: ${item.quote_item.product_name}`
+                              : item.manual_name || 'カスタム明細'
+                            const description = item.manual_description
+                            return (
+                              <div key={item.id} className="text-sm text-gray-600">
+                                {label}
+                                {description ? <div className="text-xs text-gray-500">{description}</div> : null}
+                              </div>
+                            )
+                          })}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
@@ -585,18 +592,23 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
                               purchase_order_number: order.purchase_order_number,
                               order_date: order.order_date,
                               status: order.status,
+                              approval_status: order.approval_status,
                               total_cost: Number(order.total_cost || 0),
                               notes: order.notes,
                               supplier: order.supplier ?? null,
-                              quote: {
-                                id: quote.id,
-                                quote_number: quote.quote_number,
-                              },
+                              quote: order.quote
+                                ? {
+                                    id: order.quote.id,
+                                    quote_number: order.quote.quote_number,
+                                  }
+                                : null,
                               items: orderItems.map((item) => ({
                                 id: item.id,
                                 quantity: Number(item.quantity || 0),
                                 unit_cost: Number(item.unit_cost || 0),
                                 amount: Number(item.amount || 0),
+                                manual_name: item.manual_name,
+                                manual_description: item.manual_description,
                                 quote_item: item.quote_item
                                   ? {
                                       id: item.quote_item.id,

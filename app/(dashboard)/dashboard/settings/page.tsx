@@ -48,7 +48,7 @@ interface ApprovalRoute {
   name: string
   description: string | null
   requester_role: string | null
-  target_entity: string
+  target_entity: 'quote' | 'purchase_order'
   min_total_amount: number | null
   max_total_amount: number | null
   is_active: boolean
@@ -74,7 +74,7 @@ interface ApprovalRouteFormState {
   name: string
   description: string
   requester_role: string
-  target_entity: string
+  target_entity: 'quote' | 'purchase_order'
   min_total_amount: string
   max_total_amount: string
   is_active: boolean
@@ -185,6 +185,7 @@ export default function SettingsPage() {
       if (routesRes.data) {
         const mapped = routesRes.data.map((route) => ({
           ...route,
+          target_entity: route.target_entity as 'quote' | 'purchase_order',
           steps: (route.steps || []).sort((a: ApprovalRouteStep, b: ApprovalRouteStep) => a.step_order - b.step_order),
         })) as ApprovalRoute[]
         setApprovalRoutes(mapped)
@@ -838,17 +839,17 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>フロー名</TableHead>
-                  <TableHead>対象</TableHead>
-                  <TableHead>申請者条件</TableHead>
-                  <TableHead>金額範囲</TableHead>
-                    <TableHead>承認ステップ</TableHead>
-                    <TableHead>状態</TableHead>
-                    <TableHead>操作</TableHead>
-                  </TableRow>
-                </TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>フロー名</TableHead>
+                <TableHead>対象</TableHead>
+                <TableHead>申請者条件</TableHead>
+                <TableHead>金額範囲</TableHead>
+                <TableHead>承認ステップ</TableHead>
+                <TableHead>状態</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
                 <TableBody>
                   {approvalRoutes.length === 0 ? (
                     <TableRow>
@@ -1086,10 +1087,10 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="route-target">対象</Label>
+              <Label htmlFor="route-target">フロー対象</Label>
               <Select
                 value={routeForm.target_entity}
-                onValueChange={(value) => handleRouteFieldChange('target_entity', value)}
+                onValueChange={(value) => handleRouteFieldChange('target_entity', value as 'quote' | 'purchase_order')}
               >
                 <SelectTrigger id="route-target">
                   <SelectValue placeholder="対象を選択" />

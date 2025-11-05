@@ -147,13 +147,13 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
               <TableBody>
                 {filteredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                       条件に一致する発注書がありません
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
+                    <TableRow key={order.id} id={`po-${order.id}`}>
                       <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
                       <TableCell>{formatDate(order.order_date)}</TableCell>
                       <TableCell>{order.supplier?.supplier_name || '未設定'}</TableCell>

@@ -242,7 +242,15 @@ export default async function ApprovalsPage() {
                       <TableCell>{purchaseOrder.order_date ? formatDate(purchaseOrder.order_date) : '-'}</TableCell>
                       <TableCell>{formatCurrency(Number(purchaseOrder.total_cost || 0))}</TableCell>
                       <TableCell>
-                        <Badge variant={purchaseOrder.approval_status === '承認済み' ? 'default' : 'secondary'}>
+                        <Badge
+                          variant={
+                            purchaseOrder.approval_status === '承認済み'
+                              ? 'default'
+                              : purchaseOrder.approval_status === '却下'
+                                ? 'destructive'
+                                : 'secondary'
+                          }
+                        >
                           {purchaseOrder.approval_status}
                         </Badge>
                       </TableCell>
@@ -260,9 +268,11 @@ export default async function ApprovalsPage() {
                             </Button>
                           </Link>
                         ) : (
-                          <Button variant="outline" size="sm" disabled>
-                            詳細なし
-                          </Button>
+                          <Link href={`/dashboard/procurement/purchase-orders#po-${purchaseOrder.id}`}>
+                            <Button variant="outline" size="sm">
+                              発注書へ
+                            </Button>
+                          </Link>
                         )}
                       </TableCell>
                     </TableRow>
