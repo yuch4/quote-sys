@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import type { ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderStatus, PurchaseOrderItem } from '@/types/database'
+import type { ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderStatus } from '@/types/database'
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 
@@ -606,7 +606,6 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
     const { error: poUpdateError } = await supabase
       .from('purchase_orders')
       .update({
-        status: '発注済',
         approval_status: '承認済み',
         approved_by: userId,
         approved_at: now,
@@ -616,41 +615,9 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
 
     if (poUpdateError) throw poUpdateError
 
-    const orderItems = (purchaseOrder.items || []) as PurchaseOrderItem[]
-    const quoteItemIds = orderItems
-      .map((item) => item.quote_item_id)
-      .filter((id): id is string => Boolean(id))
-
-    if (quoteItemIds.length > 0) {
-      const { error: itemUpdateError } = await supabase
-        .from('quote_items')
-        .update({
-          procurement_status: '発注済',
-          ordered_at: now,
-        })
-        .in('id', quoteItemIds)
-
-      if (itemUpdateError) throw itemUpdateError
-
-      const { error: logError } = await supabase
-        .from('procurement_logs')
-        .insert(orderItems
-          .filter((item) => item.quote_item_id)
-          .map((item) => ({
-            quote_item_id: item.quote_item_id,
-            action_type: '発注' as const,
-            action_date: now,
-            quantity: Number(item.quantity || 0),
-            performed_by: userId,
-            notes: purchaseOrder.notes || null,
-          })))
-
-      if (logError) throw logError
-    }
-
     revalidatePurchaseOrderPaths(purchaseOrder.quote_id)
 
-    return { success: true, message: '発注書を承認し、発注済みに更新しました' }
+    return { success: true, message: '発注書を承認しました' }
   } catch (error) {
     console.error('発注書承認エラー:', error)
     return { success: false, message: error instanceof Error ? error.message : '承認処理に失敗しました' }
