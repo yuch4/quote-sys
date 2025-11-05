@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import type { ApprovalStatus, PurchaseOrderStatus, PurchaseOrderApprovalInstance } from '@/types/database'
 
-type StatusFilter = 'all' | '下書き' | '発注済' | 'キャンセル'
+type StatusFilter = 'all' | '未発注' | '発注済' | 'キャンセル'
 
 export type PurchaseOrderListItem = PurchaseOrderEditable & {
   created_at: string
@@ -37,7 +37,7 @@ interface PurchaseOrderTableProps {
 }
 
 const statusVariant = {
-  下書き: 'outline',
+  未発注: 'outline',
   発注済: 'secondary',
   キャンセル: 'destructive',
 } as const
@@ -106,7 +106,7 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="下書き">下書き</SelectItem>
+              <SelectItem value="未発注">未発注</SelectItem>
                   <SelectItem value="発注済">発注済み</SelectItem>
                   <SelectItem value="キャンセル">キャンセル</SelectItem>
                 </SelectContent>

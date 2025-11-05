@@ -121,7 +121,7 @@ export interface QuoteItem {
   purchase_order_items?: PurchaseOrderItem[]
 }
 
-export type PurchaseOrderStatus = '下書き' | '発注済' | 'キャンセル'
+export type PurchaseOrderStatus = '未発注' | '発注済' | 'キャンセル'
 
 export interface PurchaseOrder {
   id: string

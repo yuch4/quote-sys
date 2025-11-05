@@ -63,7 +63,7 @@ interface PurchaseOrderEditDialogProps {
 }
 
 const statusBadgeVariant: Record<PurchaseOrderStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
-  下書き: 'outline',
+  未発注: 'outline',
   発注済: 'secondary',
   キャンセル: 'destructive',
 }
@@ -172,7 +172,7 @@ export function PurchaseOrderEditDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="下書き">下書き</SelectItem>
+                <SelectItem value="未発注">未発注</SelectItem>
                   <SelectItem value="発注済">発注済み</SelectItem>
                   <SelectItem value="キャンセル">キャンセル</SelectItem>
                 </SelectContent>

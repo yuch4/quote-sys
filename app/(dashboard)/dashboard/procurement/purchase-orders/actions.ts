@@ -294,7 +294,7 @@ export async function createStandalonePurchaseOrder(payload: CreateStandalonePur
         quote_id: null,
         supplier_id: supplierId,
         order_date: sqlDate,
-        status: '下書き',
+        status: '未発注',
         approval_status: '下書き',
         total_cost: totalCost,
         notes: sanitizedNotes,
@@ -470,7 +470,7 @@ export async function requestPurchaseOrderApproval(purchaseOrderId: string) {
       .from('purchase_orders')
       .update({
         approval_status: '承認待ち',
-        status: '下書き',
+        status: '未発注',
         approved_by: null,
         approved_at: null,
         updated_at: new Date().toISOString(),
@@ -607,6 +607,7 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
       .from('purchase_orders')
       .update({
         approval_status: '承認済み',
+        status: '未発注',
         approved_by: userId,
         approved_at: now,
         updated_at: now,
@@ -691,7 +692,7 @@ export async function rejectPurchaseOrder(purchaseOrderId: string, userId: strin
       .from('purchase_orders')
       .update({
         approval_status: '却下',
-        status: '下書き',
+        status: '未発注',
         approved_by: userId,
         approved_at: now,
         updated_at: now,
@@ -742,7 +743,7 @@ export async function cancelPurchaseOrderApproval(purchaseOrderId: string) {
       .from('purchase_orders')
       .update({
         approval_status: '下書き',
-        status: '下書き',
+        status: '未発注',
         approved_by: null,
         approved_at: null,
         updated_at: new Date().toISOString(),

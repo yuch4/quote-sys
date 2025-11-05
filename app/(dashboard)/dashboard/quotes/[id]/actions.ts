@@ -560,7 +560,7 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
       supplier_id: supplierId,
       purchase_order_number: purchaseOrderNumber,
       order_date: effectiveOrderDate,
-      status: '下書き' as const,
+      status: '未発注' as const,
       approval_status: '下書き' as const,
       total_cost: totalCost,
       notes: notes || null,
@@ -615,6 +615,6 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
   return {
     success: true,
     ordersCreated: createdOrders.length,
-    message: `${createdOrders.length}件の発注書を下書きとして作成しました`,
+    message: `${createdOrders.length}件の発注書を未発注として作成しました`,
   }
 }
