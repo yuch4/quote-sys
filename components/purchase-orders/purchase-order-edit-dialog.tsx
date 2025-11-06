@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { updatePurchaseOrder } from '@/app/(dashboard)/dashboard/procurement/purchase-orders/actions'
-import type { PurchaseOrderStatus } from '@/types/database'
+import type { PurchaseOrderApprovalInstance, PurchaseOrderStatus } from '@/types/database'
 
 type PurchaseOrderItemSummary = {
   id: string
@@ -33,6 +33,7 @@ type PurchaseOrderItemSummary = {
     id: string
     line_number: number
     product_name: string
+    procurement_status?: string | null
   } | null
 }
 
@@ -45,6 +46,7 @@ export type PurchaseOrderEditable = {
   total_cost: number
   notes: string | null
   created_by?: string
+  created_at?: string
   quote?: {
     id: string
     quote_number: string
@@ -54,6 +56,13 @@ export type PurchaseOrderEditable = {
     supplier_name: string | null
   } | null
   items?: PurchaseOrderItemSummary[]
+  approval_instance?: PurchaseOrderApprovalInstance | null
+  procurementSummary?: {
+    pending: number
+    ordered: number
+    received: number
+    total: number
+  }
 }
 
 interface PurchaseOrderEditDialogProps {
@@ -94,6 +103,46 @@ export function PurchaseOrderEditDialog({
   }, [order.items, order.total_cost])
 
   const approvalStatusLabel = order.approval_status || '下書き'
+
+  const timelineEvents = useMemo(() => {
+    const events: { label: string; description?: string; date: string }[] = []
+    if (order.created_at) {
+      events.push({ label: '作成', description: '発注書を登録しました', date: order.created_at })
+    }
+
+    const instance = order.approval_instance
+    if (instance?.requested_at) {
+      events.push({
+        label: '承認依頼',
+        description: `承認ステータス: ${order.approval_status ?? '-'}`,
+        date: instance.requested_at,
+      })
+    }
+
+    const steps = Array.isArray(instance?.steps) ? instance?.steps ?? [] : []
+    steps
+      .slice()
+      .sort((a, b) => a.step_order - b.step_order)
+      .forEach((step) => {
+        if (!step.decided_at && step.status === 'pending') {
+          events.push({
+            label: `承認待ち (${step.approver_role})`,
+            description: '承認待ちのステップです',
+            date: instance?.updated_at ?? instance?.requested_at ?? order.created_at ?? new Date().toISOString(),
+          })
+        } else if (step.decided_at) {
+          const statusLabel =
+            step.status === 'approved' ? '承認' : step.status === 'rejected' ? '却下' : 'スキップ'
+          events.push({
+            label: `${statusLabel} (${step.approver_role})`,
+            description: step.notes || undefined,
+            date: step.decided_at,
+          })
+        }
+      })
+
+    return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }, [order])
 
   const resetForm = () => {
     setOrderDate(order.order_date ? new Date(order.order_date).toISOString().split('T')[0] : '')
@@ -244,6 +293,30 @@ export function PurchaseOrderEditDialog({
                 <p className="font-medium">{order.quote.quote_number}</p>
               </div>
             ) : null}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-700">活動履歴</h3>
+            {timelineEvents.length === 0 ? (
+              <p className="text-xs text-gray-500">履歴がありません。</p>
+            ) : (
+              <ol className="space-y-3 text-sm text-gray-700">
+                {timelineEvents.map((event, index) => (
+                  <li key={`${event.label}-${index}`} className="flex items-start gap-3">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-blue-500" aria-hidden />
+                    <div>
+                      <p className="font-medium">{event.label}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(event.date).toLocaleString('ja-JP', { hour12: false })}
+                      </p>
+                      {event.description ? (
+                        <p className="text-xs text-gray-600 mt-1">{event.description}</p>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </div>
 

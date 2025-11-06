@@ -1,18 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import {
   requestPurchaseOrderApproval,
   approvePurchaseOrder,
@@ -41,6 +31,7 @@ export function PurchaseOrderApprovalActions({
   approvalInstance,
 }: PurchaseOrderApprovalActionsProps) {
   const [loading, setLoading] = useState(false)
+  const [isTransitioning, startTransition] = useTransition()
 
   const pendingStep: PurchaseOrderApprovalInstanceStep | undefined = (() => {
     if (!approvalInstance || approvalInstance.status !== 'pending') return undefined
@@ -69,33 +60,63 @@ export function PurchaseOrderApprovalActions({
     (currentUserId === createdBy || isBackOffice)
 
   const handleRequestApproval = async () => {
-    setLoading(true)
-    const result = await requestPurchaseOrderApproval(purchaseOrderId)
-    alert(result.message)
-    setLoading(false)
+    startTransition(async () => {
+      setLoading(true)
+      const result = await requestPurchaseOrderApproval(purchaseOrderId)
+      if (result.success) {
+        toast.success(result.message)
+        toast.message('通知（準備中）', {
+          description: '承認者への通知配信は今後拡張予定です。',
+        })
+      } else {
+        toast.error(result.message)
+      }
+      setLoading(false)
+    })
   }
 
   const handleApprove = async () => {
-    setLoading(true)
-    const result = await approvePurchaseOrder(purchaseOrderId, currentUserId)
-    alert(result.message)
-    setLoading(false)
+    startTransition(async () => {
+      setLoading(true)
+      const result = await approvePurchaseOrder(purchaseOrderId, currentUserId)
+      if (result.success) {
+        toast.success(result.message)
+        toast.message('通知（準備中）', {
+          description: '次の承認者へ通知する機能を今後追加予定です。',
+        })
+      } else {
+        toast.error(result.message)
+      }
+      setLoading(false)
+    })
   }
 
   const handleReject = async () => {
     const reason = window.prompt('却下理由（任意）を入力してください') || undefined
-    setLoading(true)
-    const result = await rejectPurchaseOrder(purchaseOrderId, currentUserId, reason)
-    alert(result.message)
-    setLoading(false)
+    startTransition(async () => {
+      setLoading(true)
+      const result = await rejectPurchaseOrder(purchaseOrderId, currentUserId, reason)
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
+      }
+      setLoading(false)
+    })
   }
 
   const handleReturnToDraft = async () => {
     if (!confirm('承認フローをリセットして下書きに戻しますか？')) return
-    setLoading(true)
-    const result = await cancelPurchaseOrderApproval(purchaseOrderId)
-    alert(result.message)
-    setLoading(false)
+    startTransition(async () => {
+      setLoading(true)
+      const result = await cancelPurchaseOrderApproval(purchaseOrderId)
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message)
+      }
+      setLoading(false)
+    })
   }
 
   const statusLabel = (() => {
@@ -119,40 +140,24 @@ export function PurchaseOrderApprovalActions({
       </div>
       <div className="flex gap-2">
         {canRequestApproval && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button size="sm" disabled={loading}>
-                承認依頼
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>発注書の承認依頼</AlertDialogTitle>
-                <AlertDialogDescription>
-                  この発注書の承認フローを開始します。よろしいですか？
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={handleRequestApproval}>承認依頼を送信</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button size="sm" disabled={loading || isTransitioning} onClick={handleRequestApproval}>
+            承認依頼
+          </Button>
         )}
 
         {canApprove && (
           <>
-            <Button size="sm" disabled={loading} onClick={handleApprove}>
+            <Button size="sm" disabled={loading || isTransitioning} onClick={handleApprove}>
               承認
             </Button>
-            <Button size="sm" variant="destructive" disabled={loading} onClick={handleReject}>
+            <Button size="sm" variant="destructive" disabled={loading || isTransitioning} onClick={handleReject}>
               却下
             </Button>
           </>
         )}
 
         {canReturnToDraft && (
-          <Button size="sm" variant="outline" disabled={loading} onClick={handleReturnToDraft}>
+          <Button size="sm" variant="outline" disabled={loading || isTransitioning} onClick={handleReturnToDraft}>
             下書きに戻す
           </Button>
         )}

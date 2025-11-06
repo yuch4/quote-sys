@@ -65,19 +65,23 @@ export default async function PurchaseOrdersPage() {
         quote_item:quote_items(
           id,
           line_number,
-          product_name
+          product_name,
+          procurement_status
         )
       ),
       approval_instance:purchase_order_approval_instances(
         id,
         status,
         current_step,
+        requested_at,
         route:approval_routes(name),
         steps:purchase_order_approval_instance_steps(
           id,
           step_order,
           approver_role,
           status,
+          decided_at,
+          notes,
           approver:users(id, display_name)
         )
       )
@@ -122,6 +126,26 @@ export default async function PurchaseOrdersPage() {
       ? approvalInstanceRaw[0] ?? null
       : approvalInstanceRaw ?? null
 
+    const procurementStats = (order.items || []).reduce(
+      (acc, item) => {
+        let status: '未発注' | '発注済' | '入荷済' = '未発注'
+
+        if (item.quote_item?.procurement_status === '発注済' || item.quote_item?.procurement_status === '入荷済') {
+          status = item.quote_item.procurement_status as '発注済' | '入荷済'
+        } else if (!item.quote_item?.procurement_status && order.status === '発注済') {
+          status = '発注済'
+        }
+
+        if (status === '発注済') acc.ordered += 1
+        else if (status === '入荷済') acc.received += 1
+        else acc.pending += 1
+
+        acc.total += 1
+        return acc
+      },
+      { pending: 0, ordered: 0, received: 0, total: 0 }
+    )
+
     return {
       id: order.id,
       purchase_order_number: order.purchase_order_number,
@@ -147,9 +171,11 @@ export default async function PurchaseOrdersPage() {
               id: item.quote_item.id,
               line_number: item.quote_item.line_number,
               product_name: item.quote_item.product_name,
+              procurement_status: item.quote_item.procurement_status || null,
             }
           : null,
       })),
+      procurementSummary: procurementStats,
     }
   })
 

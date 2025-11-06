@@ -70,6 +70,8 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
   const [combineBySupplier, setCombineBySupplier] = useState(true)
   const [orderDate, setOrderDate] = useState(() => new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
+  const [orderTitle, setOrderTitle] = useState('')
+  const [contactInfo, setContactInfo] = useState('')
   const [manualSupplierId, setManualSupplierId] = useState('')
   const [manualItems, setManualItems] = useState<ManualItem[]>([createManualItem()])
   const [isPending, startTransition] = useTransition()
@@ -85,6 +87,8 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
       setCombineBySupplier(true)
       setOrderDate(new Date().toISOString().split('T')[0])
       setNotes('')
+      setOrderTitle('')
+      setContactInfo('')
       setManualSupplierId('')
       setManualItems([createManualItem()])
     }
@@ -211,6 +215,14 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
     !selectedQuoteId || selectedItems.size === 0 || loadingItems || items.length === 0
 
   const handleCreate = () => {
+    const assembledNotes = [
+      orderTitle.trim() ? `件名: ${orderTitle.trim()}` : null,
+      contactInfo.trim() ? `連絡先: ${contactInfo.trim()}` : null,
+      notes.trim() || null,
+    ]
+      .filter(Boolean)
+      .join('\n') || undefined
+
     if (mode === 'quote') {
       if (!selectedQuoteId) {
         toast.error('対象の見積を選択してください')
@@ -228,7 +240,7 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
           itemIds: Array.from(selectedItems),
           orderDate,
           combineBySupplier,
-          notes: notes.trim() || undefined,
+          notes: assembledNotes,
         })
 
         if (result.success) {
@@ -254,7 +266,7 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
         const result = await createStandalonePurchaseOrder({
           supplierId: manualSupplierId,
           orderDate,
-          notes: notes.trim() || undefined,
+          notes: assembledNotes,
           items: manualItems.map((item) => ({
             name: item.name.trim(),
             description: item.description.trim() || undefined,
@@ -334,6 +346,14 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
             </div>
 
             {selectedQuote ? (
+              <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-gray-700">
+                <p className="font-medium">案件情報</p>
+                <p>案件名: {selectedQuote.project_name || '未設定'}</p>
+                <p>見積番号: {selectedQuote.quote_number}</p>
+              </div>
+            ) : null}
+
+            {selectedQuote ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -357,6 +377,25 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
                       onChange={(e) => setNotes(e.target.value)}
                       rows={3}
                       placeholder="発注書に残したいメモがあれば入力してください"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>件名 / 用途</Label>
+                    <Input
+                      value={orderTitle}
+                      onChange={(event) => setOrderTitle(event.target.value)}
+                      placeholder="例: プロジェクトA 用途"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>連絡先・担当メモ</Label>
+                    <Input
+                      value={contactInfo}
+                      onChange={(event) => setContactInfo(event.target.value)}
+                      placeholder="例: 担当: 山田 / 03-xxxx-xxxx"
                     />
                   </div>
                 </div>
@@ -486,6 +525,25 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
               <div className="space-y-2">
                 <Label>発注日</Label>
                 <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>件名 / 用途</Label>
+                <Input
+                  value={orderTitle}
+                  onChange={(event) => setOrderTitle(event.target.value)}
+                  placeholder="例: 単独発注（テストプロジェクト）"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>連絡先・担当メモ</Label>
+                <Input
+                  value={contactInfo}
+                  onChange={(event) => setContactInfo(event.target.value)}
+                  placeholder="連絡先や納品先担当などを入力"
+                />
               </div>
             </div>
 

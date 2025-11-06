@@ -51,9 +51,10 @@ const procurementItems = [
     icon: TrendingUp,
   },
   {
-    name: '発注待ち',
+    name: '発注候補',
     href: '/dashboard/procurement/pending',
     icon: ShoppingCart,
+    description: '承認済み見積から発注が必要な明細を確認できます。',
   },
   {
     name: '発注書一覧',
@@ -108,7 +109,7 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
 
         <div className="mt-6 px-3">
           <p className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            発注管理
+            調達・発注
           </p>
           <div className="space-y-1">
             {procurementItems.map((item) => {
@@ -125,6 +126,7 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                       ? 'bg-gray-100 text-gray-900'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                   )}
+                  title={item.description}
                 >
                   <Icon className="h-5 w-5" />
                   {item.name}

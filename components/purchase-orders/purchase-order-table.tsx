@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import type { ApprovalStatus, PurchaseOrderStatus, PurchaseOrderApprovalInstance } from '@/types/database'
 
 type StatusFilter = 'all' | '未発注' | '発注済' | 'キャンセル'
+type ProcurementFilter = 'all' | 'pending' | 'ordered' | 'received'
 
 export type PurchaseOrderListItem = PurchaseOrderEditable & {
   created_at: string
@@ -26,6 +27,12 @@ export type PurchaseOrderListItem = PurchaseOrderEditable & {
     id: string
     quote_number: string
   } | null
+  procurementSummary: {
+    pending: number
+    ordered: number
+    received: number
+    total: number
+  }
 }
 
 interface PurchaseOrderTableProps {
@@ -56,11 +63,22 @@ const formatCurrency = (value: number) => {
 
 export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTableProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [procurementFilter, setProcurementFilter] = useState<ProcurementFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       if (statusFilter !== 'all' && order.status !== statusFilter) {
+        return false
+      }
+
+      if (procurementFilter === 'pending' && order.procurementSummary.pending === 0) {
+        return false
+      }
+      if (procurementFilter === 'ordered' && order.procurementSummary.ordered === 0) {
+        return false
+      }
+      if (procurementFilter === 'received' && order.procurementSummary.received === 0) {
         return false
       }
 
@@ -113,6 +131,20 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>明細ステータス</Label>
+              <Select value={procurementFilter} onValueChange={(value) => setProcurementFilter(value as ProcurementFilter)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="pending">未発注を含む</SelectItem>
+                  <SelectItem value="ordered">発注済みを含む</SelectItem>
+                  <SelectItem value="received">入荷済みを含む</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>キーワード</Label>
               <Input
                 placeholder="仕入先名・発注書番号・見積番号など"
@@ -139,6 +171,7 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
                   <TableHead>仕入先</TableHead>
                   <TableHead>見積番号</TableHead>
                   <TableHead>ステータス</TableHead>
+                  <TableHead>明細状況</TableHead>
                   <TableHead>承認ステータス</TableHead>
                   <TableHead className="text-right">発注金額</TableHead>
                   <TableHead className="text-right w-[140px]">操作</TableHead>
@@ -160,6 +193,23 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
                       <TableCell>{order.quote?.quote_number || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1 text-xs text-gray-600">
+                          <div>
+                            <Badge variant={order.procurementSummary.pending > 0 ? 'secondary' : 'outline'}>
+                              未発注: {order.procurementSummary.pending}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-1">
+                            <Badge variant={order.procurementSummary.ordered > 0 ? 'default' : 'outline'}>
+                              発注済: {order.procurementSummary.ordered}
+                            </Badge>
+                            <Badge variant={order.procurementSummary.received > 0 ? 'default' : 'outline'}>
+                              入荷済: {order.procurementSummary.received}
+                            </Badge>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(order.approval_status)}>

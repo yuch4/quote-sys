@@ -478,8 +478,8 @@ export default function ProcurementPendingPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">発注管理</h1>
-          <p className="text-gray-600 mt-2">発注待ち: {pendingCount}件</p>
+          <h1 className="text-3xl font-bold text-gray-900">発注候補</h1>
+          <p className="text-gray-600 mt-2">発注が必要な明細: {pendingCount}件</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleExportCSV} variant="outline">
