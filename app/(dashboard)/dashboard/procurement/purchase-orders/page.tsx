@@ -2,11 +2,23 @@ import { createClient } from '@/lib/supabase/server'
 import { PurchaseOrderTable } from '@/components/purchase-orders/purchase-order-table'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 import type { PurchaseOrderListItem } from '@/components/purchase-orders/purchase-order-table'
+import type { PurchaseOrderStatus } from '@/types/database'
 
 type QuoteOption = {
   id: string
   quote_number: string
   project_name: string | null
+}
+
+const normalizeStatus = (status: string | null): PurchaseOrderStatus => {
+  switch (status) {
+    case '発注済':
+    case 'キャンセル':
+    case '未発注':
+      return status
+    default:
+      return '未発注'
+  }
 }
 
 export default async function PurchaseOrdersPage() {
@@ -114,7 +126,7 @@ export default async function PurchaseOrdersPage() {
       id: order.id,
       purchase_order_number: order.purchase_order_number,
       order_date: order.order_date,
-      status: order.status,
+      status: normalizeStatus(order.status),
       approval_status: order.approval_status,
       approval_instance: approvalInstance,
       total_cost: Number(order.total_cost || 0),

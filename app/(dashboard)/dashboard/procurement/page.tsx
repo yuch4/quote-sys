@@ -15,26 +15,25 @@ interface DashboardStats {
   alertCount: number
 }
 
-interface OrderedItem {
+type DashboardItemSource = 'quote' | 'standalone'
+
+type ProcurementStatus = '未発注' | '発注済' | '入荷済'
+
+interface DashboardItem {
   id: string
-  line_number: number
+  source: DashboardItemSource
   product_name: string
   description: string | null
   quantity: number
-  procurement_status: string
-  quote: {
-    quote_number: string
-    project: {
-      project_number: string
-      project_name: string
-      customer: {
-        customer_name: string
-      }
-    }
-  }
-  supplier: {
-    supplier_name: string
-  } | null
+  procurement_status: ProcurementStatus
+  project_number: string
+  project_name: string
+  customer_name: string
+  quote_number: string
+  purchase_order_number: string | null
+  supplier_name: string | null
+  cost_amount: number
+  order_date: string | null
   procurement_logs: Array<{
     action_type: string
     action_date: string
@@ -58,8 +57,8 @@ export default function ProcurementDashboardPage() {
     totalReceived: 0,
     alertCount: 0,
   })
-  const [orderedItems, setOrderedItems] = useState<OrderedItem[]>([])
-  const [alertItems, setAlertItems] = useState<OrderedItem[]>([])
+  const [orderedItems, setOrderedItems] = useState<DashboardItem[]>([])
+  const [alertItems, setAlertItems] = useState<DashboardItem[]>([])
   const [supplierSummary, setSupplierSummary] = useState<SupplierSummary[]>([])
 
   useEffect(() => {
@@ -68,17 +67,17 @@ export default function ProcurementDashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      // 全仕入要明細取得
-      const { data: allItems, error } = await supabase
+      // 見積紐付きの仕入明細を取得
+      const { data: quoteItemsData, error: quoteItemsError } = await supabase
         .from('quote_items')
         .select(`
           id,
-          line_number,
           product_name,
           description,
           quantity,
           cost_amount,
           procurement_status,
+          ordered_at,
           quote:quotes!inner(
             quote_number,
             approval_status,
@@ -94,38 +93,119 @@ export default function ProcurementDashboardPage() {
         .is('requires_procurement', true)
         .eq('quote.approval_status', '承認済み')
 
-      if (error) throw error
+      if (quoteItemsError) throw quoteItemsError
 
-      const items = allItems || []
+      const quoteItems: DashboardItem[] = (quoteItemsData || []).map((item) => {
+        const normalizedStatus: ProcurementStatus =
+          item.procurement_status === '発注済' || item.procurement_status === '入荷済'
+            ? (item.procurement_status as ProcurementStatus)
+            : '未発注'
 
-      // ステータス別カウント
-      const pending = items.filter((item) => !item.procurement_status || item.procurement_status === '未発注')
-      const ordered = items.filter((item) => item.procurement_status === '発注済')
-      const received = items.filter((item) => item.procurement_status === '入荷済')
+        const orderLogDate = item.procurement_logs?.find((log: any) => log.action_type === '発注')?.action_date
 
-      // アラート対象（発注から14日以上経過）
-      const alerts = ordered.filter((item) => {
-        const orderLog = item.procurement_logs.find((log) => log.action_type === '発注')
-        if (!orderLog) return false
-        const daysElapsed = getDaysElapsed(orderLog.action_date)
+        return {
+          id: item.id,
+          source: 'quote',
+          product_name: item.product_name,
+          description: item.description,
+          quantity: Number(item.quantity || 0),
+          procurement_status: normalizedStatus,
+          project_number: item.quote.project.project_number,
+          project_name: item.quote.project.project_name,
+          customer_name: item.quote.project.customer.customer_name,
+          quote_number: item.quote.quote_number,
+          purchase_order_number: null,
+          supplier_name: item.supplier?.supplier_name ?? null,
+          cost_amount: Number(item.cost_amount || 0),
+          order_date: orderLogDate || item.ordered_at || null,
+          procurement_logs: item.procurement_logs || [],
+        }
+      })
+
+      // 単独発注書（見積と紐づかない発注書）の明細を取得
+      const { data: standaloneOrders, error: standaloneError } = await supabase
+        .from('purchase_orders')
+        .select(`
+          id,
+          purchase_order_number,
+          status,
+          order_date,
+          supplier:suppliers(supplier_name),
+          items:purchase_order_items(
+            id,
+            quantity,
+            amount,
+            manual_name,
+            manual_description,
+            quote_item_id
+          )
+        `)
+        .is('quote_id', null)
+        .neq('status', 'キャンセル')
+
+      if (standaloneError) throw standaloneError
+
+      const standaloneItems: DashboardItem[] = (standaloneOrders || []).flatMap((order) => {
+        const normalizedStatus: ProcurementStatus = order.status === '発注済' ? '発注済' : '未発注'
+
+        return (order.items || [])
+          .filter((item) => !item.quote_item_id)
+          .map((item) => ({
+            id: `${order.id}:${item.id}`,
+            source: 'standalone' as const,
+            product_name: item.manual_name || 'カスタム明細',
+            description: item.manual_description || null,
+            quantity: Number(item.quantity || 0),
+            procurement_status: normalizedStatus,
+            project_number: '-',
+            project_name: '単独発注',
+            customer_name: '-',
+            quote_number: '-',
+            purchase_order_number: order.purchase_order_number,
+            supplier_name: order.supplier?.supplier_name ?? null,
+            cost_amount: item.amount != null ? Number(item.amount) : 0,
+            order_date: order.order_date ?? null,
+            procurement_logs: [],
+          }))
+      })
+
+      const combinedItems = [...quoteItems, ...standaloneItems]
+
+      const pendingItems = combinedItems.filter((item) => item.procurement_status === '未発注')
+      const orderedItemsList = combinedItems.filter((item) => item.procurement_status === '発注済')
+      const receivedItems = combinedItems.filter((item) => item.procurement_status === '入荷済')
+
+      const alerts = orderedItemsList.filter((item) => {
+        if (!item.order_date) return false
+        const targetDate = new Date(item.order_date)
+        if (Number.isNaN(targetDate.getTime())) return false
+        const today = new Date()
+        const daysElapsed = Math.floor(
+          (today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)
+        )
         return daysElapsed >= 14
       })
 
       setStats({
-        totalPending: pending.length,
-        totalOrdered: ordered.length,
-        totalReceived: received.length,
+        totalPending: pendingItems.length,
+        totalOrdered: orderedItemsList.length,
+        totalReceived: receivedItems.length,
         alertCount: alerts.length,
       })
 
-      setOrderedItems(ordered as any)
-      setAlertItems(alerts as any)
+      const orderedItemsSorted = [...orderedItemsList].sort((a, b) => {
+        const dateA = a.order_date ? new Date(a.order_date).getTime() : 0
+        const dateB = b.order_date ? new Date(b.order_date).getTime() : 0
+        return dateB - dateA
+      })
 
-      // 仕入先別サマリー作成
+      setOrderedItems(orderedItemsSorted)
+      setAlertItems(alerts)
+
       const supplierMap = new Map<string, SupplierSummary>()
-      
-      items.forEach((item) => {
-        const supplierName = (item.supplier as any)?.supplier_name || '未設定'
+
+      combinedItems.forEach((item) => {
+        const supplierName = item.supplier_name || '未設定'
         if (!supplierMap.has(supplierName)) {
           supplierMap.set(supplierName, {
             supplier_name: supplierName,
@@ -136,18 +216,19 @@ export default function ProcurementDashboardPage() {
         }
 
         const summary = supplierMap.get(supplierName)!
-        
-        if (!item.procurement_status || item.procurement_status === '未発注') {
+
+        if (item.procurement_status === '未発注') {
           summary.pending_count++
         } else if (item.procurement_status === '発注済') {
           summary.ordered_count++
         }
-        
-        summary.total_cost += Number(item.cost_amount)
+
+        summary.total_cost += Number(item.cost_amount || 0)
       })
 
-      const sortedSummary = Array.from(supplierMap.values())
-        .sort((a, b) => (b.pending_count + b.ordered_count) - (a.pending_count + a.ordered_count))
+      const sortedSummary = Array.from(supplierMap.values()).sort(
+        (a, b) => b.pending_count + b.ordered_count - (a.pending_count + a.ordered_count)
+      )
 
       setSupplierSummary(sortedSummary)
 
@@ -161,6 +242,7 @@ export default function ProcurementDashboardPage() {
 
   const getDaysElapsed = (dateString: string) => {
     const date = new Date(dateString)
+    if (Number.isNaN(date.getTime())) return 0
     const today = new Date()
     return Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
   }
@@ -276,19 +358,18 @@ export default function ProcurementDashboardPage() {
               </TableHeader>
               <TableBody>
                 {alertItems.slice(0, 5).map((item) => {
-                  const orderLog = item.procurement_logs.find((log) => log.action_type === '発注')
-                  const orderDate = orderLog?.action_date || ''
+                  const orderDate = item.order_date
                   const daysElapsed = orderDate ? getDaysElapsed(orderDate) : 0
 
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>{item.quote.project.project_name}</TableCell>
+                      <TableCell>{item.project_name}</TableCell>
                       <TableCell className="font-medium">{item.product_name}</TableCell>
-                      <TableCell>{item.supplier?.supplier_name || '-'}</TableCell>
+                      <TableCell>{item.supplier_name || '-'}</TableCell>
                       <TableCell>
                         {orderDate ? new Date(orderDate).toLocaleDateString('ja-JP') : '-'}
                       </TableCell>
-                      <TableCell>{getElapsedBadge(daysElapsed)}</TableCell>
+                      <TableCell>{orderDate ? getElapsedBadge(daysElapsed) : '-'}</TableCell>
                     </TableRow>
                   )
                 })}
@@ -386,27 +467,31 @@ export default function ProcurementDashboardPage() {
                 </TableRow>
               ) : (
                 orderedItems.slice(0, 10).map((item) => {
-                  const orderLog = item.procurement_logs.find((log) => log.action_type === '発注')
-                  const orderDate = orderLog?.action_date || ''
+                  const orderDate = item.order_date
                   const daysElapsed = orderDate ? getDaysElapsed(orderDate) : 0
 
                   return (
                     <TableRow key={item.id}>
-                      <TableCell>{item.quote.project.project_number}</TableCell>
-                      <TableCell>{item.quote.project.project_name}</TableCell>
+                      <TableCell>{item.project_number}</TableCell>
+                      <TableCell>{item.project_name}</TableCell>
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.product_name}</p>
-                          {item.description && (
+                          {item.description ? (
                             <p className="text-sm text-gray-500">{item.description}</p>
-                          )}
+                          ) : null}
+                          {item.source === 'standalone' && item.purchase_order_number ? (
+                            <p className="text-xs text-gray-500">
+                              発注書番号: {item.purchase_order_number}
+                            </p>
+                          ) : null}
                         </div>
                       </TableCell>
-                      <TableCell>{item.supplier?.supplier_name || '-'}</TableCell>
+                      <TableCell>{item.supplier_name || '-'}</TableCell>
                       <TableCell>
                         {orderDate ? new Date(orderDate).toLocaleDateString('ja-JP') : '-'}
                       </TableCell>
-                      <TableCell>{orderDate && getElapsedBadge(daysElapsed)}</TableCell>
+                      <TableCell>{orderDate ? getElapsedBadge(daysElapsed) : '-'}</TableCell>
                     </TableRow>
                   )
                 })

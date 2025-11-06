@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
+import { createPurchaseOrders } from '@/app/(dashboard)/dashboard/quotes/[id]/actions'
 import {
   Pagination,
   PaginationContent,
@@ -27,30 +37,33 @@ interface Supplier {
   supplier_name: string
 }
 
+type ProcurementItemSource = 'quote' | 'standalone'
+
+type ProcurementStatus = '未発注' | '発注済' | '入荷済'
+
 interface ProcurementItem {
   id: string
-  line_number: number
+  source: ProcurementItemSource
+  procurement_status: ProcurementStatus
+  quote_id: string | null
+  project_number: string
+  project_name: string
+  customer_name: string
+  quote_number: string
+  purchase_order_id: string | null
+  purchase_order_number: string | null
+  line_number: number | null
   product_name: string
   description: string | null
   quantity: number
-  cost_price: string
-  cost_amount: string
-  procurement_status: string | null
-  quote: {
-    quote_number: string
-    approval_status: string
-    project: {
-      project_number: string
-      project_name: string
-      customer: {
-        customer_name: string
-      }
-    }
-  }
+  cost_price: number | null
+  cost_amount: number | null
   supplier: {
-    id: string
-    supplier_name: string
+    id: string | null
+    supplier_name: string | null
   } | null
+  selectable: boolean
+  order_date?: string | null
 }
 
 export default function ProcurementPendingPage() {
@@ -66,11 +79,106 @@ export default function ProcurementPendingPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [orderDate, setOrderDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [notes, setNotes] = useState('')
+  const [isCreating, startCreateTransition] = useTransition()
 
   // フィルタ状態
   const [supplierFilter, setSupplierFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('pending')
+
+  const selectedQuoteItems = useMemo(
+    () => items.filter((item) => selectedItems.has(item.id) && item.source === 'quote'),
+    [items, selectedItems]
+  )
+
+  const hasStandaloneSelection = useMemo(
+    () => items.some((item) => selectedItems.has(item.id) && item.source === 'standalone'),
+    [items, selectedItems]
+  )
+
+  const selectedQuoteId = selectedQuoteItems.length > 0 ? selectedQuoteItems[0].quote_id : null
+  const selectedQuoteNumber = selectedQuoteItems.length > 0 ? selectedQuoteItems[0].quote_number : ''
+  const selectedProjectName = selectedQuoteItems.length > 0 ? selectedQuoteItems[0].project_name : ''
+  const selectedProjectNumber = selectedQuoteItems.length > 0 ? selectedQuoteItems[0].project_number : ''
+
+  const selectedSupplierSummary = useMemo(() => {
+    const summary = new Map<string, { count: number }>()
+    selectedQuoteItems.forEach((item) => {
+      const key = item.supplier?.supplier_name || '未設定'
+      if (!summary.has(key)) {
+        summary.set(key, { count: 0 })
+      }
+      summary.get(key)!.count += 1
+    })
+    return Array.from(summary.entries())
+  }, [selectedQuoteItems])
+
+  const canCreatePurchaseOrder = useMemo(() => {
+    if (hasStandaloneSelection || selectedQuoteItems.length === 0 || !selectedQuoteId) {
+      return false
+    }
+    const uniqueQuoteIds = new Set(selectedQuoteItems.map((item) => item.quote_id))
+    return uniqueQuoteIds.size === 1 && uniqueQuoteIds.has(selectedQuoteId)
+  }, [hasStandaloneSelection, selectedQuoteItems, selectedQuoteId])
+
+  const handleOpenCreateDialog = () => {
+    if (selectedQuoteItems.length === 0) {
+      alert('発注書を作成する明細を選択してください。')
+      return
+    }
+
+    if (hasStandaloneSelection) {
+      alert('単独発注書の明細はここから作成できません。見積に紐づく明細を選択してください。')
+      return
+    }
+
+    const uniqueQuoteIds = new Set(selectedQuoteItems.map((item) => item.quote_id))
+    if (uniqueQuoteIds.size !== 1 || !selectedQuoteId) {
+      alert('同じ案件（見積）に紐づく明細のみ選択してください。')
+      return
+    }
+
+    setOrderDate(new Date().toISOString().split('T')[0])
+    setNotes('')
+    setCreateDialogOpen(true)
+  }
+
+  const handleCreatePurchaseOrders = () => {
+    if (selectedQuoteItems.length === 0 || !selectedQuoteId) {
+      alert('発注書を作成する対象が選択されていません。')
+      return
+    }
+
+    startCreateTransition(async () => {
+      try {
+        const result = await createPurchaseOrders({
+          quoteId: selectedQuoteId,
+          itemIds: selectedQuoteItems.map((item) => item.id),
+          orderDate,
+          combineBySupplier: true,
+          notes: notes.trim() || undefined,
+        })
+
+        if (result.success) {
+          alert(result.message || '発注書を作成しました')
+          setCreateDialogOpen(false)
+          setSelectedItems(new Set())
+          setOrderDate(new Date().toISOString().split('T')[0])
+          setNotes('')
+          setLoading(true)
+          await loadData()
+        } else {
+          alert(result.message || '発注書の作成に失敗しました')
+        }
+      } catch (error) {
+        console.error('発注書作成エラー:', error)
+        alert('発注書の作成に失敗しました')
+      }
+    })
+  }
 
   useEffect(() => {
     loadData()
@@ -90,11 +198,12 @@ export default function ProcurementPendingPage() {
 
       setSuppliers(suppliersData || [])
 
-      // 発注対象明細取得
-      const { data: itemsData, error } = await supabase
+      // 見積紐付きの発注対象明細取得
+      const { data: quoteItemsData, error: quoteItemsError } = await supabase
         .from('quote_items')
         .select(`
           id,
+          quote_id,
           line_number,
           product_name,
           description,
@@ -116,9 +225,94 @@ export default function ProcurementPendingPage() {
         .is('requires_procurement', true)
         .eq('quote.approval_status', '承認済み')
 
-      if (error) throw error
+      if (quoteItemsError) throw quoteItemsError
 
-      setItems(itemsData as any || [])
+      const quoteItems: ProcurementItem[] = (quoteItemsData || []).map((item) => {
+        const normalizedStatus: ProcurementStatus =
+          item.procurement_status === '発注済' || item.procurement_status === '入荷済'
+            ? (item.procurement_status as ProcurementStatus)
+            : '未発注'
+
+        return {
+          id: item.id,
+          source: 'quote',
+          procurement_status: normalizedStatus,
+          quote_id: item.quote_id,
+          project_number: item.quote.project.project_number,
+          project_name: item.quote.project.project_name,
+          customer_name: item.quote.project.customer.customer_name,
+          quote_number: item.quote.quote_number,
+          purchase_order_id: null,
+          purchase_order_number: null,
+          line_number: item.line_number ?? null,
+          product_name: item.product_name,
+          description: item.description,
+          quantity: Number(item.quantity || 0),
+          cost_price: item.cost_price != null ? Number(item.cost_price) : null,
+          cost_amount: item.cost_amount != null ? Number(item.cost_amount) : null,
+          supplier: item.supplier
+            ? { id: item.supplier.id, supplier_name: item.supplier.supplier_name }
+            : null,
+          selectable: true,
+          order_date: null,
+        }
+      })
+
+      // 単独発注書（見積紐付きでない発注書）
+      const { data: standaloneOrders, error: standaloneError } = await supabase
+        .from('purchase_orders')
+        .select(`
+          id,
+          purchase_order_number,
+          status,
+          order_date,
+          supplier:suppliers(id, supplier_name),
+          items:purchase_order_items(
+            id,
+            quantity,
+            unit_cost,
+            amount,
+            manual_name,
+            manual_description,
+            quote_item_id
+          )
+        `)
+        .is('quote_id', null)
+        .neq('status', 'キャンセル')
+
+      if (standaloneError) throw standaloneError
+
+      const standaloneItems: ProcurementItem[] = (standaloneOrders || []).flatMap((order) => {
+        const normalizedStatus: ProcurementStatus = order.status === '発注済' ? '発注済' : '未発注'
+
+        return (order.items || [])
+          .filter((item) => !item.quote_item_id)
+          .map((item) => ({
+            id: `${order.id}:${item.id}`,
+            source: 'standalone' as const,
+            procurement_status: normalizedStatus,
+            quote_id: null,
+            project_number: '-',
+            project_name: '単独発注',
+            customer_name: '-',
+            quote_number: '-',
+            purchase_order_id: order.id,
+            purchase_order_number: order.purchase_order_number,
+            line_number: null,
+            product_name: item.manual_name || 'カスタム明細',
+            description: item.manual_description || null,
+            quantity: Number(item.quantity || 0),
+            cost_price: item.unit_cost != null ? Number(item.unit_cost) : null,
+            cost_amount: item.amount != null ? Number(item.amount) : null,
+            supplier: order.supplier
+              ? { id: order.supplier.id, supplier_name: order.supplier.supplier_name }
+              : null,
+            selectable: false,
+            order_date: order.order_date ?? null,
+          }))
+      })
+
+      setItems([...quoteItems, ...standaloneItems])
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)
@@ -132,9 +326,7 @@ export default function ProcurementPendingPage() {
 
     // ステータスフィルタ
     if (statusFilter === 'pending') {
-      filtered = filtered.filter(
-        (item) => !item.procurement_status || item.procurement_status === '未発注'
-      )
+      filtered = filtered.filter((item) => item.procurement_status === '未発注')
     } else if (statusFilter === 'ordered') {
       filtered = filtered.filter((item) => item.procurement_status === '発注済')
     } else if (statusFilter === 'received') {
@@ -150,10 +342,19 @@ export default function ProcurementPendingPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       filtered = filtered.filter(
-        (item) =>
-          item.quote.project.project_name.toLowerCase().includes(query) ||
-          item.product_name.toLowerCase().includes(query) ||
-          item.quote.project.customer.customer_name.toLowerCase().includes(query)
+        (item) => {
+          const targets = [
+            item.project_number,
+            item.project_name,
+            item.customer_name,
+            item.quote_number,
+            item.purchase_order_number ?? '',
+            item.product_name,
+            item.description ?? '',
+            item.supplier?.supplier_name ?? '',
+          ]
+          return targets.some((value) => value.toLowerCase().includes(query))
+        }
       )
     }
 
@@ -170,16 +371,21 @@ export default function ProcurementPendingPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const pendingIds = filteredItems
-        .filter((item) => !item.procurement_status || item.procurement_status === '未発注')
+      const pendingSelectableIds = filteredItems
+        .filter((item) => item.selectable && item.procurement_status === '未発注')
         .map((item) => item.id)
-      setSelectedItems(new Set(pendingIds))
+      setSelectedItems(new Set(pendingSelectableIds))
     } else {
       setSelectedItems(new Set())
     }
   }
 
   const handleSelectItem = (itemId: string, checked: boolean) => {
+    const target = items.find((item) => item.id === itemId)
+    if (!target?.selectable) {
+      return
+    }
+
     const newSelected = new Set(selectedItems)
     if (checked) {
       newSelected.add(itemId)
@@ -187,59 +393,6 @@ export default function ProcurementPendingPage() {
       newSelected.delete(itemId)
     }
     setSelectedItems(newSelected)
-  }
-
-  const handleBulkOrder = async () => {
-    if (selectedItems.size === 0) {
-      alert('発注する明細を選択してください')
-      return
-    }
-
-    if (!confirm(`${selectedItems.size}件の明細を発注登録しますか？`)) {
-      return
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user?.id)
-        .single()
-
-      if (!userData) throw new Error('ユーザー情報の取得に失敗しました')
-
-      const itemIds = Array.from(selectedItems)
-      const selectedDetails = items.filter((item) => itemIds.includes(item.id))
-      const orderedAt = new Date().toISOString()
-
-      // procurement_logsに発注記録を登録
-      const logs = selectedDetails.map((item) => ({
-        quote_item_id: item.id,
-        action_type: '発注',
-        action_date: orderedAt,
-        quantity: Number(item.quantity || 0),
-        performed_by: userData.id,
-      }))
-
-      const { error: logError } = await supabase.from('procurement_logs').insert(logs)
-      if (logError) throw logError
-
-      // quote_itemsのstatusを更新
-      const { error: updateError } = await supabase
-        .from('quote_items')
-        .update({ procurement_status: '発注済', ordered_at: orderedAt })
-        .in('id', itemIds)
-
-      if (updateError) throw updateError
-
-      alert(`${selectedItems.size}件の明細を発注登録しました`)
-      setSelectedItems(new Set())
-      await loadData()
-    } catch (error) {
-      console.error('発注登録エラー:', error)
-      alert('発注登録に失敗しました')
-    }
   }
 
   const handleExportCSV = () => {
@@ -253,8 +406,7 @@ export default function ProcurementPendingPage() {
       '案件番号',
       '案件名',
       '顧客名',
-      '見積番号',
-      '行番号',
+      '見積番号/発注書番号',
       '品名',
       '説明',
       '数量',
@@ -265,18 +417,17 @@ export default function ProcurementPendingPage() {
     ]
 
     const rows = filteredItems.map((item) => [
-      item.quote.project.project_number,
-      item.quote.project.project_name,
-      item.quote.project.customer.customer_name,
-      item.quote.quote_number,
-      item.line_number,
+      item.project_number,
+      item.project_name,
+      item.customer_name,
+      item.source === 'quote' ? item.quote_number : (item.purchase_order_number ?? '-'),
       item.product_name,
       item.description || '',
       item.quantity,
-      item.cost_price || 0,
-      item.cost_amount,
+      item.cost_price ?? 0,
+      item.cost_amount ?? 0,
       item.supplier?.supplier_name || '',
-      item.procurement_status || '未発注',
+      item.procurement_status,
     ])
 
     const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n')
@@ -297,12 +448,14 @@ export default function ProcurementPendingPage() {
       return <Badge variant="secondary">発注済み</Badge>
     } else if (status === '入荷済') {
       return <Badge variant="default">入荷済み</Badge>
+    } else if (status === 'キャンセル') {
+      return <Badge variant="destructive">キャンセル</Badge>
     }
     return <Badge variant="outline">{status}</Badge>
   }
 
-  const formatCurrency = (amount: string) => {
-    return `¥${Number(amount).toLocaleString()}`
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    return `¥${Number(amount ?? 0).toLocaleString()}`
   }
 
   if (loading) {
@@ -313,9 +466,13 @@ export default function ProcurementPendingPage() {
     )
   }
 
-  const pendingCount = filteredItems.filter(
-    (item) => !item.procurement_status || item.procurement_status === '未発注'
-  ).length
+  const pendingCount = filteredItems.filter((item) => item.procurement_status === '未発注').length
+  const selectablePendingIds = filteredItems
+    .filter((item) => item.selectable && item.procurement_status === '未発注')
+    .map((item) => item.id)
+  const allSelectablePendingSelected =
+    selectablePendingIds.length > 0 &&
+    selectablePendingIds.every((id) => selectedItems.has(id))
 
   return (
     <div className="space-y-6">
@@ -328,11 +485,79 @@ export default function ProcurementPendingPage() {
           <Button onClick={handleExportCSV} variant="outline">
             CSVエクスポート
           </Button>
-          <Button onClick={handleBulkOrder} disabled={selectedItems.size === 0}>
-            選択した{selectedItems.size}件を発注
+          <Button onClick={handleOpenCreateDialog} disabled={!canCreatePurchaseOrder || isCreating}>
+            選択した{selectedQuoteItems.length}件で発注書を作成
           </Button>
         </div>
       </div>
+      {filteredItems.some((item) => !item.selectable) && (
+        <p className="text-xs text-gray-500">
+          単独発注書は一覧に表示されますが、一括発注の対象外です（発注ステータスのみ管理できます）。
+        </p>
+      )}
+      {!hasStandaloneSelection && selectedQuoteItems.length > 0 && !canCreatePurchaseOrder && (
+        <p className="text-xs text-red-600">
+          同じ案件（見積）に紐づく明細のみ選択してください。
+        </p>
+      )}
+
+
+      <Dialog open={createDialogOpen} onOpenChange={(open) => !isCreating && setCreateDialogOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>発注書を作成</DialogTitle>
+            <DialogDescription>
+              案件: {selectedProjectNumber || '-'} {selectedProjectName || ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600 space-y-1">
+              <p>対象見積: {selectedQuoteNumber || '-'}</p>
+              <p>選択明細: {selectedQuoteItems.length}件</p>
+              {selectedSupplierSummary.length > 0 ? (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-500">仕入先ごとの明細数</p>
+                  <ul className="mt-1 space-y-1">
+                    {selectedSupplierSummary.map(([supplierName, info]) => (
+                      <li key={supplierName}>
+                        {supplierName}: {info.count}件
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label>発注日</Label>
+                <Input
+                  type="date"
+                  value={orderDate}
+                  onChange={(event) => setOrderDate(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>備考</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={3}
+                  placeholder="仕入先へ共有したい内容があれば記入してください"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={isCreating}>
+              キャンセル
+            </Button>
+            <Button onClick={handleCreatePurchaseOrders} disabled={isCreating}>
+              {isCreating ? '作成中...' : '発注書を作成'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -396,14 +621,9 @@ export default function ProcurementPendingPage() {
               <TableRow>
                 <TableHead className="w-[50px]">
                   <Checkbox
-                    checked={
-                      pendingCount > 0 &&
-                      selectedItems.size ===
-                        filteredItems.filter(
-                          (item) => !item.procurement_status || item.procurement_status === '未発注'
-                        ).length
-                    }
+                    checked={allSelectablePendingSelected}
                     onCheckedChange={handleSelectAll}
+                    disabled={selectablePendingIds.length === 0}
                   />
                 </TableHead>
                 <TableHead>案件番号</TableHead>
@@ -427,35 +647,51 @@ export default function ProcurementPendingPage() {
                 </TableRow>
               ) : (
                 paginatedItems.map((item) => {
-                  const isPending = !item.procurement_status || item.procurement_status === '未発注'
+                  const isPending = item.procurement_status === '未発注'
                   return (
                     <TableRow key={item.id}>
                       <TableCell>
-                        {isPending && (
+                        {isPending && item.selectable ? (
                           <Checkbox
                             checked={selectedItems.has(item.id)}
                             onCheckedChange={(checked) =>
                               handleSelectItem(item.id, checked as boolean)
                             }
                           />
-                        )}
+                        ) : null}
                       </TableCell>
-                      <TableCell>{item.quote.project.project_number}</TableCell>
-                      <TableCell>{item.quote.project.project_name}</TableCell>
-                      <TableCell>{item.quote.project.customer.customer_name}</TableCell>
-                      <TableCell>{item.quote.quote_number}</TableCell>
+                      <TableCell>{item.project_number}</TableCell>
+                      <TableCell>{item.project_name}</TableCell>
+                      <TableCell>{item.customer_name}</TableCell>
+                      <TableCell>
+                        {item.source === 'quote'
+                          ? item.quote_number
+                          : item.purchase_order_number ?? '-'}
+                        {item.source === 'standalone' ? (
+                          <div className="text-xs text-muted-foreground">単独発注</div>
+                        ) : null}
+                      </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{item.product_name}</p>
-                          {item.description && (
+                          <p className="font-medium">
+                            {item.source === 'quote' && item.line_number != null
+                              ? `行${item.line_number}: ${item.product_name}`
+                              : item.product_name}
+                          </p>
+                          {item.description ? (
                             <p className="text-sm text-gray-500">{item.description}</p>
-                          )}
+                          ) : null}
+                          {item.source === 'standalone' && item.purchase_order_number ? (
+                            <p className="text-xs text-gray-500">
+                              発注書番号: {item.purchase_order_number}
+                            </p>
+                          ) : null}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
                       <TableCell>{item.supplier?.supplier_name || '-'}</TableCell>
                       <TableCell className="text-right">
-                        {item.cost_price ? formatCurrency(item.cost_price) : '-'}
+                        {item.cost_price != null ? formatCurrency(item.cost_price) : '-'}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(item.cost_amount)}

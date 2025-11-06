@@ -200,6 +200,29 @@ const revalidatePurchaseOrderPaths = (quoteId?: string | null) => {
   revalidatePath('/dashboard/approvals')
 }
 
+const revertQuoteItemsToPending = async (
+  supabase: SupabaseClient,
+  purchaseOrder: Awaited<ReturnType<typeof fetchPurchaseOrderWithItems>>
+) => {
+  const quoteItemIds = (purchaseOrder.items || [])
+    .map((item) => item.quote_item_id)
+    .filter((id): id is string => Boolean(id))
+
+  if (quoteItemIds.length === 0) {
+    return
+  }
+
+  const { error } = await supabase
+    .from('quote_items')
+    .update({ procurement_status: '未発注', ordered_at: null })
+    .in('id', quoteItemIds)
+
+  if (error) {
+    console.error('Failed to revert quote items to 未発注:', error)
+    throw error
+  }
+}
+
 const generatePurchaseOrderNumber = async (supabase: SupabaseClient, orderDate?: string) => {
   const { count } = await supabase
     .from('purchase_orders')
@@ -616,6 +639,8 @@ export async function approvePurchaseOrder(purchaseOrderId: string, userId: stri
 
     if (poUpdateError) throw poUpdateError
 
+    await revertQuoteItemsToPending(supabase, purchaseOrder)
+
     revalidatePurchaseOrderPaths(purchaseOrder.quote_id)
 
     return { success: true, message: '発注書を承認しました' }
@@ -701,6 +726,8 @@ export async function rejectPurchaseOrder(purchaseOrderId: string, userId: strin
 
     if (poUpdateError) throw poUpdateError
 
+    await revertQuoteItemsToPending(supabase, purchaseOrder)
+
     revalidatePurchaseOrderPaths(purchaseOrder.quote_id)
 
     return { success: true, message: '発注書を却下しました' }
@@ -751,6 +778,8 @@ export async function cancelPurchaseOrderApproval(purchaseOrderId: string) {
       .eq('id', purchaseOrderId)
 
     if (poUpdateError) throw poUpdateError
+
+    await revertQuoteItemsToPending(supabase, purchaseOrder)
 
     revalidatePurchaseOrderPaths(purchaseOrder.quote_id)
 

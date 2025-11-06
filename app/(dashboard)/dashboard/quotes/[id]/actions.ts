@@ -604,6 +604,22 @@ export async function createPurchaseOrders(payload: CreatePurchaseOrderPayload) 
       console.error('Failed to insert purchase order items:', poItemsError)
       return { success: false, message: '発注書の明細登録に失敗しました' }
     }
+
+    const quoteItemIds = orderItemsPayload
+      .map((item) => item.quote_item_id)
+      .filter((id): id is string => Boolean(id))
+
+    if (quoteItemIds.length > 0) {
+      const { error: quoteItemResetError } = await supabase
+        .from('quote_items')
+        .update({ procurement_status: '未発注', ordered_at: null })
+        .in('id', quoteItemIds)
+
+      if (quoteItemResetError) {
+        console.error('Failed to reset quote items to 未発注:', quoteItemResetError)
+        return { success: false, message: '見積明細の更新に失敗しました' }
+      }
+    }
   }
 
   revalidatePath(`/dashboard/quotes/${quoteId}`)
