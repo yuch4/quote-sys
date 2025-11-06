@@ -213,8 +213,9 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         <div className="flex gap-2">
           <PDFGenerateButton
             quoteId={quote.id}
-            quoteNumber={quote.quote_number}
+            approvalStatus={quote.approval_status}
             pdfUrl={quote.pdf_url}
+            pdfGeneratedAt={quote.pdf_generated_at}
           />
           <PurchaseOrderDialog
             quoteId={quote.id}

@@ -30,6 +30,13 @@ export async function generateQuotePDF(quoteId: string) {
       throw new Error('見積データの取得に失敗しました')
     }
 
+    if (quote.approval_status !== '承認済み') {
+      return {
+        success: false,
+        message: '承認済みの見積のみPDFを生成できます',
+      }
+    }
+
     // PDF生成
     const pdfDoc = QuotePDF({ quote })
     const blob = await pdf(pdfDoc).toBlob()
@@ -59,7 +66,10 @@ export async function generateQuotePDF(quoteId: string) {
     // 見積レコードにPDF URLを保存
     const { error: updateError } = await supabase
       .from('quotes')
-      .update({ pdf_url: urlData.publicUrl })
+      .update({
+        pdf_url: urlData.publicUrl,
+        pdf_generated_at: new Date().toISOString(),
+      })
       .eq('id', quoteId)
 
     if (updateError) {

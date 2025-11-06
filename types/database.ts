@@ -79,6 +79,7 @@ export interface Quote {
   approved_by: string | null
   approved_at: string | null
   pdf_url: string | null
+  pdf_generated_at: string | null
   notes: string | null
   created_by: string
   created_at: string
