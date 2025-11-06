@@ -80,6 +80,7 @@ export interface Quote {
   approved_at: string | null
   pdf_url: string | null
   pdf_generated_at: string | null
+  previous_version_id: string | null
   notes: string | null
   created_by: string
   created_at: string

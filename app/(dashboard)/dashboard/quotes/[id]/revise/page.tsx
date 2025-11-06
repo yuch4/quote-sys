@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 
 interface Project {
   id: string
@@ -36,9 +36,12 @@ interface QuoteItemFormData {
   requires_procurement: boolean
 }
 
-export default function QuoteRevisePage({ params }: { params: { id: string } }) {
+export default function QuoteRevisePage() {
   const router = useRouter()
   const supabase = createClient()
+  const params = useParams()
+  const quoteIdParam = params?.id
+  const quoteId = Array.isArray(quoteIdParam) ? quoteIdParam[0] : quoteIdParam
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -58,10 +61,11 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
 
   // 初期データ読込
   useEffect(() => {
-    loadInitialData()
-  }, [])
+    if (!quoteId) return
+    loadInitialData(quoteId)
+  }, [quoteId])
 
-  const loadInitialData = async () => {
+  const loadInitialData = async (currentQuoteId: string) => {
     try {
       // 元の見積データ取得
       const { data: originalQuote, error: quoteError } = await supabase
@@ -70,7 +74,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
           *,
           items:quote_items(*)
         `)
-        .eq('id', params.id)
+        .eq('id', currentQuoteId)
         .single()
 
       if (quoteError || !originalQuote) {
@@ -82,7 +86,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
       // 承認済みでない場合は改訂不可
       if (originalQuote.approval_status !== '承認済み') {
         alert('承認済みの見積のみ改訂できます')
-        router.push(`/dashboard/quotes/${params.id}`)
+        router.push(`/dashboard/quotes/${currentQuoteId}`)
         return
       }
 
@@ -220,6 +224,11 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
       return
     }
 
+    if (!quoteId) {
+      alert('見積IDが取得できませんでした')
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -252,7 +261,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
           approval_status: '下書き',
           notes: notes || null,
           created_by: userData.id,
-          previous_version_id: params.id,
+          previous_version_id: quoteId,
         })
         .select()
         .single()
@@ -306,7 +315,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
           <h1 className="text-3xl font-bold text-gray-900">見積改訂</h1>
           <p className="text-gray-600 mt-2">{quoteNumberBase}-v{newVersion} を作成</p>
         </div>
-        <Link href={`/dashboard/quotes/${params.id}`}>
+        <Link href={quoteId ? `/dashboard/quotes/${quoteId}` : '/dashboard/quotes'}>
           <Button variant="outline">キャンセル</Button>
         </Link>
       </div>
@@ -518,7 +527,7 @@ export default function QuoteRevisePage({ params }: { params: { id: string } }) 
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Link href={`/dashboard/quotes/${params.id}`}>
+          <Link href={quoteId ? `/dashboard/quotes/${quoteId}` : '/dashboard/quotes'}>
             <Button type="button" variant="outline">
               キャンセル
             </Button>
