@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { PurchaseOrderEditDialog, type PurchaseOrderEditable } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,6 +65,49 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [procurementFilter, setProcurementFilter] = useState<ProcurementFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const stored = window.localStorage.getItem('purchase-order-table-filters')
+      if (stored) {
+        const { status, procurement, query } = JSON.parse(stored)
+        if (status && ['all', '未発注', '発注済', 'キャンセル'].includes(status)) {
+          setStatusFilter(status)
+        }
+        if (procurement && ['all', 'pending', 'ordered', 'received'].includes(procurement)) {
+          setProcurementFilter(procurement)
+        }
+        if (typeof query === 'string') {
+          setSearchQuery(query)
+        }
+      }
+    } catch (error) {
+      console.warn('failed to restore purchase order filters', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const payload = JSON.stringify({
+      status: statusFilter,
+      procurement: procurementFilter,
+      query: searchQuery,
+    })
+    window.localStorage.setItem('purchase-order-table-filters', payload)
+  }, [statusFilter, procurementFilter, searchQuery])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -147,10 +190,12 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
             <div className="space-y-2">
               <Label>キーワード</Label>
               <Input
+                ref={searchInputRef}
                 placeholder="仕入先名・発注書番号・見積番号など"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
+              <p className="text-xs text-gray-500">ショートカット: Ctrl/Cmd + K でクイック検索</p>
             </div>
           </div>
         </CardContent>

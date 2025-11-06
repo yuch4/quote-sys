@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertTriangle, Package, TrendingUp, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { ProcurementAlertReminder } from '@/components/procurement/alert-reminder'
 
 interface DashboardStats {
   totalPending: number
@@ -64,6 +65,16 @@ export default function ProcurementDashboardPage() {
   useEffect(() => {
     loadDashboardData()
   }, [])
+
+  const alertSummaries = useMemo(() => {
+    return alertItems.map((item) => ({
+      id: item.id,
+      productName: item.product_name,
+      supplierName: item.supplier_name,
+      daysElapsed: item.order_date ? getDaysElapsed(item.order_date) : 0,
+      purchaseOrderNumber: item.purchase_order_number || item.quote_number,
+    }))
+  }, [alertItems])
 
   const loadDashboardData = async () => {
     try {
@@ -240,7 +251,7 @@ export default function ProcurementDashboardPage() {
     }
   }
 
-  const getDaysElapsed = (dateString: string) => {
+  function getDaysElapsed(dateString: string) {
     const date = new Date(dateString)
     if (Number.isNaN(date.getTime())) return 0
     const today = new Date()
@@ -280,6 +291,8 @@ export default function ProcurementDashboardPage() {
         <p className="text-gray-600 mt-2">発注・入荷状況の概要</p>
       </div>
 
+      <ProcurementAlertReminder alerts={alertSummaries} />
+
       {/* 統計カード */}
       <div className="grid grid-cols-4 gap-6">
         <Card>
@@ -291,7 +304,7 @@ export default function ProcurementDashboardPage() {
             <div className="text-2xl font-bold">{stats.totalPending}件</div>
             <p className="text-xs text-gray-600 mt-1">
               <Link href="/dashboard/procurement/pending" className="text-blue-600 hover:underline">
-                発注待ち一覧へ →
+                発注候補一覧へ →
               </Link>
             </p>
           </CardContent>

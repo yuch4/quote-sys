@@ -88,7 +88,7 @@ test.describe('完全なビジネスフロー', () => {
     await expect(page.locator('h1')).toContainText('発注・入荷 進捗ダッシュボード');
   });
 
-  test('発注待ち一覧にアクセスできる', async ({ page }) => {
+  test('発注候補一覧にアクセスできる', async ({ page }) => {
     // 事務担当者でログイン
     await page.goto('/login');
     await page.fill('input[type="email"]', clerkEmail);
@@ -96,12 +96,12 @@ test.describe('完全なビジネスフロー', () => {
     await page.click('button[type="submit"]');
     await page.waitForURL('/dashboard', { timeout: 10000 });
 
-    // 発注待ち一覧へ移動
+    // 発注候補一覧へ移動
     await page.goto('/dashboard/procurement/pending');
     await page.waitForLoadState('networkidle');
 
-    // 発注待ち画面が表示される
-    await expect(page.locator('h1')).toContainText('発注管理');
+    // 発注候補画面が表示される
+    await expect(page.locator('h1')).toContainText('発注候補');
   });
 
   test('入荷管理画面にアクセスできる', async ({ page }) => {

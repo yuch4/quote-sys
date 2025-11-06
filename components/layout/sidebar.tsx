@@ -14,6 +14,7 @@ import {
   Settings,
   ClipboardList,
   ClipboardCheck,
+  Clock,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -65,6 +66,12 @@ const procurementItems = [
     name: '入荷登録',
     href: '/dashboard/procurement/receiving',
     icon: Package,
+  },
+  {
+    name: '活動履歴',
+    href: '/dashboard/procurement/activity',
+    icon: Clock,
+    description: '発注・承認・入荷の履歴を一覧できます。',
   },
 ]
 
