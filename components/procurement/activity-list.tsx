@@ -145,14 +145,18 @@ export function ActivityList({ events }: ActivityListProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>キーワード</Label>
+              <Label htmlFor="activity-search">キーワード</Label>
               <Input
+                id="activity-search"
                 ref={searchInputRef}
                 placeholder="発注書番号・仕入先名・見積番号・担当者名など"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="アクティビティを検索"
               />
-              <p className="text-xs text-gray-500">ショートカット: Ctrl/Cmd + K でクイック検索</p>
+              <p className="text-xs text-gray-500" aria-label="キーボードショートカット: コントロールまたはコマンドキー + K でクイック検索">
+                ショートカット: Ctrl/Cmd + K でクイック検索
+              </p>
             </div>
           </div>
         </CardContent>
@@ -169,8 +173,9 @@ export function ActivityList({ events }: ActivityListProps) {
             <p className="text-sm text-gray-500">条件に一致するアクティビティがありません。</p>
           ) : (
             <div className="space-y-6">
-              {filteredEvents.map((event, index) => {
+              {filteredEvents.map((event) => {
                 const date = new Date(event.datetime)
+                const isLastEvent = filteredEvents[filteredEvents.length - 1]?.id === event.id
                 return (
                   <div key={event.id} className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -190,7 +195,7 @@ export function ActivityList({ events }: ActivityListProps) {
                       {event.actor ? <p>担当: {event.actor}</p> : null}
                       {event.notes ? <p className="text-gray-600">メモ: {event.notes}</p> : null}
                     </div>
-                    {index < filteredEvents.length - 1 ? <Separator className="mt-4" /> : null}
+                    {!isLastEvent ? <Separator className="mt-4" /> : null}
                   </div>
                 )
               })}
