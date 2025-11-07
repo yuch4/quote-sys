@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+import { ActivityList } from '@/components/procurement/activity-list'
 
 type ActivityEvent = {
   id: string
@@ -13,37 +11,6 @@ type ActivityEvent = {
   quoteNumber?: string | null
   actor?: string | null
   notes?: string | null
-}
-
-const typeVariant: Record<ActivityEvent['type'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  作成: 'secondary',
-  承認依頼: 'default',
-  承認: 'default',
-  却下: 'destructive',
-  スキップ: 'outline',
-  発注: 'secondary',
-  入荷: 'default',
-  その他: 'outline',
-}
-
-const typeLabel: Record<ActivityEvent['type'], string> = {
-  作成: '発注書作成',
-  承認依頼: '承認依頼',
-  承認: '承認',
-  却下: '却下',
-  スキップ: '承認スキップ',
-  発注: '発注',
-  入荷: '入荷',
-  その他: 'その他',
-}
-
-const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
 }
 
 export default async function ProcurementActivityPage() {
@@ -188,45 +155,7 @@ export default async function ProcurementActivityPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>最新アクティビティ</CardTitle>
-          <CardDescription>直近200件のイベント</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sortedEvents.length === 0 ? (
-            <p className="text-sm text-gray-500">表示できるアクティビティがありません。</p>
-          ) : (
-            <div className="space-y-6">
-              {sortedEvents.map((event, index) => {
-                const date = new Date(event.datetime)
-                return (
-                  <div key={`${event.id}-${index}`} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={typeVariant[event.type]}>{typeLabel[event.type]}</Badge>
-                        <span className="text-sm font-medium text-gray-800">
-                          {event.purchaseOrderNumber ? `PO: ${event.purchaseOrderNumber}` : '-'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {date.toLocaleString('ja-JP', DATE_FORMAT_OPTIONS)}
-                      </span>
-                    </div>
-                    <div className="text-sm text-gray-700 space-y-1">
-                      {event.supplierName ? <p>仕入先: {event.supplierName}</p> : null}
-                      {event.quoteNumber ? <p>見積番号: {event.quoteNumber}</p> : null}
-                      {event.actor ? <p>担当: {event.actor}</p> : null}
-                      {event.notes ? <p className="text-gray-600">メモ: {event.notes}</p> : null}
-                    </div>
-                    {index < sortedEvents.length - 1 ? <Separator className="mt-4" /> : null}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ActivityList events={sortedEvents} />
     </div>
   )
 }
