@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { NotificationBell } from '@/components/notifications/notification-bell'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileSidebar } from '@/components/layout/mobile-sidebar'
+import { UserMenu } from '@/components/layout/user-menu'
 
 export default async function DashboardLayout({
   children,
@@ -47,14 +48,12 @@ export default async function DashboardLayout({
             </div>
             <div className="flex items-center gap-2 md:gap-4">
               <NotificationBell userId={user.id} />
-              <form action="/api/auth/logout" method="POST">
-                <button
-                  type="submit"
-                  className="text-xs md:text-sm text-gray-600 hover:text-gray-900"
-                >
-                  ログアウト
-                </button>
-              </form>
+              <UserMenu
+                userId={user.id}
+                name={userData?.display_name ?? 'ユーザー'}
+                email={userData?.email ?? user.email ?? ''}
+                role={userData?.role}
+              />
             </div>
           </div>
         </header>
