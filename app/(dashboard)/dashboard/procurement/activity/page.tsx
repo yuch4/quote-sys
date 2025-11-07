@@ -13,10 +13,19 @@ export default async function ProcurementActivityPage() {
       purchase_order_number,
       created_at,
       supplier:suppliers(supplier_name),
-      quote:quotes(quote_number),
+      quote:quotes(
+        id,
+        quote_number,
+        project:projects(
+          project_name,
+          customer:customers(customer_name)
+        )
+      ),
       approval_instance:purchase_order_approval_instances(
         id,
         requested_at,
+        requested_by,
+        requested_by_user:users!purchase_order_approval_instances_requested_by_fkey(display_name),
         steps:purchase_order_approval_instance_steps(
           id,
           step_order,
@@ -41,7 +50,14 @@ export default async function ProcurementActivityPage() {
       performed_by_user:users(display_name),
       quote_item:quote_items(
         id,
-        quote:quotes(quote_number),
+        quote:quotes(
+          id,
+          quote_number,
+          project:projects(
+            project_name,
+            customer:customers(customer_name)
+          )
+        ),
         purchase_order_items(
           purchase_order:purchase_orders(
             id,
@@ -54,6 +70,35 @@ export default async function ProcurementActivityPage() {
     .order('action_date', { ascending: false })
     .limit(200)
 
+  const { data: quotes } = await supabase
+    .from('quotes')
+    .select(`
+      id,
+      quote_number,
+      created_at,
+      project:projects(
+        project_name,
+        customer:customers(customer_name)
+      ),
+      created_by_user:users!quotes_created_by_fkey(display_name),
+      approval_instance:quote_approval_instances(
+        id,
+        requested_at,
+        requested_by,
+        requested_by_user:users!quote_approval_instances_requested_by_fkey(display_name),
+        steps:quote_approval_instance_steps(
+          id,
+          step_order,
+          approver_role,
+          status,
+          decided_at,
+          notes,
+          approver:users(display_name)
+        )
+      )
+    `)
+    .order('created_at', { ascending: false })
+
   const events: ProcurementActivityEvent[] = []
 
   for (const order of orders ?? []) {
@@ -61,11 +106,15 @@ export default async function ProcurementActivityPage() {
       events.push({
         id: `${order.id}-created`,
         datetime: order.created_at,
-        type: '作成',
+        type: '発注書作成',
+        entity: 'purchase_order',
         purchaseOrderId: order.id,
         purchaseOrderNumber: order.purchase_order_number,
         supplierName: order.supplier?.supplier_name ?? null,
         quoteNumber: order.quote?.quote_number ?? null,
+        quoteId: order.quote?.id ?? undefined,
+        projectName: order.quote?.project?.project_name ?? null,
+        customerName: order.quote?.project?.customer?.customer_name ?? null,
       })
     }
 
@@ -77,11 +126,16 @@ export default async function ProcurementActivityPage() {
       events.push({
         id: `${order.id}-requested-${instance.id}`,
         datetime: instance.requested_at,
-        type: '承認依頼',
+        type: '発注書承認依頼',
+        entity: 'purchase_order',
         purchaseOrderId: order.id,
         purchaseOrderNumber: order.purchase_order_number,
         supplierName: order.supplier?.supplier_name ?? null,
         quoteNumber: order.quote?.quote_number ?? null,
+        quoteId: order.quote?.id ?? undefined,
+        projectName: order.quote?.project?.project_name ?? null,
+        customerName: order.quote?.project?.customer?.customer_name ?? null,
+        actor: instance.requested_by_user?.display_name ?? undefined,
       })
     }
 
@@ -92,19 +146,23 @@ export default async function ProcurementActivityPage() {
           return
         }
 
-        let type: ActivityEvent['type'] = 'その他'
-        if (step.status === 'approved') type = '承認'
-        else if (step.status === 'rejected') type = '却下'
-        else if (step.status === 'skipped') type = 'スキップ'
+        let type: ProcurementActivityEvent['type'] = 'その他'
+        if (step.status === 'approved') type = '発注書承認'
+        else if (step.status === 'rejected') type = '発注書却下'
+        else if (step.status === 'skipped') type = '発注書スキップ'
 
         events.push({
           id: step.id,
           datetime: step.decided_at,
           type,
+          entity: 'purchase_order',
           purchaseOrderId: order.id,
           purchaseOrderNumber: order.purchase_order_number,
           supplierName: order.supplier?.supplier_name ?? null,
           quoteNumber: order.quote?.quote_number ?? null,
+          quoteId: order.quote?.id ?? undefined,
+          projectName: order.quote?.project?.project_name ?? null,
+          customerName: order.quote?.project?.customer?.customer_name ?? null,
           actor: step.approver?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
@@ -122,13 +180,78 @@ export default async function ProcurementActivityPage() {
       id: log.id,
       datetime: log.action_date,
       type,
+      entity: 'purchase_order',
       purchaseOrderId: purchaseOrder.id,
       purchaseOrderNumber: purchaseOrder.purchase_order_number,
       supplierName: purchaseOrder.supplier?.supplier_name ?? null,
+      quoteId: log.quote_item?.quote?.id ?? undefined,
       quoteNumber: log.quote_item?.quote?.quote_number ?? null,
+      projectName: log.quote_item?.quote?.project?.project_name ?? null,
+      customerName: log.quote_item?.quote?.project?.customer?.customer_name ?? null,
       actor: log.performed_by_user?.display_name ?? null,
       notes: log.notes ?? undefined,
     })
+  }
+
+  for (const quote of quotes ?? []) {
+    if (quote.created_at) {
+      events.push({
+        id: `${quote.id}-quote-created`,
+        datetime: quote.created_at,
+        type: '見積作成',
+        entity: 'quote',
+        quoteId: quote.id,
+        quoteNumber: quote.quote_number,
+        projectName: quote.project?.project_name ?? null,
+        customerName: quote.project?.customer?.customer_name ?? null,
+        actor: quote.created_by_user?.display_name ?? null,
+      })
+    }
+
+    const instance = quote.approval_instance && Array.isArray(quote.approval_instance)
+      ? quote.approval_instance[0]
+      : quote.approval_instance
+
+    if (instance?.requested_at) {
+      events.push({
+        id: `${quote.id}-quote-requested-${instance.id}`,
+        datetime: instance.requested_at,
+        type: '見積承認依頼',
+        entity: 'quote',
+        quoteId: quote.id,
+        quoteNumber: quote.quote_number,
+        projectName: quote.project?.project_name ?? null,
+        customerName: quote.project?.customer?.customer_name ?? null,
+        actor: instance.requested_by_user?.display_name ?? null,
+      })
+    }
+
+    const steps = instance?.steps
+    if (steps && Array.isArray(steps)) {
+      steps.forEach((step) => {
+        if (!step.decided_at) {
+          return
+        }
+
+        let type: ProcurementActivityEvent['type'] = 'その他'
+        if (step.status === 'approved') type = '見積承認'
+        else if (step.status === 'rejected') type = '見積差戻し'
+        else if (step.status === 'skipped') type = '見積スキップ'
+
+        events.push({
+          id: `${quote.id}-quote-step-${step.id}`,
+          datetime: step.decided_at,
+          type,
+          entity: 'quote',
+          quoteId: quote.id,
+          quoteNumber: quote.quote_number,
+          projectName: quote.project?.project_name ?? null,
+          customerName: quote.project?.customer?.customer_name ?? null,
+          actor: step.approver?.display_name ?? step.approver_role,
+          notes: step.notes ?? undefined,
+        })
+      })
+    }
   }
 
   const sortedEvents = events
@@ -140,8 +263,8 @@ export default async function ProcurementActivityPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">調達アクティビティ</h1>
-          <p className="text-gray-600 mt-2">発注書の作成・承認・入荷履歴を時系列で確認できます。</p>
+          <h1 className="text-3xl font-bold text-gray-900">調達・見積アクティビティ</h1>
+          <p className="text-gray-600 mt-2">見積作成〜発注・入荷までの履歴を時系列で確認できます。</p>
         </div>
       </div>
 

@@ -7,24 +7,26 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import type { ProcurementActivityEvent, ProcurementActivityType } from '@/types/procurement-activity'
+import type {
+  ProcurementActivityEvent,
+  ProcurementActivityType,
+  ProcurementActivityEntity,
+} from '@/types/procurement-activity'
+import { PROCUREMENT_ACTIVITY_TYPE_META } from '@/types/procurement-activity'
 
 type ActivityTimelineProps = {
   events: ProcurementActivityEvent[]
 }
 
 type TypeFilter = ProcurementActivityType | 'all'
+type EntityFilter = ProcurementActivityEntity | 'all'
 
-const TYPE_OPTIONS: { value: 'all' | ProcurementActivityType; label: string }[] = [
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: 'all', label: 'すべて' },
-  { value: '作成', label: '発注書作成' },
-  { value: '承認依頼', label: '承認依頼' },
-  { value: '承認', label: '承認' },
-  { value: '却下', label: '却下' },
-  { value: 'スキップ', label: '承認スキップ' },
-  { value: '発注', label: '発注' },
-  { value: '入荷', label: '入荷' },
-  { value: 'その他', label: 'その他' },
+  ...Object.entries(PROCUREMENT_ACTIVITY_TYPE_META).map(([value, meta]) => ({
+    value: value as ProcurementActivityType,
+    label: meta.label,
+  })),
 ]
 
 const RANGE_OPTIONS = [
@@ -42,43 +44,35 @@ const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
   second: '2-digit',
 }
 
-const typeVariant: Record<ProcurementActivityType, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  作成: 'secondary',
-  承認依頼: 'default',
-  承認: 'default',
-  却下: 'destructive',
-  スキップ: 'outline',
-  発注: 'secondary',
-  入荷: 'default',
-  その他: 'outline',
-}
-
-const typeLabel: Record<ProcurementActivityType, string> = {
-  作成: '発注書作成',
-  承認依頼: '承認依頼',
-  承認: '承認',
-  却下: '却下',
-  スキップ: '承認スキップ',
-  発注: '発注',
-  入荷: '入荷',
-  その他: 'その他',
+const ENTITY_LABEL: Record<ProcurementActivityEntity, string> = {
+  purchase_order: '発注書',
+  quote: '見積',
 }
 
 export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
-
+  const [entityFilter, setEntityFilter] = useState<EntityFilter>('all')
   const [supplierFilter, setSupplierFilter] = useState<string>('all')
   const [rangeFilter, setRangeFilter] = useState<string>('all')
   const [keyword, setKeyword] = useState('')
 
   const supplierOptions = useMemo(() => {
     const names = new Set<string>()
+    let hasUnset = false
+
     events.forEach((event) => {
       if (event.supplierName) {
         names.add(event.supplierName)
+      } else {
+        hasUnset = true
       }
     })
-    return Array.from(names).sort()
+
+    const sorted = Array.from(names).sort()
+    if (hasUnset) {
+      sorted.unshift('未設定')
+    }
+    return sorted
   }, [events])
 
   const filteredEvents = useMemo(() => {
@@ -87,8 +81,13 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
         return false
       }
 
+      if (entityFilter !== 'all' && event.entity !== entityFilter) {
+        return false
+      }
+
       if (supplierFilter !== 'all') {
-        if ((event.supplierName ?? '未設定') !== supplierFilter) {
+        const supplier = event.supplierName ?? '未設定'
+        if (supplier !== supplierFilter) {
           return false
         }
       }
@@ -107,12 +106,14 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
         const target = [
           event.purchaseOrderNumber,
           event.quoteNumber,
+          event.projectName,
+          event.customerName,
           event.supplierName,
           event.actor,
           event.notes,
         ]
           .filter(Boolean)
-          .join(' ') // join ensures spaces between
+          .join(' ')
           .toLowerCase()
 
         if (!target.includes(lower)) {
@@ -122,10 +123,11 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
 
       return true
     })
-  }, [events, typeFilter, supplierFilter, rangeFilter, keyword])
+  }, [events, typeFilter, entityFilter, supplierFilter, rangeFilter, keyword])
 
   const resetFilters = () => {
     setTypeFilter('all')
+    setEntityFilter('all')
     setSupplierFilter('all')
     setRangeFilter('all')
     setKeyword('')
@@ -133,7 +135,7 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
         <div className="space-y-2">
           <Label>イベント種別</Label>
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as TypeFilter)}>
@@ -146,6 +148,20 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
                   {option.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>対象</Label>
+          <Select value={entityFilter} onValueChange={(value) => setEntityFilter(value as EntityFilter)}>
+            <SelectTrigger>
+              <SelectValue placeholder="対象を選択" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">すべて</SelectItem>
+              <SelectItem value="quote">見積</SelectItem>
+              <SelectItem value="purchase_order">発注書</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -183,7 +199,7 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
           </Select>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 md:col-span-2">
           <Label>キーワード</Label>
           <Input
             placeholder="PO番号 / 見積番号 / メモなど"
@@ -211,10 +227,17 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
             return (
               <div key={`${event.id}-${index}`} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant={typeVariant[event.type]}>{typeLabel[event.type]}</Badge>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Badge variant={PROCUREMENT_ACTIVITY_TYPE_META[event.type].variant}>
+                      {PROCUREMENT_ACTIVITY_TYPE_META[event.type].label}
+                    </Badge>
+                    <Badge variant="outline">{ENTITY_LABEL[event.entity]}</Badge>
                     <span className="text-sm font-medium text-gray-800">
-                      {event.purchaseOrderNumber ? `PO: ${event.purchaseOrderNumber}` : '-'}
+                      {event.purchaseOrderNumber
+                        ? `PO: ${event.purchaseOrderNumber}`
+                        : event.quoteNumber
+                          ? `見積: ${event.quoteNumber}`
+                          : '-'}
                     </span>
                   </div>
                   <span className="text-xs text-gray-500">
@@ -222,8 +245,9 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
                   </span>
                 </div>
                 <div className="text-sm text-gray-700 space-y-1">
+                  {event.projectName ? <p>案件: {event.projectName}</p> : null}
+                  {event.customerName ? <p>顧客: {event.customerName}</p> : null}
                   {event.supplierName ? <p>仕入先: {event.supplierName}</p> : null}
-                  {event.quoteNumber ? <p>見積番号: {event.quoteNumber}</p> : null}
                   {event.actor ? <p>担当: {event.actor}</p> : null}
                   {event.notes ? <p className="text-gray-600">メモ: {event.notes}</p> : null}
                 </div>
