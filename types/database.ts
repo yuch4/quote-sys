@@ -36,6 +36,7 @@ export interface Supplier {
   contact_person: string | null
   phone: string | null
   email: string | null
+  address: string | null
   payment_terms: string | null
   is_deleted: boolean
   created_at: string
@@ -333,5 +334,6 @@ export interface SupplierFormData {
   contact_person?: string
   phone?: string
   email?: string
+  address?: string
   payment_terms?: string
 }

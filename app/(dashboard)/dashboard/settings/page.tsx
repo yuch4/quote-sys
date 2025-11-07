@@ -25,6 +25,7 @@ interface User {
 
 interface Customer {
   id: string
+  customer_code: string
   customer_name: string
   contact_person: string | null
   email: string | null
@@ -35,6 +36,7 @@ interface Customer {
 
 interface Supplier {
   id: string
+  supplier_code: string
   supplier_name: string
   contact_person: string | null
   email: string | null
@@ -132,6 +134,21 @@ export default function SettingsPage() {
     approver_role: role,
     notes: '',
   })
+
+  const generateNextCode = <T extends Record<string, any>>(
+    items: T[],
+    field: keyof T,
+    prefix: string,
+  ) => {
+    const numericValues = items
+      .map((item) => item[field])
+      .filter((code): code is string => typeof code === 'string' && code.startsWith(prefix))
+      .map((code) => parseInt(code.replace(prefix, ''), 10))
+      .filter((num) => !Number.isNaN(num))
+
+    const nextValue = numericValues.length > 0 ? Math.max(...numericValues) + 1 : 1
+    return `${prefix}${String(nextValue).padStart(3, '0')}`
+  }
 
   useEffect(() => {
     loadCurrentUser()
@@ -451,7 +468,17 @@ export default function SettingsPage() {
       }
       setFormData(data || {})
     } else {
-      setFormData({})
+      if (type === 'customer') {
+        setFormData({
+          customer_code: generateNextCode(customers, 'customer_code', 'C'),
+        })
+      } else if (type === 'supplier') {
+        setFormData({
+          supplier_code: generateNextCode(suppliers, 'supplier_code', 'S'),
+        })
+      } else {
+        setFormData({})
+      }
     }
 
     setDialogOpen(true)
@@ -527,7 +554,17 @@ export default function SettingsPage() {
       throw new Error('顧客名を入力してください')
     }
 
+    const customerCode =
+      dialogMode === 'create'
+        ? formData.customer_code || generateNextCode(customers, 'customer_code', 'C')
+        : formData.customer_code
+
+    if (!customerCode) {
+      throw new Error('顧客コードを生成できませんでした')
+    }
+
     const data = {
+      customer_code: customerCode,
       customer_name: formData.customer_name,
       contact_person: formData.contact_person || null,
       email: formData.email || null,
@@ -549,7 +586,17 @@ export default function SettingsPage() {
       throw new Error('仕入先名を入力してください')
     }
 
+    const supplierCode =
+      dialogMode === 'create'
+        ? formData.supplier_code || generateNextCode(suppliers, 'supplier_code', 'S')
+        : formData.supplier_code
+
+    if (!supplierCode) {
+      throw new Error('仕入先コードを生成できませんでした')
+    }
+
     const data = {
+      supplier_code: supplierCode,
       supplier_name: formData.supplier_name,
       contact_person: formData.contact_person || null,
       email: formData.email || null,
@@ -976,6 +1023,26 @@ export default function SettingsPage() {
 
             {(dialogType === 'customer' || dialogType === 'supplier') && (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor={dialogType === 'customer' ? 'customer_code' : 'supplier_code'}>
+                    {dialogType === 'customer' ? '顧客コード' : '仕入先コード'} *
+                  </Label>
+                  <Input
+                    id={dialogType === 'customer' ? 'customer_code' : 'supplier_code'}
+                    value={
+                      dialogType === 'customer'
+                        ? formData.customer_code || ''
+                        : formData.supplier_code || ''
+                    }
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        [dialogType === 'customer' ? 'customer_code' : 'supplier_code']: e.target.value,
+                      })
+                    }
+                    readOnly={dialogMode === 'create'}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">
                     {dialogType === 'customer' ? '顧客名' : '仕入先名'} *
