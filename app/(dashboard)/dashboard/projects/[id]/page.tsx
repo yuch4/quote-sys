@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { deriveProjectStatus } from '@/lib/projects/status'
+import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 
 type ProjectDetailParams = { id: string }
 
@@ -44,6 +45,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     notFound()
   }
 
+  const { data: suppliersData, error: suppliersError } = await supabase
+    .from('suppliers')
+    .select('id, supplier_name')
+    .eq('is_deleted', false)
+    .order('supplier_name', { ascending: true })
+
+  if (suppliersError) {
+    console.error('Failed to load suppliers for purchase order creation dialog:', suppliersError)
+  }
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'リード': return 'outline'
@@ -78,6 +89,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
   const derivedStatus = deriveProjectStatus(project)
   const quotes = project.quotes ?? []
+  const suppliers = suppliersData ?? []
+  const purchaseOrderQuoteOptions = quotes
+    .filter((quote) => quote.approval_status === '承認済み')
+    .map((quote) => ({
+      id: quote.id,
+      quote_number: quote.quote_number,
+      project_name: project.project_name || null,
+    }))
   const purchaseOrders = quotes.flatMap((quote) =>
     (quote.purchase_orders || []).map((po) => ({
       ...po,
@@ -237,8 +256,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
       <Card>
         <CardHeader>
-          <CardTitle>発注書一覧</CardTitle>
-          <CardDescription>案件に紐づく発注書（見積経由）</CardDescription>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>発注書一覧</CardTitle>
+              <CardDescription>案件に紐づく発注書（見積経由）</CardDescription>
+            </div>
+            <PurchaseOrderCreateDialog quotes={purchaseOrderQuoteOptions} suppliers={suppliers} />
+          </div>
         </CardHeader>
         <CardContent>
           {purchaseOrders.length === 0 ? (

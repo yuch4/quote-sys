@@ -26,10 +26,20 @@ interface QuoteItemFormData {
   requires_procurement: boolean
 }
 
+const formatDateInput = (date: Date) => date.toISOString().split('T')[0]
+
+const getDefaultValidUntil = () => {
+  const date = new Date()
+  date.setMonth(date.getMonth() + 1)
+  return formatDateInput(date)
+}
+
 export default function NewQuotePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const projectIdParam = searchParams.get('project_id')
+  const defaultIssueDate = formatDateInput(new Date())
+  const defaultValidUntil = getDefaultValidUntil()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,8 +48,8 @@ export default function NewQuotePage() {
   
   const [formData, setFormData] = useState({
     project_id: projectIdParam || '',
-    issue_date: new Date().toISOString().split('T')[0],
-    valid_until: '',
+    issue_date: defaultIssueDate,
+    valid_until: defaultValidUntil,
     notes: '',
   })
 

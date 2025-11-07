@@ -302,7 +302,7 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
       <DialogTrigger asChild>
         <Button disabled={disableTrigger}>新規発注書</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent size="wide" className="w-[90vw] max-w-none">
         <DialogHeader>
           <DialogTitle>発注書を作成</DialogTitle>
           <DialogDescription>

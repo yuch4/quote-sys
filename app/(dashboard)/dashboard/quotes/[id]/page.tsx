@@ -211,6 +211,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
           <p className="text-gray-600 mt-2">{quote.quote_number}</p>
         </div>
         <div className="flex gap-2">
+          {quote.project?.id && (
+            <Link href={`/dashboard/projects/${quote.project.id}`}>
+              <Button variant="secondary">案件詳細</Button>
+            </Link>
+          )}
           <PDFGenerateButton
             quoteId={quote.id}
             approvalStatus={quote.approval_status}
