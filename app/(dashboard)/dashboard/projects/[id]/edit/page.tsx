@@ -8,7 +8,17 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Customer, User, Project } from '@/types/database'
+import type { Customer, User, Project, ProjectStatus } from '@/types/database'
+
+const STATUS_OPTIONS: { value: ProjectStatus, label: string }[] = [
+  { value: 'リード', label: 'リード (自動)' },
+  { value: '見積中', label: '見積中 (自動)' },
+  { value: '受注', label: '受注' },
+  { value: '計上OK', label: '計上OK' },
+  { value: '計上済み', label: '計上済み' },
+  { value: '失注', label: '失注' },
+  { value: 'キャンセル', label: 'キャンセル' },
+]
 
 export default function EditProjectPage() {
   const router = useRouter()
@@ -27,7 +37,7 @@ export default function EditProjectPage() {
     category: '',
     department: '',
     sales_rep_id: '',
-    status: '見積中' as '見積中' | '受注' | '失注' | 'キャンセル',
+    status: 'リード' as ProjectStatus,
   })
 
   useEffect(() => {
@@ -60,8 +70,8 @@ export default function EditProjectPage() {
         .is('is_deleted', false)
         .order('customer_name')
       
-      if (customerData) setCustomers(customerData)
-      
+      if (customersData) setCustomers(customersData)
+
       // 営業担当者一覧取得
       const { data: usersData } = await supabase
         .from('users')
@@ -216,7 +226,7 @@ export default function EditProjectPage() {
               <Label htmlFor="status">ステータス *</Label>
               <Select
                 value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value as '見積中' | '受注' | '失注' | 'キャンセル' })}
+                onValueChange={(value) => setFormData({ ...formData, status: value as ProjectStatus })}
                 disabled={loading}
                 required
               >
@@ -224,12 +234,16 @@ export default function EditProjectPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="見積中">見積中</SelectItem>
-                  <SelectItem value="受注">受注</SelectItem>
-                  <SelectItem value="失注">失注</SelectItem>
-                  <SelectItem value="キャンセル">キャンセル</SelectItem>
+                  {STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-gray-500">
+                リード/見積中は見積承認状況に合わせて自動更新されます。その他のステータスは必要に応じて手動で切り替えてください。
+              </p>
             </div>
 
             {error && (

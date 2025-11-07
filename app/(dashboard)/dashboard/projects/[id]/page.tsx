@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { deriveProjectStatus } from '@/lib/projects/status'
 
 type ProjectDetailParams = { id: string }
 
@@ -16,7 +18,24 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     .select(`
       *,
       customer:customers(*),
-      sales_rep:users!projects_sales_rep_id_fkey(*)
+      sales_rep:users!projects_sales_rep_id_fkey(*),
+      quotes:quotes(
+        id,
+        quote_number,
+        approval_status,
+        total_amount,
+        issue_date,
+        created_at,
+        purchase_orders:purchase_orders(
+          id,
+          purchase_order_number,
+          status,
+          approval_status,
+          total_cost,
+          created_at,
+          supplier:suppliers(supplier_name)
+        )
+      )
     `)
     .eq('id', id)
     .single()
@@ -27,12 +46,50 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
+      case 'リード': return 'outline'
       case '見積中': return 'secondary'
       case '受注': return 'default'
+      case '計上OK': return 'secondary'
+      case '計上済み': return 'default'
       case '失注': return 'destructive'
       case 'キャンセル': return 'outline'
       default: return 'secondary'
     }
+  }
+
+  const getQuoteStatusVariant = (status: string) => {
+    switch (status) {
+      case '承認済み': return 'default'
+      case '承認待ち': return 'secondary'
+      case '却下': return 'destructive'
+      default: return 'outline'
+    }
+  }
+
+  const getPurchaseOrderStatusVariant = (status: string) => {
+    switch (status) {
+      case '発注済': return 'default'
+      case '承認待ち':
+      case '未発注':
+      default:
+        return 'secondary'
+    }
+  }
+
+  const derivedStatus = deriveProjectStatus(project)
+  const quotes = project.quotes ?? []
+  const purchaseOrders = quotes.flatMap((quote) =>
+    (quote.purchase_orders || []).map((po) => ({
+      ...po,
+      quote_number: quote.quote_number,
+    }))
+  )
+
+  const formatCurrency = (amount?: number | string | null) => {
+    if (amount == null) return '-'
+    const numeric = typeof amount === 'string' ? Number(amount) : amount
+    if (Number.isNaN(numeric)) return '-'
+    return `¥${numeric.toLocaleString()}`
   }
 
   return (
@@ -64,8 +121,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">ステータス</p>
-              <Badge variant={getStatusBadgeVariant(project.status)} className="mt-1">
-                {project.status}
+              <Badge variant={getStatusBadgeVariant(derivedStatus)} className="mt-1">
+                {derivedStatus}
               </Badge>
             </div>
           </div>
@@ -137,9 +194,91 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
           <CardDescription>この案件に紐づく見積</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500 text-center py-8">
-            見積がまだ作成されていません
-          </p>
+          {quotes.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">見積がまだ作成されていません</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>見積番号</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>金額</TableHead>
+                    <TableHead>発行日</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quotes.map((quote) => (
+                    <TableRow key={quote.id}>
+                      <TableCell className="font-medium">{quote.quote_number}</TableCell>
+                      <TableCell>
+                        <Badge variant={getQuoteStatusVariant(quote.approval_status)}>
+                          {quote.approval_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatCurrency(quote.total_amount)}</TableCell>
+                      <TableCell>
+                        {quote.issue_date ? new Date(quote.issue_date).toLocaleDateString('ja-JP') : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link href={`/dashboard/quotes/${quote.id}`}>
+                          <Button variant="outline" size="sm">詳細</Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>発注書一覧</CardTitle>
+          <CardDescription>案件に紐づく発注書（見積経由）</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {purchaseOrders.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">発注書はまだ作成されていません</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>発注書番号</TableHead>
+                    <TableHead>紐づく見積</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>承認ステータス</TableHead>
+                    <TableHead>仕入先</TableHead>
+                    <TableHead>発注金額</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {purchaseOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
+                      <TableCell>{order.quote_number}</TableCell>
+                      <TableCell>
+                        <Badge variant={getPurchaseOrderStatusVariant(order.status)}>
+                          {order.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={order.approval_status === '承認済み' ? 'default' : 'secondary'}>
+                          {order.approval_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{order.supplier?.supplier_name ?? '-'}</TableCell>
+                      <TableCell>{formatCurrency(order.total_cost)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

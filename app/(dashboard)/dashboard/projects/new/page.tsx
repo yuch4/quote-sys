@@ -166,7 +166,7 @@ export default function NewProjectPage() {
           category: formData.category,
           department: formData.department,
           sales_rep_id: formData.sales_rep_id,
-          status: '見積中',
+          status: 'リード',
         }])
 
       if (error) {

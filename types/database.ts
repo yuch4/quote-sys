@@ -43,7 +43,14 @@ export interface Supplier {
 }
 
 // 案件型
-export type ProjectStatus = '見積中' | '受注' | '失注' | 'キャンセル'
+export type ProjectStatus =
+  | 'リード'
+  | '見積中'
+  | '受注'
+  | '計上OK'
+  | '計上済み'
+  | '失注'
+  | 'キャンセル'
 
 export interface Project {
   id: string

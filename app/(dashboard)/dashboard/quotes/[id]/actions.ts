@@ -5,6 +5,45 @@ import { revalidatePath } from 'next/cache'
 import { sendQuoteApprovalEmail } from '@/lib/email/send'
 import type { ApprovalRouteStep } from '@/types/database'
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>
+
+const AUTO_MANAGED_PROJECT_STATUSES = ['リード', '見積中'] as const
+
+async function syncProjectAutoStatus(supabase: SupabaseClient, projectId: string | null | undefined) {
+  if (!projectId) return
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('status')
+    .eq('id', projectId)
+    .single()
+
+  if (!project || !AUTO_MANAGED_PROJECT_STATUSES.includes(project.status as (typeof AUTO_MANAGED_PROJECT_STATUSES)[number])) {
+    return
+  }
+
+  const { count } = await supabase
+    .from('quotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
+    .eq('approval_status', '承認済み')
+
+  const nextStatus = count && count > 0 ? '見積中' : 'リード'
+
+  if (project.status === nextStatus) {
+    return
+  }
+
+  await supabase
+    .from('projects')
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .eq('id', projectId)
+    .in('status', AUTO_MANAGED_PROJECT_STATUSES)
+
+  revalidatePath('/dashboard/projects')
+  revalidatePath(`/dashboard/projects/${projectId}`)
+}
+
 // 承認依頼を送信
 export async function requestApproval(quoteId: string) {
   const supabase = await createClient()
@@ -191,6 +230,16 @@ export async function approveQuote(quoteId: string, userId: string) {
       return { success: false, message: '承認者情報を取得できませんでした' }
     }
 
+    const { data: targetQuote } = await supabase
+      .from('quotes')
+      .select('project_id')
+      .eq('id', quoteId)
+      .single()
+
+    if (!targetQuote) {
+      return { success: false, message: '見積情報が見つかりませんでした' }
+    }
+
     const { data: instance } = await supabase
       .from('quote_approval_instances')
       .select(`
@@ -291,6 +340,8 @@ export async function approveQuote(quoteId: string, userId: string) {
 
     if (quoteUpdateError) throw quoteUpdateError
 
+    await syncProjectAutoStatus(supabase, targetQuote.project_id)
+
     // TODO: メール通知をAPIルート経由で送信
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
@@ -320,6 +371,16 @@ export async function rejectQuote(quoteId: string, userId: string, rejectReason?
 
     if (!approver) {
       return { success: false, message: '承認者情報を取得できませんでした' }
+    }
+
+    const { data: targetQuote } = await supabase
+      .from('quotes')
+      .select('project_id')
+      .eq('id', quoteId)
+      .single()
+
+    if (!targetQuote) {
+      return { success: false, message: '見積情報が見つかりませんでした' }
     }
 
     const { data: instance } = await supabase
@@ -407,6 +468,8 @@ export async function rejectQuote(quoteId: string, userId: string, rejectReason?
       ).catch(err => console.error('Email send failed:', err))
     }
 
+    await syncProjectAutoStatus(supabase, targetQuote.project_id)
+
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')
     revalidatePath('/dashboard/approvals')
@@ -423,6 +486,16 @@ export async function returnToDraft(quoteId: string) {
   const supabase = await createClient()
 
   try {
+    const { data: targetQuote } = await supabase
+      .from('quotes')
+      .select('project_id')
+      .eq('id', quoteId)
+      .single()
+
+    if (!targetQuote) {
+      return { success: false, message: '見積情報が見つかりませんでした' }
+    }
+
     const { data: instance } = await supabase
       .from('quote_approval_instances')
       .select('id')
@@ -458,6 +531,8 @@ export async function returnToDraft(quoteId: string) {
       .eq('approval_status', '却下')
 
     if (error) throw error
+
+    await syncProjectAutoStatus(supabase, targetQuote.project_id)
 
     revalidatePath(`/dashboard/quotes/${quoteId}`)
     revalidatePath('/dashboard/quotes')

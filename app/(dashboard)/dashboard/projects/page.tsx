@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { deriveProjectStatus } from '@/lib/projects/status'
 import {
   Pagination,
   PaginationContent,
@@ -45,7 +46,14 @@ export default async function ProjectsPage(props: {
     .select(`
       *,
       customer:customers(customer_name),
-      sales_rep:users!projects_sales_rep_id_fkey(display_name)
+      sales_rep:users!projects_sales_rep_id_fkey(display_name),
+      quotes:quotes(
+        id,
+        quote_number,
+        approval_status,
+        total_amount,
+        created_at
+      )
     `)
     .order('created_at', { ascending: false })
     .range(offset, offset + ITEMS_PER_PAGE - 1)
@@ -75,13 +83,22 @@ export default async function ProjectsPage(props: {
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
+      case 'リード':
+        return 'outline'
       case '見積中': return 'secondary'
       case '受注': return 'default'
+      case '計上OK': return 'secondary'
+      case '計上済み': return 'default'
       case '失注': return 'destructive'
       case 'キャンセル': return 'outline'
       default: return 'secondary'
     }
   }
+
+  const projectList = (projects || []).map((project) => ({
+    ...project,
+    derivedStatus: deriveProjectStatus(project),
+  }))
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -103,7 +120,7 @@ export default async function ProjectsPage(props: {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {projects && projects.length > 0 ? (
+          {projectList.length > 0 ? (
             <>
             {/* デスクトップ: テーブル表示 */}
             <div className="hidden md:block">
@@ -120,7 +137,7 @@ export default async function ProjectsPage(props: {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projects.map((project) => (
+                  {projectList.map((project) => (
                     <TableRow key={project.id}>
                       <TableCell className="font-medium">{project.project_number}</TableCell>
                       <TableCell>{project.project_name}</TableCell>
@@ -128,8 +145,8 @@ export default async function ProjectsPage(props: {
                       <TableCell>{project.sales_rep?.display_name}</TableCell>
                       <TableCell>{project.category}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(project.status)}>
-                          {project.status}
+                        <Badge variant={getStatusBadgeVariant(project.derivedStatus)}>
+                          {project.derivedStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -150,7 +167,7 @@ export default async function ProjectsPage(props: {
 
             {/* モバイル: カード表示 */}
             <div className="md:hidden space-y-4">
-              {projects.map((project) => (
+              {projectList.map((project) => (
                 <Card key={project.id}>
                   <CardContent className="pt-6">
                     <div className="space-y-3">
@@ -159,8 +176,8 @@ export default async function ProjectsPage(props: {
                           <p className="text-sm font-semibold text-gray-900">{project.project_number}</p>
                           <p className="text-sm text-gray-600 mt-1">{project.project_name}</p>
                         </div>
-                        <Badge variant={getStatusBadgeVariant(project.status)}>
-                          {project.status}
+                        <Badge variant={getStatusBadgeVariant(project.derivedStatus)}>
+                          {project.derivedStatus}
                         </Badge>
                       </div>
                       
