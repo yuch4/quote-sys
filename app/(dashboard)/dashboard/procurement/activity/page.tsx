@@ -1,17 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { ActivityList } from '@/components/procurement/activity-list'
-
-type ActivityEvent = {
-  id: string
-  datetime: string
-  type: '作成' | '承認依頼' | '承認' | '却下' | 'スキップ' | '発注' | '入荷' | 'その他'
-  purchaseOrderId?: string
-  purchaseOrderNumber?: string
-  supplierName?: string | null
-  quoteNumber?: string | null
-  actor?: string | null
-  notes?: string | null
-}
+import type { ActivityEvent } from '@/types/procurement'
 
 export default async function ProcurementActivityPage() {
   const supabase = await createClient()

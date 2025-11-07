@@ -7,20 +7,8 @@ import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-type ActivityEvent = {
-  id: string
-  datetime: string
-  type: '作成' | '承認依頼' | '承認' | '却下' | 'スキップ' | '発注' | '入荷' | 'その他'
-  purchaseOrderId?: string
-  purchaseOrderNumber?: string
-  supplierName?: string | null
-  quoteNumber?: string | null
-  actor?: string | null
-  notes?: string | null
-}
-
-type EventTypeFilter = 'all' | '作成' | '承認依頼' | '承認' | '却下' | 'スキップ' | '発注' | '入荷' | 'その他'
+import type { ActivityEvent, EventTypeFilter } from '@/types/procurement'
+import { EVENT_TYPE_OPTIONS, VALID_EVENT_TYPES } from '@/types/procurement'
 
 interface ActivityListProps {
   events: ActivityEvent[]
@@ -69,7 +57,7 @@ export function ActivityList({ events }: ActivityListProps) {
       const stored = window.localStorage.getItem('activity-list-filters')
       if (stored) {
         const { eventType, query } = JSON.parse(stored)
-        if (eventType && ['all', '作成', '承認依頼', '承認', '却下', 'スキップ', '発注', '入荷', 'その他'].includes(eventType)) {
+        if (eventType && VALID_EVENT_TYPES.includes(eventType)) {
           setEventTypeFilter(eventType)
         }
         if (typeof query === 'string') {
@@ -148,15 +136,11 @@ export function ActivityList({ events }: ActivityListProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="作成">発注書作成</SelectItem>
-                  <SelectItem value="承認依頼">承認依頼</SelectItem>
-                  <SelectItem value="承認">承認</SelectItem>
-                  <SelectItem value="却下">却下</SelectItem>
-                  <SelectItem value="スキップ">承認スキップ</SelectItem>
-                  <SelectItem value="発注">発注</SelectItem>
-                  <SelectItem value="入荷">入荷</SelectItem>
-                  <SelectItem value="その他">その他</SelectItem>
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -188,7 +172,7 @@ export function ActivityList({ events }: ActivityListProps) {
               {filteredEvents.map((event, index) => {
                 const date = new Date(event.datetime)
                 return (
-                  <div key={`${event.id}-${index}`} className="space-y-2">
+                  <div key={event.id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Badge variant={typeVariant[event.type]}>{typeLabel[event.type]}</Badge>
