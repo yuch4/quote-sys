@@ -24,6 +24,8 @@ interface Supplier {
   supplier_name: string
 }
 
+type StatusFilter = 'pending' | 'ordered' | 'received' | 'all'
+
 interface OrderedItem {
   id: string
   line_number: number
@@ -66,6 +68,7 @@ export default function ReceivingPage() {
 
   // フィルタ状態
   const [supplierFilter, setSupplierFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending')
   const [searchQuery, setSearchQuery] = useState('')
 
   // 入荷登録ダイアログ
@@ -81,7 +84,7 @@ export default function ReceivingPage() {
 
   useEffect(() => {
     applyFilters()
-  }, [items, supplierFilter, searchQuery])
+  }, [items, supplierFilter, searchQuery, statusFilter])
 
   const loadData = async () => {
     try {
@@ -118,7 +121,6 @@ export default function ReceivingPage() {
           procurement_logs(action_type, action_date)
         `)
         .is('requires_procurement', true)
-        .eq('procurement_status', '発注済')
 
       if (error) throw error
 
@@ -133,6 +135,17 @@ export default function ReceivingPage() {
 
   const applyFilters = () => {
     let filtered = [...items]
+
+    // ステータスフィルタ
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((item) => {
+        const status = item.procurement_status || '未発注'
+        if (statusFilter === 'pending') return status !== '入荷済'
+        if (statusFilter === 'ordered') return status === '発注済'
+        if (statusFilter === 'received') return status === '入荷済'
+        return true
+      })
+    }
 
     // 仕入先フィルタ
     if (supplierFilter !== 'all') {
@@ -151,6 +164,13 @@ export default function ReceivingPage() {
     }
 
     setFilteredItems(filtered)
+  }
+
+  const statusFilterLabel: Record<StatusFilter, string> = {
+    pending: '未入荷',
+    ordered: '発注済み',
+    received: '入荷済み',
+    all: 'すべて',
   }
 
   const openReceivingDialog = (item: OrderedItem) => {
@@ -234,6 +254,16 @@ export default function ReceivingPage() {
     return `¥${Number(amount).toLocaleString()}`
   }
 
+  const getStatusBadge = (status: string | null) => {
+    if (status === '入荷済') {
+      return <Badge variant="default">入荷済み</Badge>
+    }
+    if (status === '発注済') {
+      return <Badge variant="secondary">発注済み</Badge>
+    }
+    return <Badge variant="outline">未発注</Badge>
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -247,7 +277,9 @@ export default function ReceivingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">入荷管理</h1>
-          <p className="text-gray-600 mt-2">発注済み・未入荷: {filteredItems.length}件</p>
+          <p className="text-gray-600 mt-2">
+            {statusFilterLabel[statusFilter]}の明細: {filteredItems.length}件
+          </p>
         </div>
       </div>
 
@@ -257,7 +289,7 @@ export default function ReceivingPage() {
           <CardDescription>発注済み明細の絞り込み</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>仕入先</Label>
               <Select value={supplierFilter} onValueChange={setSupplierFilter}>
@@ -283,14 +315,31 @@ export default function ReceivingPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>ステータス</Label>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">未入荷</SelectItem>
+                  <SelectItem value="ordered">発注済みのみ</SelectItem>
+                  <SelectItem value="received">入荷済みのみ</SelectItem>
+                  <SelectItem value="all">すべて</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>発注済み明細</CardTitle>
-          <CardDescription>{filteredItems.length}件の明細</CardDescription>
+          <CardTitle>調達明細</CardTitle>
+          <CardDescription>
+            {statusFilterLabel[statusFilter]} / {filteredItems.length}件
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -302,6 +351,7 @@ export default function ReceivingPage() {
                 <TableHead>品名</TableHead>
                 <TableHead className="text-right">数量</TableHead>
                 <TableHead>仕入先</TableHead>
+                <TableHead className="text-center">ステータス</TableHead>
                 <TableHead>発注日</TableHead>
                 <TableHead>経過日数</TableHead>
                 <TableHead>営業担当</TableHead>
@@ -336,13 +386,19 @@ export default function ReceivingPage() {
                       </TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell>{item.supplier?.supplier_name || '-'}</TableCell>
+                      <TableCell className="text-center">{getStatusBadge(item.procurement_status)}</TableCell>
                       <TableCell>
                         {orderDate ? new Date(orderDate).toLocaleDateString('ja-JP') : '-'}
                       </TableCell>
                       <TableCell>{orderDate && getElapsedBadge(daysElapsed)}</TableCell>
                       <TableCell>{item.quote.project.sales_rep.display_name}</TableCell>
                       <TableCell>
-                        <Button size="sm" onClick={() => openReceivingDialog(item)}>
+                        <Button
+                          size="sm"
+                          onClick={() => openReceivingDialog(item)}
+                          disabled={item.procurement_status !== '発注済'}
+                          title={item.procurement_status !== '発注済' ? '発注済みのみ入荷登録できます' : undefined}
+                        >
                           入荷登録
                         </Button>
                       </TableCell>
