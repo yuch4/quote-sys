@@ -48,6 +48,7 @@ export default function NewQuotePage() {
   
   const [formData, setFormData] = useState({
     project_id: projectIdParam || '',
+    subject: '',
     issue_date: defaultIssueDate,
     valid_until: defaultValidUntil,
     notes: '',
@@ -164,6 +165,12 @@ export default function NewQuotePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const trimmedSubject = formData.subject.trim()
+    if (!trimmedSubject) {
+      setError('件名を入力してください')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -185,6 +192,7 @@ export default function NewQuotePage() {
         .insert([{
           project_id: formData.project_id,
           quote_number: quoteNumber,
+          subject: trimmedSubject,
           version: 1,
           issue_date: formData.issue_date,
           valid_until: formData.valid_until || null,
@@ -278,6 +286,18 @@ export default function NewQuotePage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">件名 *</Label>
+              <Input
+                id="subject"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                required
+                disabled={loading}
+                placeholder="御見積書の件名を入力"
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

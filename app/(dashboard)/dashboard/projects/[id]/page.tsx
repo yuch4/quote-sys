@@ -111,6 +111,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     return `¥${numeric.toLocaleString()}`
   }
 
+  const formatMonth = (value?: string | null) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+    return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,9 +169,31 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">受注月</p>
+              <p className="text-lg">{formatMonth(project.order_month)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">計上月</p>
+              <p className="text-lg">{formatMonth(project.accounting_month)}</p>
+            </div>
+          </div>
+
           <div>
             <p className="text-sm font-medium text-gray-500">営業担当</p>
             <p className="text-lg">{project.sales_rep?.display_name}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 border-t pt-4">
+            <div>
+              <p className="text-sm font-medium text-gray-500">見込売上</p>
+              <p className="text-lg">{formatCurrency(project.expected_sales)}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">見込粗利</p>
+              <p className="text-lg">{formatCurrency(project.expected_gross_profit)}</p>
+            </div>
           </div>
         </CardContent>
       </Card>

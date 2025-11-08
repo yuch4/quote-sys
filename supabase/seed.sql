@@ -18,16 +18,16 @@ VALUES
   ('S002', '機器販売株式会社', '田中二郎', '03-3333-4444', 'tanaka@kiki.co.jp', '月末締め翌々月10日払い');
 
 -- テストデータ: 案件
-INSERT INTO public.projects (project_number, customer_id, project_name, category, department, sales_rep_id, status)
+INSERT INTO public.projects (project_number, customer_id, project_name, category, department, sales_rep_id, status, order_month, accounting_month, expected_sales, expected_gross_profit)
 VALUES 
-  ('PRJ-2025-0001', (SELECT id FROM public.customers WHERE customer_code = 'C001'), 'オフィス機器導入プロジェクト', 'オフィス機器', '営業部', '22222222-2222-2222-2222-222222222222', '見積中'),
-  ('PRJ-2025-0002', (SELECT id FROM public.customers WHERE customer_code = 'C002'), 'セキュリティシステム構築', 'セキュリティ', '営業部', '22222222-2222-2222-2222-222222222222', '受注');
+  ('PRJ-2025-0001', (SELECT id FROM public.customers WHERE customer_code = 'C001'), 'オフィス機器導入プロジェクト', 'オフィス機器', '営業部', '22222222-2222-2222-2222-222222222222', '見積中', '2025-01-01', '2025-02-01', 550000, 180000),
+  ('PRJ-2025-0002', (SELECT id FROM public.customers WHERE customer_code = 'C002'), 'セキュリティシステム構築', 'セキュリティ', '営業部', '22222222-2222-2222-2222-222222222222', '受注', '2025-02-01', '2025-03-01', 700000, 240000);
 
 -- テストデータ: 見積
-INSERT INTO public.quotes (project_id, quote_number, version, issue_date, valid_until, approval_status, created_by)
+INSERT INTO public.quotes (project_id, quote_number, version, issue_date, valid_until, subject, approval_status, created_by)
 VALUES 
-  ((SELECT id FROM public.projects WHERE project_number = 'PRJ-2025-0001'), 'Q-2025-0001', 1, '2025-01-15', '2025-02-15', '承認済み', '22222222-2222-2222-2222-222222222222'),
-  ((SELECT id FROM public.projects WHERE project_number = 'PRJ-2025-0002'), 'Q-2025-0002', 1, '2025-01-20', '2025-02-20', '承認済み', '22222222-2222-2222-2222-222222222222');
+  ((SELECT id FROM public.projects WHERE project_number = 'PRJ-2025-0001'), 'Q-2025-0001', 1, '2025-01-15', '2025-02-15', 'オフィス機器導入一式 御見積', '承認済み', '22222222-2222-2222-2222-222222222222'),
+  ((SELECT id FROM public.projects WHERE project_number = 'PRJ-2025-0002'), 'Q-2025-0002', 1, '2025-01-20', '2025-02-20', 'セキュリティシステム構築 御見積', '承認済み', '22222222-2222-2222-2222-222222222222');
 
 -- テストデータ: 明細
 INSERT INTO public.quote_items (quote_id, line_number, product_name, description, quantity, unit_price, amount, supplier_id, cost_price, cost_amount, gross_profit, requires_procurement, procurement_status)

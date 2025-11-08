@@ -53,6 +53,7 @@ export default function QuoteEditPage() {
   const [version, setVersion] = useState(1)
   const [issueDate, setIssueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
+  const [subject, setSubject] = useState('')
   const [notes, setNotes] = useState('')
 
   // 明細データ
@@ -95,6 +96,7 @@ export default function QuoteEditPage() {
       setVersion(quote.version)
       setIssueDate(quote.issue_date)
       setValidUntil(quote.valid_until || '')
+      setSubject(quote.subject || '')
       setNotes(quote.notes || '')
 
       // 明細データ変換
@@ -196,7 +198,7 @@ export default function QuoteEditPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!projectId || !quoteNumber || !issueDate) {
+    if (!projectId || !quoteNumber || !issueDate || !subject.trim()) {
       alert('必須項目を入力してください')
       return
     }
@@ -220,6 +222,7 @@ export default function QuoteEditPage() {
 
     try {
       const { totalAmount, totalCost, grossProfit } = calculateTotals()
+      const normalizedSubject = subject.trim()
 
       // 見積を更新
       const { error: quoteError } = await supabase
@@ -227,6 +230,7 @@ export default function QuoteEditPage() {
         .update({
           project_id: projectId,
           quote_number: quoteNumber,
+          subject: normalizedSubject,
           issue_date: issueDate,
           valid_until: validUntil || null,
           total_amount: totalAmount,
@@ -341,6 +345,17 @@ export default function QuoteEditPage() {
                   readOnly
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">件名 *</Label>
+              <Input
+                id="subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                required
+                placeholder="御見積書の件名を入力"
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-4">

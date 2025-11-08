@@ -54,6 +54,7 @@ export default function QuoteRevisePage() {
   const [newVersion, setNewVersion] = useState(1)
   const [issueDate, setIssueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
+  const [subject, setSubject] = useState('')
   const [notes, setNotes] = useState('')
 
   // 明細データ
@@ -108,6 +109,7 @@ export default function QuoteRevisePage() {
       setNewVersion(nextVersion)
       setIssueDate(new Date().toISOString().split('T')[0])
       setValidUntil(originalQuote.valid_until || '')
+      setSubject(originalQuote.subject || '')
       setNotes(originalQuote.notes || '')
 
       // 明細データ変換（元の明細をコピー）
@@ -209,7 +211,7 @@ export default function QuoteRevisePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!projectId || !issueDate) {
+    if (!projectId || !issueDate || !subject.trim()) {
       alert('必須項目を入力してください')
       return
     }
@@ -245,6 +247,7 @@ export default function QuoteRevisePage() {
 
       const { totalAmount, totalCost, grossProfit } = calculateTotals()
       const newQuoteNumber = `${quoteNumberBase}-v${newVersion}`
+      const normalizedSubject = subject.trim()
 
       // 新バージョンの見積を作成
       const { data: newQuote, error: quoteError } = await supabase
@@ -253,6 +256,7 @@ export default function QuoteRevisePage() {
           project_id: projectId,
           quote_number: newQuoteNumber,
           version: newVersion,
+          subject: normalizedSubject,
           issue_date: issueDate,
           valid_until: validUntil || null,
           total_amount: totalAmount,
@@ -348,6 +352,17 @@ export default function QuoteRevisePage() {
                 <Label htmlFor="quoteNumber">見積番号</Label>
                 <Input value={`${quoteNumberBase}-v${newVersion}`} readOnly />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">件名 *</Label>
+              <Input
+                id="subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                required
+                placeholder="御見積書の件名を入力"
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-4">

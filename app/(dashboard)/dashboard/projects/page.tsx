@@ -100,6 +100,20 @@ export default async function ProjectsPage(props: {
     derivedStatus: deriveProjectStatus(project),
   }))
 
+  const formatMonth = (value?: string | null) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+    return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const formatCurrency = (amount?: number | string | null) => {
+    if (amount == null) return '-'
+    const numeric = typeof amount === 'string' ? Number(amount) : amount
+    if (Number.isNaN(numeric)) return '-'
+    return `¥${numeric.toLocaleString()}`
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -132,6 +146,10 @@ export default async function ProjectsPage(props: {
                     <TableHead>顧客名</TableHead>
                     <TableHead>営業担当</TableHead>
                     <TableHead>カテゴリ</TableHead>
+                    <TableHead>受注月</TableHead>
+                    <TableHead>計上月</TableHead>
+                    <TableHead>見込売上</TableHead>
+                    <TableHead>見込粗利</TableHead>
                     <TableHead>ステータス</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
@@ -144,6 +162,10 @@ export default async function ProjectsPage(props: {
                       <TableCell>{project.customer?.customer_name}</TableCell>
                       <TableCell>{project.sales_rep?.display_name}</TableCell>
                       <TableCell>{project.category}</TableCell>
+                      <TableCell>{formatMonth(project.order_month)}</TableCell>
+                      <TableCell>{formatMonth(project.accounting_month)}</TableCell>
+                      <TableCell>{formatCurrency(project.expected_sales)}</TableCell>
+                      <TableCell>{formatCurrency(project.expected_gross_profit)}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(project.derivedStatus)}>
                           {project.derivedStatus}
@@ -193,6 +215,22 @@ export default async function ProjectsPage(props: {
                         <div className="flex justify-between">
                           <span className="text-gray-500">カテゴリ</span>
                           <span className="font-medium">{project.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">受注月</span>
+                          <span className="font-medium">{formatMonth(project.order_month)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">計上月</span>
+                          <span className="font-medium">{formatMonth(project.accounting_month)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">見込売上</span>
+                          <span className="font-medium">{formatCurrency(project.expected_sales)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">見込粗利</span>
+                          <span className="font-medium">{formatCurrency(project.expected_gross_profit)}</span>
                         </div>
                       </div>
 

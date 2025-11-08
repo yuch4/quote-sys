@@ -62,6 +62,10 @@ export interface Project {
   department: string
   sales_rep_id: string
   status: ProjectStatus
+  order_month: string | null
+  accounting_month: string | null
+  expected_sales: number | null
+  expected_gross_profit: number | null
   created_at: string
   updated_at: string
   // リレーション
@@ -80,6 +84,7 @@ export interface Quote {
   version: number
   issue_date: string
   valid_until: string | null
+  subject: string | null
   total_amount: number
   total_cost: number
   gross_profit: number

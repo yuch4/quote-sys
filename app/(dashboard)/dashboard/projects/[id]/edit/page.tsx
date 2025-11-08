@@ -38,6 +38,10 @@ export default function EditProjectPage() {
     department: '',
     sales_rep_id: '',
     status: 'リード' as ProjectStatus,
+    order_month: '',
+    accounting_month: '',
+    expected_sales: '',
+    expected_gross_profit: '',
   })
 
   useEffect(() => {
@@ -51,6 +55,11 @@ export default function EditProjectPage() {
         .eq('id', projectId)
         .single()
       
+      const toMonthInputValue = (value?: string | null) => {
+        if (!value) return ''
+        return value.slice(0, 7)
+      }
+
       if (projectData) {
         setProject(projectData)
         setFormData({
@@ -60,6 +69,10 @@ export default function EditProjectPage() {
           department: projectData.department,
           sales_rep_id: projectData.sales_rep_id,
           status: projectData.status,
+          order_month: toMonthInputValue(projectData.order_month),
+          accounting_month: toMonthInputValue(projectData.accounting_month),
+          expected_sales: projectData.expected_sales != null ? String(projectData.expected_sales) : '',
+          expected_gross_profit: projectData.expected_gross_profit != null ? String(projectData.expected_gross_profit) : '',
         })
       }
       
@@ -91,6 +104,10 @@ export default function EditProjectPage() {
 
     try {
       const supabase = createClient()
+      const orderMonthDate = formData.order_month ? `${formData.order_month}-01` : null
+      const accountingMonthDate = formData.accounting_month ? `${formData.accounting_month}-01` : null
+      const expectedSales = formData.expected_sales ? Number(formData.expected_sales) : null
+      const expectedGrossProfit = formData.expected_gross_profit ? Number(formData.expected_gross_profit) : null
       
       const { error } = await supabase
         .from('projects')
@@ -101,6 +118,10 @@ export default function EditProjectPage() {
           department: formData.department,
           sales_rep_id: formData.sales_rep_id,
           status: formData.status,
+          order_month: orderMonthDate,
+          accounting_month: accountingMonthDate,
+          expected_sales: expectedSales,
+          expected_gross_profit: expectedGrossProfit,
         })
         .eq('id', projectId)
 
@@ -196,6 +217,60 @@ export default function EditProjectPage() {
                   value={formData.department}
                   onChange={handleChange}
                   required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="order_month">受注月</Label>
+                <Input
+                  id="order_month"
+                  name="order_month"
+                  type="month"
+                  value={formData.order_month}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accounting_month">計上月</Label>
+                <Input
+                  id="accounting_month"
+                  name="accounting_month"
+                  type="month"
+                  value={formData.accounting_month}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expected_sales">見込売上</Label>
+                <Input
+                  id="expected_sales"
+                  name="expected_sales"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_sales}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expected_gross_profit">見込粗利</Label>
+                <Input
+                  id="expected_gross_profit"
+                  name="expected_gross_profit"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_gross_profit}
+                  onChange={handleChange}
                   disabled={loading}
                 />
               </div>

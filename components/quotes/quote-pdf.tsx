@@ -118,6 +118,7 @@ interface QuotePDFProps {
     version: number
     issue_date: string
     valid_until: string | null
+    subject: string | null
     total_amount: string
     total_cost: string
     gross_profit: string
@@ -160,6 +161,7 @@ export function QuotePDF({ quote }: QuotePDFProps) {
           <Text style={styles.title}>御見積書</Text>
           <Text>見積番号: {quote.quote_number}</Text>
           <Text>バージョン: v{quote.version}</Text>
+          <Text>件名: {quote.subject || '（件名未設定）'}</Text>
           <Text>発行日: {formatDate(quote.issue_date)}</Text>
           {quote.valid_until && <Text>有効期限: {formatDate(quote.valid_until)}</Text>}
         </View>

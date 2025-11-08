@@ -38,6 +38,10 @@ export default function NewProjectPage() {
     category: '',
     department: '',
     sales_rep_id: '',
+    order_month: '',
+    accounting_month: '',
+    expected_sales: '',
+    expected_gross_profit: '',
   })
 
   useEffect(() => {
@@ -156,6 +160,10 @@ export default function NewProjectPage() {
     try {
       const supabase = createClient()
       const projectNumber = await generateProjectNumber()
+      const orderMonthDate = formData.order_month ? `${formData.order_month}-01` : null
+      const accountingMonthDate = formData.accounting_month ? `${formData.accounting_month}-01` : null
+      const expectedSales = formData.expected_sales ? Number(formData.expected_sales) : null
+      const expectedGrossProfit = formData.expected_gross_profit ? Number(formData.expected_gross_profit) : null
       
       const { error } = await supabase
         .from('projects')
@@ -167,6 +175,10 @@ export default function NewProjectPage() {
           department: formData.department,
           sales_rep_id: formData.sales_rep_id,
           status: 'リード',
+          order_month: orderMonthDate,
+          accounting_month: accountingMonthDate,
+          expected_sales: expectedSales,
+          expected_gross_profit: expectedGrossProfit,
         }])
 
       if (error) {
@@ -347,6 +359,62 @@ export default function NewProjectPage() {
                   placeholder="例: 営業部"
                   required
                   disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="order_month">受注月</Label>
+                <Input
+                  id="order_month"
+                  name="order_month"
+                  type="month"
+                  value={formData.order_month}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="accounting_month">計上月</Label>
+                <Input
+                  id="accounting_month"
+                  name="accounting_month"
+                  type="month"
+                  value={formData.accounting_month}
+                  onChange={handleChange}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expected_sales">見込売上</Label>
+                <Input
+                  id="expected_sales"
+                  name="expected_sales"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_sales}
+                  onChange={handleChange}
+                  disabled={loading}
+                  placeholder="例: 1000000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="expected_gross_profit">見込粗利</Label>
+                <Input
+                  id="expected_gross_profit"
+                  name="expected_gross_profit"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.expected_gross_profit}
+                  onChange={handleChange}
+                  disabled={loading}
+                  placeholder="例: 250000"
                 />
               </div>
             </div>

@@ -167,6 +167,7 @@ export default async function QuotesPage(props: {
                   <TableHeader>
                     <TableRow>
                       <TableHead>見積番号</TableHead>
+                      <TableHead>件名</TableHead>
                       <TableHead>案件名</TableHead>
                       <TableHead>顧客名</TableHead>
                       <TableHead>発行日</TableHead>
@@ -181,6 +182,7 @@ export default async function QuotesPage(props: {
                     {quotes.map((quote) => (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">{quote.quote_number}</TableCell>
+                        <TableCell>{quote.subject || '-'}</TableCell>
                         <TableCell>{quote.project?.project_name}</TableCell>
                         <TableCell>{quote.project?.customer?.customer_name}</TableCell>
                         <TableCell>{formatDate(quote.issue_date)}</TableCell>
@@ -213,14 +215,15 @@ export default async function QuotesPage(props: {
               {/* モバイル: カード表示 */}
               <div className="md:hidden space-y-4">
                 {quotes.map((quote) => (
-                  <Card key={quote.id}>
-                    <CardContent className="pt-6">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
-                            <p className="text-sm text-gray-600 mt-1">{quote.project?.project_name}</p>
-                          </div>
+                    <Card key={quote.id}>
+                      <CardContent className="pt-6">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
+                            <p className="text-sm text-gray-600 mt-1">{quote.subject || '-'}</p>
+                            <p className="text-xs text-gray-500">{quote.project?.project_name}</p>
+                            </div>
                           <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
                             {quote.approval_status}
                           </Badge>
