@@ -17,6 +17,8 @@ export default async function ProcurementActivityPage() {
         id,
         quote_number,
         project:projects(
+          id,
+          project_number,
           project_name,
           customer:customers(customer_name)
         )
@@ -54,6 +56,8 @@ export default async function ProcurementActivityPage() {
           id,
           quote_number,
           project:projects(
+            id,
+            project_number,
             project_name,
             customer:customers(customer_name)
           )
@@ -77,6 +81,8 @@ export default async function ProcurementActivityPage() {
       quote_number,
       created_at,
       project:projects(
+        id,
+        project_number,
         project_name,
         customer:customers(customer_name)
       ),
@@ -99,6 +105,25 @@ export default async function ProcurementActivityPage() {
     `)
     .order('created_at', { ascending: false })
 
+  const { data: projectActivities } = await supabase
+    .from('project_activities')
+    .select(`
+      id,
+      activity_date,
+      subject,
+      details,
+      created_at,
+      project:projects(
+        id,
+        project_number,
+        project_name,
+        customer:customers(customer_name)
+      ),
+      created_by_user:users(display_name)
+    `)
+    .order('activity_date', { ascending: false })
+    .limit(200)
+
   const events: ProcurementActivityEvent[] = []
 
   for (const order of orders ?? []) {
@@ -114,6 +139,7 @@ export default async function ProcurementActivityPage() {
         quoteNumber: order.quote?.quote_number ?? null,
         quoteId: order.quote?.id ?? undefined,
         projectName: order.quote?.project?.project_name ?? null,
+        projectNumber: order.quote?.project?.project_number ?? null,
         customerName: order.quote?.project?.customer?.customer_name ?? null,
       })
     }
@@ -134,6 +160,7 @@ export default async function ProcurementActivityPage() {
         quoteNumber: order.quote?.quote_number ?? null,
         quoteId: order.quote?.id ?? undefined,
         projectName: order.quote?.project?.project_name ?? null,
+        projectNumber: order.quote?.project?.project_number ?? null,
         customerName: order.quote?.project?.customer?.customer_name ?? null,
         actor: instance.requested_by_user?.display_name ?? undefined,
       })
@@ -162,6 +189,7 @@ export default async function ProcurementActivityPage() {
           quoteNumber: order.quote?.quote_number ?? null,
           quoteId: order.quote?.id ?? undefined,
           projectName: order.quote?.project?.project_name ?? null,
+          projectNumber: order.quote?.project?.project_number ?? null,
           customerName: order.quote?.project?.customer?.customer_name ?? null,
           actor: step.approver?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
@@ -187,6 +215,7 @@ export default async function ProcurementActivityPage() {
       quoteId: log.quote_item?.quote?.id ?? undefined,
       quoteNumber: log.quote_item?.quote?.quote_number ?? null,
       projectName: log.quote_item?.quote?.project?.project_name ?? null,
+      projectNumber: log.quote_item?.quote?.project?.project_number ?? null,
       customerName: log.quote_item?.quote?.project?.customer?.customer_name ?? null,
       actor: log.performed_by_user?.display_name ?? null,
       notes: log.notes ?? undefined,
@@ -203,6 +232,7 @@ export default async function ProcurementActivityPage() {
         quoteId: quote.id,
         quoteNumber: quote.quote_number,
         projectName: quote.project?.project_name ?? null,
+        projectNumber: quote.project?.project_number ?? null,
         customerName: quote.project?.customer?.customer_name ?? null,
         actor: quote.created_by_user?.display_name ?? null,
       })
@@ -221,6 +251,7 @@ export default async function ProcurementActivityPage() {
         quoteId: quote.id,
         quoteNumber: quote.quote_number,
         projectName: quote.project?.project_name ?? null,
+        projectNumber: quote.project?.project_number ?? null,
         customerName: quote.project?.customer?.customer_name ?? null,
         actor: instance.requested_by_user?.display_name ?? null,
       })
@@ -246,12 +277,30 @@ export default async function ProcurementActivityPage() {
           quoteId: quote.id,
           quoteNumber: quote.quote_number,
           projectName: quote.project?.project_name ?? null,
+          projectNumber: quote.project?.project_number ?? null,
           customerName: quote.project?.customer?.customer_name ?? null,
           actor: step.approver?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
       })
     }
+  }
+
+  for (const activity of projectActivities ?? []) {
+    if (!activity.project) continue
+    events.push({
+      id: activity.id,
+      datetime: activity.activity_date ?? activity.created_at,
+      type: '案件活動',
+      entity: 'project',
+      projectId: activity.project.id,
+      projectNumber: activity.project.project_number ?? null,
+      projectName: activity.project.project_name ?? null,
+      customerName: activity.project.customer?.customer_name ?? null,
+      actor: activity.created_by_user?.display_name ?? null,
+      title: activity.subject,
+      notes: activity.details ?? undefined,
+    })
   }
 
   const sortedEvents = events
@@ -263,15 +312,17 @@ export default async function ProcurementActivityPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">調達・見積アクティビティ</h1>
-          <p className="text-gray-600 mt-2">見積作成〜発注・入荷までの履歴を時系列で確認できます。</p>
+          <h1 className="text-3xl font-bold text-gray-900">アクティビティ管理</h1>
+          <p className="text-gray-600 mt-2">
+            見積・発注・入荷・案件活動など、すべての操作ログを時系列で確認できます。
+          </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>最新アクティビティ</CardTitle>
-          <CardDescription>直近200件のイベント</CardDescription>
+          <CardDescription>全操作ログ（直近200件）</CardDescription>
         </CardHeader>
         <CardContent>
           {sortedEvents.length === 0 ? (

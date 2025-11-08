@@ -47,6 +47,7 @@ const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
 const ENTITY_LABEL: Record<ProcurementActivityEntity, string> = {
   purchase_order: '発注書',
   quote: '見積',
+  project: '案件',
 }
 
 export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
@@ -106,11 +107,13 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
         const target = [
           event.purchaseOrderNumber,
           event.quoteNumber,
+          event.projectNumber,
           event.projectName,
           event.customerName,
           event.supplierName,
           event.actor,
           event.notes,
+          event.title,
         ]
           .filter(Boolean)
           .join(' ')
@@ -162,6 +165,7 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
               <SelectItem value="all">すべて</SelectItem>
               <SelectItem value="quote">見積</SelectItem>
               <SelectItem value="purchase_order">発注書</SelectItem>
+              <SelectItem value="project">案件</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -224,6 +228,16 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
         <div className="space-y-6">
           {filteredEvents.map((event, index) => {
             const date = new Date(event.datetime)
+            const identifier = event.purchaseOrderNumber
+              ? `PO: ${event.purchaseOrderNumber}`
+              : event.quoteNumber
+                ? `見積: ${event.quoteNumber}`
+                : event.projectNumber
+                  ? `案件: ${event.projectNumber}`
+                  : event.projectName
+                    ? `案件: ${event.projectName}`
+                    : '-'
+
             return (
               <div key={`${event.id}-${index}`} className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -232,24 +246,19 @@ export function ProcurementActivityTimeline({ events }: ActivityTimelineProps) {
                       {PROCUREMENT_ACTIVITY_TYPE_META[event.type].label}
                     </Badge>
                     <Badge variant="outline">{ENTITY_LABEL[event.entity]}</Badge>
-                    <span className="text-sm font-medium text-gray-800">
-                      {event.purchaseOrderNumber
-                        ? `PO: ${event.purchaseOrderNumber}`
-                        : event.quoteNumber
-                          ? `見積: ${event.quoteNumber}`
-                          : '-'}
-                    </span>
+                    <span className="text-sm font-medium text-gray-800">{identifier}</span>
                   </div>
                   <span className="text-xs text-gray-500">
                     {date.toLocaleString('ja-JP', DATE_FORMAT_OPTIONS)}
                   </span>
                 </div>
                 <div className="text-sm text-gray-700 space-y-1">
+                  {event.title ? <p>件名: {event.title}</p> : null}
                   {event.projectName ? <p>案件: {event.projectName}</p> : null}
                   {event.customerName ? <p>顧客: {event.customerName}</p> : null}
                   {event.supplierName ? <p>仕入先: {event.supplierName}</p> : null}
                   {event.actor ? <p>担当: {event.actor}</p> : null}
-                  {event.notes ? <p className="text-gray-600">メモ: {event.notes}</p> : null}
+                  {event.notes ? <p className="text-gray-600 whitespace-pre-wrap">メモ: {event.notes}</p> : null}
                 </div>
                 {index < filteredEvents.length - 1 ? <Separator className="mt-4" /> : null}
               </div>

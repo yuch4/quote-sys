@@ -26,6 +26,8 @@ export function ProjectActivityForm({ projects }: ProjectActivityFormProps) {
     () => [...projects].sort((a, b) => (a.projectNumber > b.projectNumber ? -1 : 1)),
     [projects]
   )
+  const hasProjects = sortedProjects.length > 0
+  const showProjectSelect = sortedProjects.length > 1
 
   const [formState, setFormState] = useState({
     projectId: sortedProjects[0]?.id || '',
@@ -35,6 +37,7 @@ export function ProjectActivityForm({ projects }: ProjectActivityFormProps) {
   })
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
+  const selectedProject = sortedProjects.find((project) => project.id === formState.projectId)
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -63,28 +66,49 @@ export function ProjectActivityForm({ projects }: ProjectActivityFormProps) {
     })
   }
 
+  if (!hasProjects) {
+    return (
+      <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-gray-500">
+        登録可能な案件がありません。
+      </div>
+    )
+  }
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="activity-project">案件 *</Label>
-          <Select
-            value={formState.projectId}
-            onValueChange={(value) => setFormState((prev) => ({ ...prev, projectId: value }))}
-          >
-            <SelectTrigger id="activity-project">
-              <SelectValue placeholder="案件を選択" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortedProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.projectNumber} - {project.projectName}
-                  {project.customerName ? ` / ${project.customerName}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {showProjectSelect ? (
+          <div className="space-y-2">
+            <Label htmlFor="activity-project">案件 *</Label>
+            <Select
+              value={formState.projectId}
+              onValueChange={(value) => setFormState((prev) => ({ ...prev, projectId: value }))}
+            >
+              <SelectTrigger id="activity-project">
+                <SelectValue placeholder="案件を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.projectNumber} - {project.projectName}
+                    {project.customerName ? ` / ${project.customerName}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label>案件 *</Label>
+            <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              {selectedProject
+                ? `${selectedProject.projectNumber} - ${selectedProject.projectName}${
+                    selectedProject.customerName ? ` / ${selectedProject.customerName}` : ''
+                  }`
+                : '案件が選択されていません'}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="activity-date">活動日 *</Label>
           <Input

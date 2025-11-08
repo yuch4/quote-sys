@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { deriveProjectStatus } from '@/lib/projects/status'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
+import { ProjectActivityForm } from '@/components/procurement/project-activity-form'
 
 type ProjectDetailParams = { id: string }
 
@@ -53,6 +54,24 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
   if (suppliersError) {
     console.error('Failed to load suppliers for purchase order creation dialog:', suppliersError)
+  }
+
+  const { data: projectActivities, error: projectActivitiesError } = await supabase
+    .from('project_activities')
+    .select(`
+      id,
+      activity_date,
+      subject,
+      details,
+      created_at,
+      created_by_user:users(display_name)
+    `)
+    .eq('project_id', id)
+    .order('activity_date', { ascending: false })
+    .limit(50)
+
+  if (projectActivitiesError) {
+    console.error('Failed to load project activities:', projectActivitiesError)
   }
 
   const getStatusBadgeVariant = (status: string) => {
@@ -103,6 +122,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
       quote_number: quote.quote_number,
     }))
   )
+  const projectActivityRecords = projectActivities ?? []
+  const projectActivityFormOptions = [
+    {
+      id: project.id,
+      projectNumber: project.project_number ?? '',
+      projectName: project.project_name ?? '(名称未設定)',
+      customerName: project.customer?.customer_name ?? null,
+    },
+  ]
 
   const formatCurrency = (amount?: number | string | null) => {
     if (amount == null) return '-'
@@ -116,6 +144,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return '-'
     return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const formatActivityDate = (value?: string | null) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('ja-JP')
   }
 
   return (
@@ -228,6 +263,44 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
               <p className="text-lg">{project.customer.email}</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-1">
+            <CardTitle>活動履歴</CardTitle>
+            <CardDescription>この案件に紐づく活動記録と共有メモ</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">履歴一覧</h3>
+              {projectActivityRecords.length === 0 ? (
+                <p className="text-sm text-gray-500">活動はまだ登録されていません。</p>
+              ) : (
+                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                  {projectActivityRecords.map((activity) => (
+                    <div key={activity.id} className="rounded-lg border px-4 py-3 space-y-1">
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{formatActivityDate(activity.activity_date)}</span>
+                        <span>{activity.created_by_user?.display_name ?? '-'}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">{activity.subject}</p>
+                      {activity.details ? (
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{activity.details}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">新規登録</h3>
+              <ProjectActivityForm projects={projectActivityFormOptions} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

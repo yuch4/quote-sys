@@ -68,10 +68,10 @@ const procurementItems = [
     icon: Package,
   },
   {
-    name: '活動履歴',
+    name: 'アクティビティ管理',
     href: '/dashboard/procurement/activity',
     icon: Clock,
-    description: '発注・承認・入荷の履歴を一覧できます。',
+    description: '見積・発注・入荷・案件活動のログを参照できます。',
   },
 ]
 
@@ -85,12 +85,12 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
-        <div className="text-xl font-bold text-gray-800">見積システム</div>
+    <div className="flex h-full flex-col bg-[#1E2938] text-white">
+      <div className="p-6 border-b border-white/10">
+        <div className="text-xl font-bold">見積システム</div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4">
+      <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-6">
         <div className="space-y-1 px-3">
           {navigationItems.map((item) => {
             const Icon = item.icon
@@ -103,8 +103,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-white/15 text-white'
+                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -114,8 +114,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
           })}
         </div>
 
-        <div className="mt-6 px-3">
-          <p className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <div className="px-3">
+          <p className="px-3 mb-2 text-xs font-semibold text-gray-300 uppercase tracking-wider">
             調達・発注
           </p>
           <div className="space-y-1">
@@ -130,8 +130,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-white/15 text-white'
+                      : 'text-gray-300 hover:bg-white/10 hover:text-white'
                   )}
                   title={item.description}
                 >
@@ -143,7 +143,7 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
           </div>
         </div>
 
-        <div className="mt-6 px-3">
+        <div className="px-3 pb-4">
           <div className="space-y-1">
             <Link
               href="/dashboard/billing"
@@ -151,8 +151,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 pathname === '/dashboard/billing'
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-white/15 text-white'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               )}
             >
               <CreditCard className="h-5 w-5" />
@@ -164,8 +164,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 pathname === '/dashboard/reports'
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-white/15 text-white'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               )}
             >
               <TrendingUp className="h-5 w-5" />
@@ -178,8 +178,8 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   pathname.startsWith('/dashboard/settings')
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-white/15 text-white'
+                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
                 )}
               >
                 <Settings className="h-5 w-5" />

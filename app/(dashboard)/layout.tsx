@@ -30,7 +30,7 @@ export default async function DashboardLayout({
       <Toaster position="top-right" richColors />
       
       {/* デスクトップサイドバー */}
-      <aside className="hidden md:flex md:w-64 bg-white border-r">
+      <aside className="hidden lg:flex lg:flex-col h-full w-64 bg-[#1E2938] text-white shadow-lg">
         <Sidebar userRole={userData?.role} />
       </aside>
 

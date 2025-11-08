@@ -1,4 +1,4 @@
-export type ProcurementActivityEntity = 'purchase_order' | 'quote'
+export type ProcurementActivityEntity = 'purchase_order' | 'quote' | 'project'
 
 export type ProcurementActivityType =
   | '発注書作成'
@@ -13,6 +13,7 @@ export type ProcurementActivityType =
   | '見積承認'
   | '見積差戻し'
   | '見積スキップ'
+  | '案件活動'
   | 'その他'
 
 export type ProcurementActivityEvent = {
@@ -26,9 +27,12 @@ export type ProcurementActivityEvent = {
   quoteId?: string
   quoteNumber?: string | null
   projectName?: string | null
+  projectNumber?: string | null
+  projectId?: string
   customerName?: string | null
   actor?: string | null
   notes?: string | null
+  title?: string | null
 }
 
 export const PROCUREMENT_ACTIVITY_TYPE_META: Record<ProcurementActivityType, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -44,5 +48,6 @@ export const PROCUREMENT_ACTIVITY_TYPE_META: Record<ProcurementActivityType, { l
   見積承認: { label: '見積承認', variant: 'default' },
   見積差戻し: { label: '見積差戻し', variant: 'destructive' },
   見積スキップ: { label: '見積スキップ', variant: 'outline' },
+  案件活動: { label: '案件活動', variant: 'secondary' },
   その他: { label: 'その他', variant: 'outline' },
 }
