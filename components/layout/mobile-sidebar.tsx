@@ -7,6 +7,8 @@ import {
   Sheet,
   SheetContent,
   SheetTrigger,
+  SheetHeader,
+  SheetTitle,
 } from '@/components/ui/sheet'
 import { Sidebar } from './sidebar'
 
@@ -26,6 +28,9 @@ export function MobileSidebar({ userRole }: MobileSidebarProps) {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-72 border-none bg-[#1E2938] text-white">
+        <SheetHeader className="sr-only">
+          <SheetTitle>ナビゲーションメニュー</SheetTitle>
+        </SheetHeader>
         <Sidebar userRole={userRole} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
