@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { QuoteFilters } from '@/components/quotes/quote-filters'
 import {
   Pagination,
   PaginationContent,
@@ -12,51 +13,123 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import Link from 'next/link'
+import type { PostgrestFilterBuilder } from '@supabase/postgrest-js'
+import type { ApprovalStatus } from '@/types/database'
 
 const ITEMS_PER_PAGE = 20
+const APPROVAL_STATUSES: ApprovalStatus[] = ['下書き', '承認待ち', '承認済み', '却下']
+
+type QuoteSearchParams = Promise<{
+  page?: string
+  status?: string
+  sales_rep?: string
+  q?: string
+}>
+
+type QuotesQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>
 
 export default async function QuotesPage(props: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: QuoteSearchParams
 }) {
   const searchParams = await props.searchParams
   const supabase = await createClient()
   
   const currentPage = Number(searchParams.page) || 1
   const offset = (currentPage - 1) * ITEMS_PER_PAGE
+  const statusParam = searchParams.status
+  const salesRepFilter = searchParams.sales_rep || 'all'
+  const keyword = (searchParams.q || '').trim()
+
+  type StatusFilter = 'all' | ApprovalStatus
+  let statusFilter: StatusFilter = 'all'
+  if (statusParam && APPROVAL_STATUSES.includes(statusParam as ApprovalStatus)) {
+    statusFilter = statusParam as ApprovalStatus
+  }
+
+  const sanitizeKeyword = (value: string) => {
+    return value.replace(/[%]/g, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+  }
+
+  const applyFilters = (query: QuotesQuery) => {
+    let nextQuery = query
+    if (statusFilter !== 'all') {
+      nextQuery = nextQuery.eq('approval_status', statusFilter)
+    }
+    if (salesRepFilter !== 'all') {
+      nextQuery = nextQuery.eq('project.sales_rep_id', salesRepFilter)
+    }
+    if (keyword) {
+      const sanitized = sanitizeKeyword(keyword)
+      if (sanitized) {
+        const likePattern = `%${sanitized}%`
+        nextQuery = nextQuery.or([
+          `quote_number.ilike.${likePattern}`,
+          `subject.ilike.${likePattern}`,
+          `project.project_name.ilike.${likePattern}`,
+          `project.project_number.ilike.${likePattern}`,
+          `project.customer.customer_name.ilike.${likePattern}`,
+        ].join(','))
+      }
+    }
+    return nextQuery
+  }
 
   // 総件数を取得
-  const { count: totalCount } = await supabase
-    .from('quotes')
-    .select('*', { count: 'exact', head: true })
+  const { count: totalCount } = await applyFilters(
+    supabase
+      .from('quotes')
+      .select('*', { count: 'exact', head: true })
+  )
 
   const totalPages = totalCount ? Math.ceil(totalCount / ITEMS_PER_PAGE) : 0
 
-  const { data: quotes, error } = await supabase
-    .from('quotes')
-    .select(`
-      *,
-      project:projects(
-        project_number,
-        project_name,
-        customer:customers(customer_name)
-      ),
-      created_by_user:users!quotes_created_by_fkey(display_name),
-      approval_instance:quote_approval_instances(
-        id,
-        status,
-        current_step,
-        route:approval_routes(name),
-        steps:quote_approval_instance_steps(
+  const { data: quotes, error } = await applyFilters(
+    supabase
+      .from('quotes')
+      .select(`
+        *,
+        project:projects(
+          project_number,
+          project_name,
+          sales_rep_id,
+          customer:customers(customer_name),
+          sales_rep:users!projects_sales_rep_id_fkey(id, display_name)
+        ),
+        created_by_user:users!quotes_created_by_fkey(display_name),
+        approval_instance:quote_approval_instances(
           id,
-          step_order,
-          approver_role,
           status,
-          approver:users(id, display_name)
+          current_step,
+          route:approval_routes(name),
+          steps:quote_approval_instance_steps(
+            id,
+            step_order,
+            approver_role,
+            status,
+            approver:users(id, display_name)
+          )
         )
-      )
-    `)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + ITEMS_PER_PAGE - 1)
+      `)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + ITEMS_PER_PAGE - 1)
+  )
+
+  const { data: salesReps } = await supabase
+    .from('users')
+    .select('id, display_name')
+    .is('is_active', true)
+    .order('display_name', { ascending: true })
+
+  const salesRepOptions = salesReps ?? []
+
+  const buildPageHref = (page: number) => {
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    if (statusFilter !== 'all') params.set('status', statusFilter)
+    if (salesRepFilter !== 'all') params.set('sales_rep', salesRepFilter)
+    if (keyword) params.set('q', keyword)
+    return `?${params.toString()}`
+  }
 
   if (error) {
     console.error('Error fetching quotes:', error)
@@ -159,6 +232,13 @@ export default async function QuotesPage(props: {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <QuoteFilters
+            statusFilter={statusFilter}
+            salesRepFilter={salesRepFilter}
+            keyword={keyword}
+            salesReps={salesRepOptions}
+            resetHref="/dashboard/quotes"
+          />
           {quotes && quotes.length > 0 ? (
             <>
               {/* デスクトップ: テーブル表示 */}
@@ -276,7 +356,7 @@ export default async function QuotesPage(props: {
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
-                          href={`?page=${Math.max(1, currentPage - 1)}`}
+                          href={buildPageHref(Math.max(1, currentPage - 1))}
                           aria-disabled={currentPage === 1}
                           className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
                         />
@@ -294,7 +374,7 @@ export default async function QuotesPage(props: {
                           return (
                             <PaginationItem key={page}>
                               <PaginationLink
-                                href={`?page=${page}`}
+                                href={buildPageHref(page)}
                                 isActive={currentPage === page}
                               >
                                 {page}
@@ -316,7 +396,7 @@ export default async function QuotesPage(props: {
                       
                       <PaginationItem>
                         <PaginationNext
-                          href={`?page=${Math.min(totalPages, currentPage + 1)}`}
+                          href={buildPageHref(Math.min(totalPages, currentPage + 1))}
                           aria-disabled={currentPage === totalPages}
                           className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
                         />
