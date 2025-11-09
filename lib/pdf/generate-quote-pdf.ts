@@ -37,8 +37,18 @@ export async function generateQuotePDF(quoteId: string) {
       }
     }
 
+    const { data: companyProfile } = await supabase
+      .from('company_profile')
+      .select('company_name, company_address')
+      .maybeSingle()
+
+    const companyInfo = {
+      name: companyProfile?.company_name ?? '自社名未設定',
+      address: companyProfile?.company_address ?? '住所未設定',
+    }
+
     // PDF生成
-    const pdfDoc = QuotePDF({ quote })
+    const pdfDoc = QuotePDF({ quote, companyInfo })
     const blob = await pdf(pdfDoc).toBlob()
 
     // BlobをArrayBufferに変換

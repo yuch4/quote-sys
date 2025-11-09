@@ -1,19 +1,66 @@
+import path from 'path'
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+
+const FONT_FAMILY = 'NotoSansJP'
+
+const getFontSrc = (fileName: string) => {
+  if (typeof window !== 'undefined') {
+    return `/fonts/${fileName}`
+  }
+
+  return path.join(process.cwd(), 'public', 'fonts', fileName)
+}
+
+let fontsRegistered = false
+
+const registerJapaneseFonts = () => {
+  if (fontsRegistered) return
+
+  Font.register({
+    family: FONT_FAMILY,
+    fonts: [
+      { src: getFontSrc('NotoSansJP-Regular.ttf'), fontWeight: 'normal' },
+      { src: getFontSrc('NotoSansJP-Bold.ttf'), fontWeight: 'bold' },
+    ],
+  })
+
+  fontsRegistered = true
+}
+
+registerJapaneseFonts()
 
 // PDFスタイル定義
 const styles = StyleSheet.create({
   page: {
     padding: 30,
     fontSize: 10,
-    fontFamily: 'Helvetica',
+    fontFamily: FONT_FAMILY,
   },
   header: {
     marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerLeft: {
+    flex: 1,
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  companyInfo: {
+    textAlign: 'right',
+    marginLeft: 12,
+  },
+  companyName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  companyAddress: {
+    fontSize: 10,
+    marginTop: 4,
   },
   section: {
     marginBottom: 15,
@@ -52,13 +99,12 @@ const styles = StyleSheet.create({
     padding: 5,
     borderBottom: '0.5pt solid #ddd',
   },
-  col1: { width: '5%' },
-  col2: { width: '20%' },
-  col3: { width: '25%' },
-  col4: { width: '8%' },
-  col5: { width: '12%' },
-  col6: { width: '15%' },
-  col7: { width: '15%' },
+  col1: { width: '7%' },
+  col2: { width: '25%' },
+  col3: { width: '33%' },
+  col4: { width: '10%' },
+  col5: { width: '12.5%' },
+  col6: { width: '12.5%' },
   totalSection: {
     marginTop: 20,
     alignItems: 'flex-end',
@@ -138,9 +184,13 @@ interface QuotePDFProps {
     }
     items: QuoteItem[]
   }
+  companyInfo: {
+    name: string
+    address: string
+  }
 }
 
-export function QuotePDF({ quote }: QuotePDFProps) {
+export function QuotePDF({ quote, companyInfo }: QuotePDFProps) {
   const formatCurrency = (amount: string) => {
     return `¥${Number(amount).toLocaleString()}`
   }
@@ -158,12 +208,25 @@ export function QuotePDF({ quote }: QuotePDFProps) {
       <Page size="A4" style={styles.page}>
         {/* ヘッダー */}
         <View style={styles.header}>
-          <Text style={styles.title}>御見積書</Text>
-          <Text>見積番号: {quote.quote_number}</Text>
-          <Text>バージョン: v{quote.version}</Text>
-          <Text>件名: {quote.subject || '（件名未設定）'}</Text>
-          <Text>発行日: {formatDate(quote.issue_date)}</Text>
-          {quote.valid_until && <Text>有効期限: {formatDate(quote.valid_until)}</Text>}
+          <View style={styles.headerLeft}>
+            <Text style={styles.title}>御見積書</Text>
+            <Text>見積番号: {quote.quote_number}</Text>
+            <Text>バージョン: v{quote.version}</Text>
+            <Text>件名: {quote.subject || '（件名未設定）'}</Text>
+            <Text>発行日: {formatDate(quote.issue_date)}</Text>
+            {quote.valid_until && <Text>有効期限: {formatDate(quote.valid_until)}</Text>}
+          </View>
+          {(companyInfo.name || companyInfo.address) && (
+            <View style={styles.companyInfo}>
+              {companyInfo.name && <Text style={styles.companyName}>{companyInfo.name}</Text>}
+              {companyInfo.address &&
+                companyInfo.address.split('\n').map((line, index) => (
+                  <Text key={`address-line-${index}`} style={styles.companyAddress}>
+                    {line}
+                  </Text>
+                ))}
+            </View>
+          )}
         </View>
 
         {/* 顧客情報 */}
@@ -221,7 +284,6 @@ export function QuotePDF({ quote }: QuotePDFProps) {
               <Text style={styles.col4}>数量</Text>
               <Text style={styles.col5}>単価</Text>
               <Text style={styles.col6}>金額</Text>
-              <Text style={styles.col7}>仕入先</Text>
             </View>
             {quote.items
               .sort((a, b) => a.line_number - b.line_number)
@@ -233,7 +295,6 @@ export function QuotePDF({ quote }: QuotePDFProps) {
                   <Text style={styles.col4}>{item.quantity}</Text>
                   <Text style={styles.col5}>{formatCurrency(item.unit_price)}</Text>
                   <Text style={styles.col6}>{formatCurrency(item.amount)}</Text>
-                  <Text style={styles.col7}>{item.supplier?.supplier_name || '-'}</Text>
                 </View>
               ))}
           </View>

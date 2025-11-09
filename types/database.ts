@@ -23,6 +23,13 @@ export interface Department {
   updated_at: string
 }
 
+export interface CompanyProfile {
+  id: boolean
+  company_name: string
+  company_address: string
+  updated_at: string
+}
+
 // 顧客型
 export interface Customer {
   id: string

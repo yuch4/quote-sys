@@ -107,6 +107,11 @@ export default function SettingsPage() {
     danger_color: '#FEE2E2',
   })
   const [activitySettingsSaving, setActivitySettingsSaving] = useState(false)
+  const [companyProfile, setCompanyProfile] = useState({
+    company_name: '',
+    company_address: '',
+  })
+  const [companyProfileSaving, setCompanyProfileSaving] = useState(false)
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -194,7 +199,7 @@ export default function SettingsPage() {
 
   const loadAllData = async () => {
     try {
-      const [usersRes, customersRes, suppliersRes, routesRes, activitySettingsRes] = await Promise.all([
+      const [usersRes, customersRes, suppliersRes, routesRes, activitySettingsRes, companyProfileRes] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
@@ -204,6 +209,7 @@ export default function SettingsPage() {
           .order('min_total_amount', { ascending: true })
           .order('step_order', { ascending: true, foreignTable: 'approval_route_steps' }),
         supabase.from('project_activity_settings').select('*').maybeSingle(),
+        supabase.from('company_profile').select('*').maybeSingle(),
       ])
 
       if (usersRes.data) setUsers(usersRes.data)
@@ -224,6 +230,13 @@ export default function SettingsPage() {
           safe_color: activitySettingsRes.data.safe_color ?? '#FFFFFF',
           warning_color: activitySettingsRes.data.warning_color ?? '#FEF3C7',
           danger_color: activitySettingsRes.data.danger_color ?? '#FEE2E2',
+        })
+      }
+
+      if (companyProfileRes.data) {
+        setCompanyProfile({
+          company_name: companyProfileRes.data.company_name ?? '',
+          company_address: companyProfileRes.data.company_address ?? '',
         })
       }
 
@@ -296,6 +309,44 @@ export default function SettingsPage() {
       toast.error('活動しきい値の更新に失敗しました')
     } finally {
       setActivitySettingsSaving(false)
+    }
+  }
+
+  const handleSaveCompanyProfile = async () => {
+    const trimmedName = companyProfile.company_name.trim()
+    const trimmedAddress = companyProfile.company_address.trim()
+
+    if (!trimmedName) {
+      toast.error('会社名を入力してください')
+      return
+    }
+    if (!trimmedAddress) {
+      toast.error('住所を入力してください')
+      return
+    }
+
+    setCompanyProfileSaving(true)
+    try {
+      const { error } = await supabase
+        .from('company_profile')
+        .upsert({
+          id: true,
+          company_name: trimmedName,
+          company_address: trimmedAddress,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) {
+        throw error
+      }
+
+      setCompanyProfile({ company_name: trimmedName, company_address: trimmedAddress })
+      toast.success('会社情報を更新しました')
+    } catch (error) {
+      console.error('会社情報更新エラー:', error)
+      toast.error('会社情報の更新に失敗しました')
+    } finally {
+      setCompanyProfileSaving(false)
     }
   }
 
@@ -704,6 +755,7 @@ export default function SettingsPage() {
       <Tabs defaultValue="customers" className="w-full">
         <TabsList>
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
+          <TabsTrigger value="company">会社情報</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
           <TabsTrigger value="departments">部署マスタ</TabsTrigger>
@@ -780,6 +832,44 @@ export default function SettingsPage() {
                   {activitySettingsSaving ? '保存中...' : '設定を保存'}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="company">
+          <Card>
+            <CardHeader>
+              <CardTitle>会社情報</CardTitle>
+              <CardDescription>見積書などのPDFに表示される会社名と住所を設定してください。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="company-name">会社名</Label>
+                <Input
+                  id="company-name"
+                  value={companyProfile.company_name}
+                  placeholder="株式会社サンプル"
+                  onChange={(event) =>
+                    setCompanyProfile((prev) => ({ ...prev, company_name: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="company-address">住所</Label>
+                <Textarea
+                  id="company-address"
+                  rows={3}
+                  value={companyProfile.company_address}
+                  placeholder="東京都千代田区..."
+                  onChange={(event) =>
+                    setCompanyProfile((prev) => ({ ...prev, company_address: event.target.value }))
+                  }
+                />
+                <p className="text-xs text-gray-500">複数行を入力できます。支店名やビル名などもここで設定してください。</p>
+              </div>
+              <Button onClick={handleSaveCompanyProfile} disabled={companyProfileSaving}>
+                {companyProfileSaving ? '保存中...' : '設定を保存'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
