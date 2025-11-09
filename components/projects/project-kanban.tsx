@@ -28,6 +28,9 @@ export type KanbanProject = {
   status?: string | null
   expected_sales?: number | string | null
   expected_gross_profit?: number | string | null
+  order_month?: string | null
+  accounting_month?: string | null
+  contract_probability?: 'S' | 'A' | 'B' | 'C' | 'D' | null
   customer?: { customer_name?: string | null } | null
   sales_rep?: { display_name?: string | null } | null
 }
@@ -46,6 +49,24 @@ const formatStatCurrency = (value: number) => `¥${Math.round(value).toLocaleStr
 const getInitial = (text?: string | null) => {
   if (!text) return '案件'
   return text.trim().slice(0, 2)
+}
+
+const formatContractProbability = (value?: string | null) => {
+  switch (value) {
+    case 'S': return 'S（ほぼ確定）'
+    case 'A': return 'A（高い）'
+    case 'B': return 'B（中間）'
+    case 'C': return 'C（低い）'
+    case 'D': return 'D（未確定）'
+    default: return '-'
+  }
+}
+
+const formatMonth = (value?: string | null) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
 const normalizeStatus = (value?: string | null): KanbanStatus => {
@@ -227,26 +248,44 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                         <p className="mt-2 text-xs text-gray-500">
                           {project.customer?.customer_name ?? '顧客未設定'}
                         </p>
-                        <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-3 text-xs text-gray-500">
-                          <div>
-                            <p>見込売上</p>
-                            <p className="text-sm font-semibold text-gray-900">
+                        <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-3 text-xs text-gray-600 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">予定売上</span>
+                            <span className="text-sm font-semibold text-gray-900">
                               {formatCurrency(project.expected_sales)}
-                            </p>
+                            </span>
                           </div>
-                          <div>
-                            <p>見込粗利</p>
-                            <p className="text-sm font-semibold text-gray-900">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">予定粗利</span>
+                            <span className="text-sm font-semibold text-gray-900">
                               {formatCurrency(project.expected_gross_profit)}
-                            </p>
+                            </span>
                           </div>
-                          <div className="col-span-2 flex items-center justify-between pt-1 text-[11px] uppercase tracking-wide text-gray-400">
-                            <span>{project.sales_rep?.display_name ?? '担当未設定'}</span>
-                            <div className="flex items-center gap-3 font-semibold text-blue-600">
-                              <Link href={`/dashboard/projects/${project.id}`}>詳細</Link>
-                              <span className="text-gray-300">/</span>
-                              <Link href={`/dashboard/projects/${project.id}/edit`}>編集</Link>
-                            </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">契約確度</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {formatContractProbability(project.contract_probability)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">受注予定</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {formatMonth(project.order_month)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">計上予定</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {formatMonth(project.accounting_month)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-wide text-gray-400">
+                          <span>{project.sales_rep?.display_name ?? '担当未設定'}</span>
+                          <div className="flex items-center gap-3 font-semibold text-blue-600 text-xs">
+                            <Link href={`/dashboard/projects/${project.id}`}>詳細</Link>
+                            <span className="text-gray-300">/</span>
+                            <Link href={`/dashboard/projects/${project.id}/edit`}>編集</Link>
                           </div>
                         </div>
                       </article>

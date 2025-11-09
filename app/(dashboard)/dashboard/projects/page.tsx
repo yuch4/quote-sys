@@ -138,6 +138,9 @@ export default async function ProjectsPage(props: {
         status,
         expected_sales,
         expected_gross_profit,
+        order_month,
+        accounting_month,
+        contract_probability,
         customer:customers(customer_name),
         sales_rep:users!projects_sales_rep_id_fkey(display_name),
         quotes:quotes(approval_status)
