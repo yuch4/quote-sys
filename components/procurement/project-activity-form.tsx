@@ -17,11 +17,12 @@ type ProjectOption = {
 
 interface ProjectActivityFormProps {
   projects: ProjectOption[]
+  onSuccess?: () => void
 }
 
 const today = new Date().toISOString().split('T')[0]
 
-export function ProjectActivityForm({ projects }: ProjectActivityFormProps) {
+export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityFormProps) {
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => (a.projectNumber > b.projectNumber ? -1 : 1)),
     [projects]
@@ -63,6 +64,7 @@ export function ProjectActivityForm({ projects }: ProjectActivityFormProps) {
 
       setMessage({ type: 'success', text: '活動を登録しました。' })
       setFormState((prev) => ({ ...prev, subject: '', details: '' }))
+      onSuccess?.()
     })
   }
 

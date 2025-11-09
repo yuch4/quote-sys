@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { updateProjectStatus } from '@/app/(dashboard)/dashboard/projects/actions'
+import { ProjectActivityEntryButton } from '@/components/projects/project-activity-entry'
 
 const KANBAN_STATUSES = [
   { value: 'リード', label: 'リード' },
@@ -268,13 +269,24 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                             </span>
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-wide text-gray-400">
+                        <div className="mt-3 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-gray-400">
                           <span>{project.sales_rep?.display_name ?? '担当未設定'}</span>
                           <div className="flex items-center gap-3 font-semibold text-blue-600 text-xs">
                             <Link href={`/dashboard/projects/${project.id}`}>詳細</Link>
                             <span className="text-gray-300">/</span>
                             <Link href={`/dashboard/projects/${project.id}/edit`}>編集</Link>
                           </div>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <ProjectActivityEntryButton
+                            projectId={project.id}
+                            projectNumber={project.project_number}
+                            projectName={project.project_name}
+                            customerName={project.customer?.customer_name}
+                            label="活動登録"
+                            variant="ghost"
+                            size="sm"
+                          />
                         </div>
                       </article>
                     ))

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { deriveProjectStatus } from '@/lib/projects/status'
 import { ProjectKanbanBoard } from '@/components/projects/project-kanban'
+import { ProjectActivityEntryButton } from '@/components/projects/project-activity-entry'
 import { ProjectFilters } from '@/components/projects/project-filters'
 import { cn } from '@/lib/utils'
 import {
@@ -377,11 +378,20 @@ export default async function ProjectsPage(props: {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Link href={`/dashboard/projects/${project.id}`}>
-                          <Button variant="outline" size="sm">詳細</Button>
-                        </Link>
-                        <Link href={`/dashboard/projects/${project.id}/edit`}>
+                        <div className="flex gap-2 justify-end">
+                          <ProjectActivityEntryButton
+                            projectId={project.id}
+                            projectNumber={project.project_number}
+                            projectName={project.project_name}
+                            customerName={project.customer?.customer_name}
+                            label="活動"
+                            size="sm"
+                            variant="ghost"
+                          />
+                          <Link href={`/dashboard/projects/${project.id}`}>
+                            <Button variant="outline" size="sm">詳細</Button>
+                          </Link>
+                          <Link href={`/dashboard/projects/${project.id}/edit`}>
                             <Button variant="outline" size="sm">編集</Button>
                           </Link>
                         </div>
@@ -440,6 +450,15 @@ export default async function ProjectsPage(props: {
                       </div>
 
                       <div className="flex gap-2 pt-2">
+                        <ProjectActivityEntryButton
+                          projectId={project.id}
+                          projectNumber={project.project_number}
+                          projectName={project.project_name}
+                          customerName={project.customer?.customer_name}
+                          label="活動登録"
+                          size="sm"
+                          variant="ghost"
+                        />
                         <Link href={`/dashboard/projects/${project.id}`} className="flex-1">
                           <Button variant="outline" size="sm" className="w-full">詳細</Button>
                         </Link>
