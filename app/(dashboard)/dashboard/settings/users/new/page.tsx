@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { DepartmentSelect } from '@/components/departments/department-select'
 
 export default function NewUserPage() {
   const router = useRouter()
@@ -17,7 +18,8 @@ export default function NewUserPage() {
     email: '',
     password: '',
     display_name: '',
-    department: '',
+    departmentId: null as string | null,
+    departmentName: '',
     role: '営業' as '営業' | '営業事務' | '管理者',
   })
 
@@ -55,7 +57,8 @@ export default function NewUserPage() {
           id: authData.user.id,
           email: formData.email,
           display_name: formData.display_name,
-          department: formData.department || null,
+          department_id: formData.departmentId,
+          department: formData.departmentName || null,
           role: formData.role,
           is_active: true,
         }])
@@ -137,11 +140,15 @@ export default function NewUserPage() {
 
             <div className="space-y-2">
               <Label htmlFor="department">部門</Label>
-              <Input
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
+              <DepartmentSelect
+                value={formData.departmentId}
+                onChange={({ id, name }) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    departmentId: id,
+                    departmentName: name ?? '',
+                  }))
+                }
                 disabled={loading}
               />
             </div>

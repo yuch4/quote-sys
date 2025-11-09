@@ -37,6 +37,7 @@ export default async function ProfilePage() {
               id: userData.id,
               display_name: userData.display_name,
               department: userData.department,
+              department_id: userData.department_id,
               email: user.email ?? '',
               role: userData.role,
             }}

@@ -7,12 +7,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { DepartmentSelect } from '@/components/departments/department-select'
 
 type ProfileFormProps = {
   initialData: {
     id: string
     display_name: string
     department: string | null
+    department_id: string | null
     email: string
     role: string | null
   }
@@ -22,7 +24,8 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
   const router = useRouter()
   const [formState, setFormState] = useState({
     display_name: initialData.display_name || '',
-    department: initialData.department || '',
+    departmentId: initialData.department_id,
+    departmentName: initialData.department || '',
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -38,13 +41,14 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
     try {
       const supabase = createClient()
       const trimmedName = formState.display_name.trim()
-      const trimmedDepartment = formState.department.trim()
+      const trimmedDepartmentName = formState.departmentName.trim()
 
       const { error } = await supabase
         .from('users')
         .update({
           display_name: trimmedName,
-          department: trimmedDepartment ? trimmedDepartment : null,
+          department_id: formState.departmentId,
+          department: trimmedDepartmentName ? trimmedDepartmentName : null,
         })
         .eq('id', initialData.id)
 
@@ -87,14 +91,20 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="department">部署</Label>
-        <Input
-          id="department"
-          name="department"
-          placeholder="例: 営業部"
-          value={formState.department}
-          onChange={handleChange}
+        <DepartmentSelect
+          value={formState.departmentId}
+          onChange={({ id, name }) =>
+            setFormState((prev) => ({
+              ...prev,
+              departmentId: id,
+              departmentName: name ?? '',
+            }))
+          }
           disabled={submitting}
         />
+        {!formState.departmentId && formState.departmentName && (
+          <p className="text-xs text-gray-500">現在の部署: {formState.departmentName}（マスタ未割当）</p>
+        )}
       </div>
 
       <div className="space-y-2">

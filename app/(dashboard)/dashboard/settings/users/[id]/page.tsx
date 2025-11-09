@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { User } from '@/types/database'
+import { DepartmentSelect } from '@/components/departments/department-select'
 
 export default function EditUserPage() {
   const router = useRouter()
@@ -21,7 +22,8 @@ export default function EditUserPage() {
   const [formData, setFormData] = useState({
     email: '',
     display_name: '',
-    department: '',
+    departmentId: null as string | null,
+    departmentName: '',
     role: '営業' as '営業' | '営業事務' | '管理者',
     is_active: true,
   })
@@ -44,7 +46,8 @@ export default function EditUserPage() {
       setFormData({
         email: data.email,
         display_name: data.display_name,
-        department: data.department || '',
+        departmentId: data.department_id,
+        departmentName: data.department || '',
         role: data.role,
         is_active: data.is_active,
       })
@@ -64,7 +67,8 @@ export default function EditUserPage() {
         .from('users')
         .update({
           display_name: formData.display_name,
-          department: formData.department || null,
+          department_id: formData.departmentId,
+          department: formData.departmentName || null,
           role: formData.role,
           is_active: formData.is_active,
         })
@@ -164,13 +168,20 @@ export default function EditUserPage() {
 
             <div className="space-y-2">
               <Label htmlFor="department">部門</Label>
-              <Input
-                id="department"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
+              <DepartmentSelect
+                value={formData.departmentId}
+                onChange={({ id, name }) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    departmentId: id,
+                    departmentName: name ?? '',
+                  }))
+                }
                 disabled={loading}
               />
+              {!formData.departmentId && formData.departmentName && (
+                <p className="text-xs text-gray-500">現在の部署: {formData.departmentName}（マスタ未割当）</p>
+              )}
             </div>
 
             <div className="space-y-2">

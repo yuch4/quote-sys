@@ -6,7 +6,18 @@ export interface User {
   email: string
   display_name: string
   department: string | null
+  department_id: string | null
   role: UserRole
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Department {
+  id: string
+  department_code: string
+  department_name: string
+  sort_order: number
   is_active: boolean
   created_at: string
   updated_at: string

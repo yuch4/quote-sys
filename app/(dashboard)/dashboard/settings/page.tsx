@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { DepartmentManager } from '@/components/settings/department-manager'
 
 interface User {
   id: string
@@ -697,7 +698,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">設定・マスタ管理</h1>
-        <p className="text-gray-600 mt-2">ユーザー・顧客・仕入先・承認フローの管理</p>
+        <p className="text-gray-600 mt-2">ユーザー・部署・顧客・仕入先・承認フローの管理</p>
       </div>
 
       <Tabs defaultValue="customers" className="w-full">
@@ -705,6 +706,7 @@ export default function SettingsPage() {
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
+          <TabsTrigger value="departments">部署マスタ</TabsTrigger>
           <TabsTrigger value="users">ユーザー管理</TabsTrigger>
           <TabsTrigger value="approval">承認フロー</TabsTrigger>
         </TabsList>
@@ -918,6 +920,11 @@ export default function SettingsPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 部署マスタ */}
+        <TabsContent value="departments">
+          <DepartmentManager />
         </TabsContent>
 
         {/* ユーザー管理 */}

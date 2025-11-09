@@ -1,9 +1,16 @@
+-- テストデータ: 部署
+INSERT INTO public.departments (id, department_code, department_name, sort_order, is_active)
+VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', 'DEP-001', '営業部', 10, true),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', 'DEP-002', '営業事務', 20, true),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', 'DEP-003', '管理部', 30, true);
+
 -- テストデータ: ユーザー
-INSERT INTO public.users (id, email, display_name, department, role)
+INSERT INTO public.users (id, email, display_name, department_id, department, role)
 VALUES 
-  ('11111111-1111-1111-1111-111111111111', 'admin@example.com', '管理者太郎', '営業部', '管理者'),
-  ('22222222-2222-2222-2222-222222222222', 'sales@example.com', '営業花子', '営業部', '営業'),
-  ('33333333-3333-3333-3333-333333333333', 'clerk@example.com', '事務次郎', '営業事務', '営業事務');
+  ('11111111-1111-1111-1111-111111111111', 'admin@example.com', '管理者太郎', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '営業部', '管理者'),
+  ('22222222-2222-2222-2222-222222222222', 'sales@example.com', '営業花子', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', '営業部', '営業'),
+  ('33333333-3333-3333-3333-333333333333', 'clerk@example.com', '事務次郎', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', '営業事務', '営業事務');
 
 -- テストデータ: 顧客
 INSERT INTO public.customers (customer_code, customer_name, customer_name_kana, postal_code, address, phone, email, contact_person)
