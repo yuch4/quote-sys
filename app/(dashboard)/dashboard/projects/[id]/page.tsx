@@ -229,6 +229,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
               <p className="text-sm font-medium text-gray-500">見込粗利</p>
               <p className="text-lg">{formatCurrency(project.expected_gross_profit)}</p>
             </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">契約確度</p>
+              <p className="text-lg">{formatContractProbability(project.contract_probability)}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -410,3 +414,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     </div>
   )
 }
+  const formatContractProbability = (value?: string | null) => {
+    switch (value) {
+      case 'S': return 'S（ほぼ確定）'
+      case 'A': return 'A（高い）'
+      case 'B': return 'B（中間）'
+      case 'C': return 'C（低い）'
+      case 'D': return 'D（未確定）'
+      default: return '-'
+    }
+  }

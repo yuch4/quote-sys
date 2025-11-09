@@ -13,6 +13,14 @@ import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Customer, User } from '@/types/database'
 
+const CONTRACT_PROBABILITY_OPTIONS = [
+  { value: 'S', label: 'S（ほぼ確定）' },
+  { value: 'A', label: 'A（高い）' },
+  { value: 'B', label: 'B（中間）' },
+  { value: 'C', label: 'C（低い）' },
+  { value: 'D', label: 'D（未確定）' },
+]
+
 export default function NewProjectPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -42,6 +50,7 @@ export default function NewProjectPage() {
     accounting_month: '',
     expected_sales: '',
     expected_gross_profit: '',
+    contract_probability: 'B',
   })
 
   useEffect(() => {
@@ -179,6 +188,7 @@ export default function NewProjectPage() {
           accounting_month: accountingMonthDate,
           expected_sales: expectedSales,
           expected_gross_profit: expectedGrossProfit,
+          contract_probability: formData.contract_probability,
         }])
 
       if (error) {
@@ -417,6 +427,26 @@ export default function NewProjectPage() {
                   placeholder="例: 250000"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>契約確度</Label>
+              <Select
+                value={formData.contract_probability}
+                onValueChange={(value) => setFormData({ ...formData, contract_probability: value })}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="契約確度を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_PROBABILITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

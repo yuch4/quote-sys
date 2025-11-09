@@ -42,6 +42,7 @@ export default function EditProjectPage() {
     accounting_month: '',
     expected_sales: '',
     expected_gross_profit: '',
+    contract_probability: 'B',
   })
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function EditProjectPage() {
           accounting_month: toMonthInputValue(projectData.accounting_month),
           expected_sales: projectData.expected_sales != null ? String(projectData.expected_sales) : '',
           expected_gross_profit: projectData.expected_gross_profit != null ? String(projectData.expected_gross_profit) : '',
+          contract_probability: projectData.contract_probability ?? 'B',
         })
       }
       
@@ -122,6 +124,7 @@ export default function EditProjectPage() {
           accounting_month: accountingMonthDate,
           expected_sales: expectedSales,
           expected_gross_profit: expectedGrossProfit,
+          contract_probability: formData.contract_probability,
         })
         .eq('id', projectId)
 
@@ -277,6 +280,26 @@ export default function EditProjectPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>契約確度</Label>
+              <Select
+                value={formData.contract_probability}
+                onValueChange={(value) => setFormData({ ...formData, contract_probability: value })}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRACT_PROBABILITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="sales_rep_id">営業担当 *</Label>
               <Select
                 value={formData.sales_rep_id}
@@ -346,3 +369,10 @@ export default function EditProjectPage() {
     </div>
   )
 }
+const CONTRACT_PROBABILITY_OPTIONS = [
+  { value: 'S', label: 'S（ほぼ確定）' },
+  { value: 'A', label: 'A（高い）' },
+  { value: 'B', label: 'B（中間）' },
+  { value: 'C', label: 'C（低い）' },
+  { value: 'D', label: 'D（未確定）' },
+]

@@ -43,6 +43,8 @@ export interface Supplier {
   updated_at: string
 }
 
+export type ContractProbability = 'S' | 'A' | 'B' | 'C' | 'D'
+
 // 案件型
 export type ProjectStatus =
   | 'リード'
@@ -66,6 +68,7 @@ export interface Project {
   accounting_month: string | null
   expected_sales: number | null
   expected_gross_profit: number | null
+  contract_probability: ContractProbability
   created_at: string
   updated_at: string
   // リレーション
