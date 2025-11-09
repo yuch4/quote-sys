@@ -46,6 +46,14 @@ const VIEW_OPTIONS = [
   { value: 'list', label: 'リスト' },
 ] as const
 
+type ActivitySettings = {
+  warning_days: number
+  danger_days: number
+  safe_color: string
+  warning_color: string
+  danger_color: string
+}
+
 export default async function ProjectsPage(props: {
   searchParams: ProjectSearchParams
 }) {
@@ -112,6 +120,11 @@ export default async function ProjectsPage(props: {
         approval_status,
         total_amount,
         created_at
+      ),
+      project_activities:project_activities(
+        id,
+        activity_date,
+        created_at
       )
     `)
     .order(selectedSortColumn, {
@@ -119,6 +132,8 @@ export default async function ProjectsPage(props: {
       nullsFirst: false,
     })
     .range(offset, offset + ITEMS_PER_PAGE - 1)
+    .order('activity_date', { foreignTable: 'project_activities', ascending: false })
+    .limit(1, { foreignTable: 'project_activities' })
 
   const { data: projects, error } = await applyFilters(projectQuery)
 
@@ -127,6 +142,19 @@ export default async function ProjectsPage(props: {
     .select('id, display_name')
     .is('is_active', true)
     .order('display_name', { ascending: true })
+
+  const { data: activitySettingsData } = await supabase
+    .from('project_activity_settings')
+    .select('*')
+    .maybeSingle()
+
+  const activitySettings: ActivitySettings = {
+    warning_days: activitySettingsData?.warning_days ?? 7,
+    danger_days: activitySettingsData?.danger_days ?? 14,
+    safe_color: activitySettingsData?.safe_color ?? '#FFFFFF',
+    warning_color: activitySettingsData?.warning_color ?? '#FEF3C7',
+    danger_color: activitySettingsData?.danger_color ?? '#FEE2E2',
+  }
   const salesRepOptions = salesReps ?? []
 
   const { data: kanbanProjects } = await applyFilters(
@@ -144,10 +172,17 @@ export default async function ProjectsPage(props: {
         contract_probability,
         customer:customers(customer_name),
         sales_rep:users!projects_sales_rep_id_fkey(display_name),
-        quotes:quotes(approval_status)
+        quotes:quotes(approval_status),
+        project_activities:project_activities(
+          id,
+          activity_date,
+          created_at
+        )
       `)
       .order('created_at', { ascending: false })
       .limit(200)
+      .order('activity_date', { foreignTable: 'project_activities', ascending: false })
+      .limit(1, { foreignTable: 'project_activities' })
   )
 
   if (error) {
@@ -187,15 +222,6 @@ export default async function ProjectsPage(props: {
     }
   }
 
-  const projectList = (projects || []).map((project) => ({
-    ...project,
-    derivedStatus: deriveProjectStatus(project),
-  }))
-  const kanbanProjectList = (kanbanProjects || []).map((project) => ({
-    ...project,
-    derivedStatus: deriveProjectStatus(project),
-  }))
-
   const formatMonth = (value?: string | null) => {
     if (!value) return '-'
     const date = new Date(value)
@@ -209,6 +235,65 @@ export default async function ProjectsPage(props: {
     if (Number.isNaN(numeric)) return '-'
     return `¥${numeric.toLocaleString()}`
   }
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return '-'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '-'
+    return date.toLocaleDateString('ja-JP')
+  }
+
+  const calcDaysSince = (value?: string | null) => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    const diff = Date.now() - date.getTime()
+    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
+  }
+
+  const formatDaysAgo = (days?: number | null) => {
+    if (days == null) return '活動履歴なし'
+    if (days === 0) return '本日更新'
+    return `${days}日前`
+  }
+
+  const getLatestActivityDate = (project: any) => {
+    const latest = project.project_activities?.[0]
+    return latest?.activity_date ?? latest?.created_at ?? project.updated_at ?? project.created_at ?? null
+  }
+
+  const getAgingColors = (days?: number | null) => {
+    if (days == null) {
+      return { backgroundColor: 'transparent', borderColor: 'transparent', state: 'none' as const }
+    }
+    if (days > activitySettings.danger_days) {
+      return { backgroundColor: activitySettings.danger_color, borderColor: activitySettings.danger_color, state: 'danger' as const }
+    }
+    if (days > activitySettings.warning_days) {
+      return { backgroundColor: activitySettings.warning_color, borderColor: activitySettings.warning_color, state: 'warning' as const }
+    }
+    return { backgroundColor: activitySettings.safe_color, borderColor: activitySettings.safe_color, state: 'safe' as const }
+  }
+  const projectList = (projects || []).map((project) => {
+    const lastActivityDate = getLatestActivityDate(project)
+    const daysSinceActivity = calcDaysSince(lastActivityDate)
+    return {
+      ...project,
+      derivedStatus: deriveProjectStatus(project),
+      lastActivityDate,
+      daysSinceLastActivity: daysSinceActivity,
+    }
+  })
+  const kanbanProjectList = (kanbanProjects || []).map((project) => {
+    const lastActivityDate = getLatestActivityDate(project)
+    const daysSinceActivity = calcDaysSince(lastActivityDate)
+    return {
+      ...project,
+      derivedStatus: deriveProjectStatus(project),
+      lastActivityDate,
+      daysSinceLastActivity: daysSinceActivity,
+    }
+  })
 
   const buildQueryString = (params: Record<string, string | number | undefined>) => {
     const search = new URLSearchParams()
@@ -293,7 +378,7 @@ export default async function ProjectsPage(props: {
           {viewMode === 'kanban' ? (
             kanbanProjectList.length > 0 ? (
               <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
-                <ProjectKanbanBoard projects={kanbanProjectList} />
+                <ProjectKanbanBoard projects={kanbanProjectList} activitySettings={activitySettings} />
               </div>
             ) : (
               <p className="text-sm text-gray-500 text-center py-8">
@@ -357,12 +442,19 @@ export default async function ProjectsPage(props: {
                       </Link>
                     </TableHead>
                     <TableHead>ステータス</TableHead>
+                    <TableHead>最終活動</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {projectList.map((project) => (
-                    <TableRow key={project.id}>
+                  {projectList.map((project) => {
+                    const agingColors = getAgingColors(project.daysSinceLastActivity)
+                    return (
+                    <TableRow
+                      key={project.id}
+                      style={agingColors.backgroundColor !== 'transparent' ? { backgroundColor: agingColors.backgroundColor } : undefined}
+                      className="transition-colors"
+                    >
                       <TableCell className="font-medium">{project.project_number}</TableCell>
                       <TableCell>{project.project_name}</TableCell>
                       <TableCell>{project.customer?.customer_name}</TableCell>
@@ -372,13 +464,19 @@ export default async function ProjectsPage(props: {
                       <TableCell>{formatMonth(project.accounting_month)}</TableCell>
                       <TableCell>{formatCurrency(project.expected_sales)}</TableCell>
                       <TableCell>{formatCurrency(project.expected_gross_profit)}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(project.derivedStatus)}>
-                          {project.derivedStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-2 justify-end">
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(project.derivedStatus)}>
+                        {project.derivedStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-sm text-gray-600">
+                        <span>{formatDate(project.lastActivityDate)}</span>
+                        <span className="text-xs text-gray-500">{formatDaysAgo(project.daysSinceLastActivity)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
                           <ProjectActivityEntryButton
                             projectId={project.id}
                             projectNumber={project.project_number}
@@ -397,15 +495,18 @@ export default async function ProjectsPage(props: {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
 
             {/* モバイル: カード表示 */}
             <div className="md:hidden space-y-4">
-              {projectList.map((project) => (
-                <Card key={project.id}>
+              {projectList.map((project) => {
+                const agingColors = getAgingColors(project.daysSinceLastActivity)
+                return (
+                <Card key={project.id} style={agingColors.backgroundColor !== 'transparent' ? { backgroundColor: agingColors.backgroundColor } : undefined}>
                   <CardContent className="pt-6">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
@@ -447,6 +548,14 @@ export default async function ProjectsPage(props: {
                           <span className="text-gray-500">見込粗利</span>
                           <span className="font-medium">{formatCurrency(project.expected_gross_profit)}</span>
                         </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">最終活動</span>
+                          <span className="font-medium text-right">
+                            {formatDate(project.lastActivityDate)}
+                            <br />
+                          <span className="text-xs text-gray-500">{formatDaysAgo(project.daysSinceLastActivity)}</span>
+                          </span>
+                        </div>
                       </div>
 
                       <div className="flex gap-2 pt-2">
@@ -469,7 +578,7 @@ export default async function ProjectsPage(props: {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
 
               {totalPages > 1 && (

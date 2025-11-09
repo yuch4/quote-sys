@@ -32,8 +32,18 @@ export type KanbanProject = {
   order_month?: string | null
   accounting_month?: string | null
   contract_probability?: 'S' | 'A' | 'B' | 'C' | 'D' | null
+  lastActivityDate?: string | null
+  daysSinceLastActivity?: number | null
   customer?: { customer_name?: string | null } | null
   sales_rep?: { display_name?: string | null } | null
+}
+
+type ActivityAgingSettings = {
+  warning_days: number
+  danger_days: number
+  safe_color: string
+  warning_color: string
+  danger_color: string
 }
 
 const formatCurrencyValue = (value?: number | string | null) => {
@@ -65,6 +75,32 @@ const formatMonth = (value?: string | null) => {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`
 }
 
+const formatDate = (value?: string | null) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('ja-JP')
+}
+
+const formatDaysAgo = (days?: number | null) => {
+  if (days == null) return '履歴なし'
+  if (days === 0) return '本日'
+  return `${days}日前`
+}
+
+const getAgingColors = (days: number | null | undefined, settings: ActivityAgingSettings) => {
+  if (days == null) {
+    return { backgroundColor: 'transparent', borderColor: 'transparent', state: 'none' as const }
+  }
+  if (days > settings.danger_days) {
+    return { backgroundColor: settings.danger_color, borderColor: settings.danger_color, state: 'danger' as const }
+  }
+  if (days > settings.warning_days) {
+    return { backgroundColor: settings.warning_color, borderColor: settings.warning_color, state: 'warning' as const }
+  }
+  return { backgroundColor: settings.safe_color, borderColor: settings.safe_color, state: 'safe' as const }
+}
+
 const normalizeStatus = (value?: string | null): KanbanStatus => {
   if (value && STATUS_SET.has(value)) {
     return value as KanbanStatus
@@ -72,7 +108,13 @@ const normalizeStatus = (value?: string | null): KanbanStatus => {
   return DEFAULT_STATUS
 }
 
-export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) {
+export function ProjectKanbanBoard({
+  projects,
+  activitySettings,
+}: {
+  projects: KanbanProject[]
+  activitySettings: ActivityAgingSettings
+}) {
   const [projectState, setProjectState] = useState(projects)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverStatus, setDragOverStatus] = useState<KanbanStatus | null>(null)
@@ -158,6 +200,20 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
           <p className="text-sm text-gray-500">
             ステージ別の進捗と金額感を確認できます（{totalVisibleProjects}件）
           </p>
+          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.safe_color }} />
+              新しい
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.warning_color }} />
+              {activitySettings.warning_days + 1}～{activitySettings.danger_days}日
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.danger_color }} />
+              {activitySettings.danger_days + 1}日以上
+            </span>
+          </div>
         </div>
         {isPending && (
           <p className="text-xs text-teal-700">ステータスを更新中...</p>
@@ -210,7 +266,9 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                       案件なし
                     </div>
                   ) : (
-                    column.items.map((project) => (
+                    column.items.map((project) => {
+                      const agingColors = getAgingColors(project.daysSinceLastActivity ?? null, activitySettings)
+                      return (
                       <article
                         key={project.id}
                         draggable
@@ -226,14 +284,27 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                           'rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:border-blue-200 cursor-grab active:cursor-grabbing select-none',
                           draggingId === project.id && 'opacity-70 ring-1 ring-teal-200'
                         )}
+                        style={
+                          agingColors.backgroundColor !== 'transparent'
+                            ? { backgroundColor: agingColors.backgroundColor, borderColor: agingColors.borderColor }
+                            : undefined
+                        }
                       >
-                        <p className="text-xs text-gray-400">{project.project_number ?? '未採番'}</p>
-                        <Link
-                          href={`/dashboard/projects/${project.id}`}
-                          className="mt-0.5 block text-sm font-semibold text-blue-600 hover:underline line-clamp-2"
-                        >
-                          {project.project_name ?? '案件名未設定'}
-                        </Link>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs text-gray-400">{project.project_number ?? '未採番'}</p>
+                            <Link
+                              href={`/dashboard/projects/${project.id}`}
+                              className="mt-0.5 block text-sm font-semibold text-blue-600 hover:underline line-clamp-2"
+                            >
+                              {project.project_name ?? '案件名未設定'}
+                            </Link>
+                          </div>
+                          <div className="text-right text-[11px] text-gray-500">
+                            <p>{formatDate(project.lastActivityDate)}</p>
+                            <p>{formatDaysAgo(project.daysSinceLastActivity)}</p>
+                          </div>
+                        </div>
                         <p className="mt-2 text-xs text-gray-500">
                           {project.customer?.customer_name ?? '顧客未設定'}
                         </p>
@@ -289,7 +360,8 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                           />
                         </div>
                       </article>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>

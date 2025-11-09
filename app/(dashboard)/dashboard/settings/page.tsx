@@ -98,6 +98,14 @@ export default function SettingsPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [approvalRoutes, setApprovalRoutes] = useState<ApprovalRoute[]>([])
+  const [activitySettings, setActivitySettings] = useState({
+    warning_days: 7,
+    danger_days: 14,
+    safe_color: '#FFFFFF',
+    warning_color: '#FEF3C7',
+    danger_color: '#FEE2E2',
+  })
+  const [activitySettingsSaving, setActivitySettingsSaving] = useState(false)
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -185,7 +193,7 @@ export default function SettingsPage() {
 
   const loadAllData = async () => {
     try {
-      const [usersRes, customersRes, suppliersRes, routesRes] = await Promise.all([
+      const [usersRes, customersRes, suppliersRes, routesRes, activitySettingsRes] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
@@ -194,6 +202,7 @@ export default function SettingsPage() {
           .select('*, steps:approval_route_steps(*)')
           .order('min_total_amount', { ascending: true })
           .order('step_order', { ascending: true, foreignTable: 'approval_route_steps' }),
+        supabase.from('project_activity_settings').select('*').maybeSingle(),
       ])
 
       if (usersRes.data) setUsers(usersRes.data)
@@ -206,6 +215,15 @@ export default function SettingsPage() {
           steps: (route.steps || []).sort((a: ApprovalRouteStep, b: ApprovalRouteStep) => a.step_order - b.step_order),
         })) as ApprovalRoute[]
         setApprovalRoutes(mapped)
+      }
+      if (activitySettingsRes.data) {
+        setActivitySettings({
+          warning_days: activitySettingsRes.data.warning_days ?? 7,
+          danger_days: activitySettingsRes.data.danger_days ?? 14,
+          safe_color: activitySettingsRes.data.safe_color ?? '#FFFFFF',
+          warning_color: activitySettingsRes.data.warning_color ?? '#FEF3C7',
+          danger_color: activitySettingsRes.data.danger_color ?? '#FEE2E2',
+        })
       }
 
       setLoading(false)
@@ -250,6 +268,34 @@ export default function SettingsPage() {
       })
     }
     setRouteDialogOpen(true)
+  }
+
+  const handleSaveActivitySettings = async () => {
+    setActivitySettingsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('project_activity_settings')
+        .upsert({
+          id: true,
+          warning_days: Number(activitySettings.warning_days) || 0,
+          danger_days: Number(activitySettings.danger_days) || 0,
+          safe_color: activitySettings.safe_color,
+          warning_color: activitySettings.warning_color,
+          danger_color: activitySettings.danger_color,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) {
+        throw error
+      }
+
+      toast.success('活動しきい値を更新しました')
+    } catch (err) {
+      console.error(err)
+      toast.error('活動しきい値の更新に失敗しました')
+    } finally {
+      setActivitySettingsSaving(false)
+    }
   }
 
   const updateRouteStepRole = (clientId: string, role: string) => {
@@ -653,6 +699,77 @@ export default function SettingsPage() {
         <h1 className="text-3xl font-bold text-gray-900">設定・マスタ管理</h1>
         <p className="text-gray-600 mt-2">ユーザー・顧客・仕入先・承認フローの管理</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>案件活動しきい値</CardTitle>
+          <CardDescription>最後の活動からの経過日数に応じてカードの背景色を自動で変更します。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="warning-days">注意開始日数</Label>
+              <Input
+                id="warning-days"
+                type="number"
+                min={0}
+                value={activitySettings.warning_days}
+                onChange={(event) =>
+                  setActivitySettings((prev) => ({ ...prev, warning_days: Number(event.target.value) || 0 }))
+                }
+              />
+              <p className="text-xs text-gray-500">この日数を超えると注意色に変わります。</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="danger-days">警告日数</Label>
+              <Input
+                id="danger-days"
+                type="number"
+                min={0}
+                value={activitySettings.danger_days}
+                onChange={(event) =>
+                  setActivitySettings((prev) => ({ ...prev, danger_days: Number(event.target.value) || 0 }))
+                }
+              />
+              <p className="text-xs text-gray-500">この日数を超えると警告色に変わります。</p>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="safe-color">正常カラー</Label>
+              <Input
+                id="safe-color"
+                type="color"
+                value={activitySettings.safe_color}
+                onChange={(event) => setActivitySettings((prev) => ({ ...prev, safe_color: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warning-color">注意カラー</Label>
+              <Input
+                id="warning-color"
+                type="color"
+                value={activitySettings.warning_color}
+                onChange={(event) => setActivitySettings((prev) => ({ ...prev, warning_color: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="danger-color">警告カラー</Label>
+              <Input
+                id="danger-color"
+                type="color"
+                value={activitySettings.danger_color}
+                onChange={(event) => setActivitySettings((prev) => ({ ...prev, danger_color: event.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSaveActivitySettings} disabled={activitySettingsSaving}>
+              {activitySettingsSaving ? '保存中...' : '設定を保存'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="customers" className="w-full">
         <TabsList>
