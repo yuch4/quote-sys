@@ -700,84 +700,87 @@ export default function SettingsPage() {
         <p className="text-gray-600 mt-2">ユーザー・顧客・仕入先・承認フローの管理</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>案件活動しきい値</CardTitle>
-          <CardDescription>最後の活動からの経過日数に応じてカードの背景色を自動で変更します。</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="warning-days">注意開始日数</Label>
-              <Input
-                id="warning-days"
-                type="number"
-                min={0}
-                value={activitySettings.warning_days}
-                onChange={(event) =>
-                  setActivitySettings((prev) => ({ ...prev, warning_days: Number(event.target.value) || 0 }))
-                }
-              />
-              <p className="text-xs text-gray-500">この日数を超えると注意色に変わります。</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="danger-days">警告日数</Label>
-              <Input
-                id="danger-days"
-                type="number"
-                min={0}
-                value={activitySettings.danger_days}
-                onChange={(event) =>
-                  setActivitySettings((prev) => ({ ...prev, danger_days: Number(event.target.value) || 0 }))
-                }
-              />
-              <p className="text-xs text-gray-500">この日数を超えると警告色に変わります。</p>
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="safe-color">正常カラー</Label>
-              <Input
-                id="safe-color"
-                type="color"
-                value={activitySettings.safe_color}
-                onChange={(event) => setActivitySettings((prev) => ({ ...prev, safe_color: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="warning-color">注意カラー</Label>
-              <Input
-                id="warning-color"
-                type="color"
-                value={activitySettings.warning_color}
-                onChange={(event) => setActivitySettings((prev) => ({ ...prev, warning_color: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="danger-color">警告カラー</Label>
-              <Input
-                id="danger-color"
-                type="color"
-                value={activitySettings.danger_color}
-                onChange={(event) => setActivitySettings((prev) => ({ ...prev, danger_color: event.target.value }))}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={handleSaveActivitySettings} disabled={activitySettingsSaving}>
-              {activitySettingsSaving ? '保存中...' : '設定を保存'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="customers" className="w-full">
         <TabsList>
+          <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
           <TabsTrigger value="users">ユーザー管理</TabsTrigger>
           <TabsTrigger value="approval">承認フロー</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle>案件活動しきい値</CardTitle>
+              <CardDescription>最後の活動からの経過日数に応じてカードの背景色を自動で変更します。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="warning-days">注意開始日数</Label>
+                  <Input
+                    id="warning-days"
+                    type="number"
+                    min={0}
+                    value={activitySettings.warning_days}
+                    onChange={(event) =>
+                      setActivitySettings((prev) => ({ ...prev, warning_days: Number(event.target.value) || 0 }))
+                    }
+                  />
+                  <p className="text-xs text-gray-500">この日数を超えると注意色に変わります。</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="danger-days">警告日数</Label>
+                  <Input
+                    id="danger-days"
+                    type="number"
+                    min={0}
+                    value={activitySettings.danger_days}
+                    onChange={(event) =>
+                      setActivitySettings((prev) => ({ ...prev, danger_days: Number(event.target.value) || 0 }))
+                    }
+                  />
+                  <p className="text-xs text-gray-500">この日数を超えると警告色に変わります。</p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="safe-color">正常カラー</Label>
+                  <Input
+                    id="safe-color"
+                    type="color"
+                    value={activitySettings.safe_color}
+                    onChange={(event) => setActivitySettings((prev) => ({ ...prev, safe_color: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="warning-color">注意カラー</Label>
+                  <Input
+                    id="warning-color"
+                    type="color"
+                    value={activitySettings.warning_color}
+                    onChange={(event) => setActivitySettings((prev) => ({ ...prev, warning_color: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="danger-color">警告カラー</Label>
+                  <Input
+                    id="danger-color"
+                    type="color"
+                    value={activitySettings.danger_color}
+                    onChange={(event) => setActivitySettings((prev) => ({ ...prev, danger_color: event.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveActivitySettings} disabled={activitySettingsSaving}>
+                  {activitySettingsSaving ? '保存中...' : '設定を保存'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* 顧客マスタ */}
         <TabsContent value="customers">
