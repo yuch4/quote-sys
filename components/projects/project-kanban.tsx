@@ -34,6 +34,9 @@ export type KanbanProject = {
   contract_probability?: 'S' | 'A' | 'B' | 'C' | 'D' | null
   lastActivityDate?: string | null
   daysSinceLastActivity?: number | null
+  agingBackground?: string | null
+  agingBorder?: string | null
+  agingState?: 'safe' | 'warning' | 'danger' | 'none'
   customer?: { customer_name?: string | null } | null
   sales_rep?: { display_name?: string | null } | null
 }
@@ -200,20 +203,6 @@ export function ProjectKanbanBoard({
           <p className="text-sm text-gray-500">
             ステージ別の進捗と金額感を確認できます（{totalVisibleProjects}件）
           </p>
-          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.safe_color }} />
-              新しい
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.warning_color }} />
-              {activitySettings.warning_days + 1}～{activitySettings.danger_days}日
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: activitySettings.danger_color }} />
-              {activitySettings.danger_days + 1}日以上
-            </span>
-          </div>
         </div>
         {isPending && (
           <p className="text-xs text-teal-700">ステータスを更新中...</p>
@@ -267,7 +256,12 @@ export function ProjectKanbanBoard({
                     </div>
                   ) : (
                     column.items.map((project) => {
-                      const agingColors = getAgingColors(project.daysSinceLastActivity ?? null, activitySettings)
+                      const agingColors = project.agingBackground
+                        ? {
+                            backgroundColor: project.agingBackground,
+                            borderColor: project.agingBorder ?? project.agingBackground,
+                          }
+                        : getAgingColors(project.daysSinceLastActivity ?? null, activitySettings)
                       return (
                       <article
                         key={project.id}

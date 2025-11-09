@@ -132,8 +132,6 @@ export default async function ProjectsPage(props: {
       nullsFirst: false,
     })
     .range(offset, offset + ITEMS_PER_PAGE - 1)
-    .order('activity_date', { foreignTable: 'project_activities', ascending: false })
-    .limit(1, { foreignTable: 'project_activities' })
 
   const { data: projects, error } = await applyFilters(projectQuery)
 
@@ -181,8 +179,6 @@ export default async function ProjectsPage(props: {
       `)
       .order('created_at', { ascending: false })
       .limit(200)
-      .order('activity_date', { foreignTable: 'project_activities', ascending: false })
-      .limit(1, { foreignTable: 'project_activities' })
   )
 
   if (error) {
@@ -258,8 +254,16 @@ export default async function ProjectsPage(props: {
   }
 
   const getLatestActivityDate = (project: any) => {
-    const latest = project.project_activities?.[0]
-    return latest?.activity_date ?? latest?.created_at ?? project.updated_at ?? project.created_at ?? null
+    const activities = project.project_activities ?? []
+    let latest: string | null = null
+    activities.forEach((activity: any) => {
+      const candidate = activity.activity_date ?? activity.created_at
+      if (!candidate) return
+      if (!latest || new Date(candidate) > new Date(latest)) {
+        latest = candidate
+      }
+    })
+    return latest ?? project.updated_at ?? project.created_at ?? null
   }
 
   const getAgingColors = (days?: number | null) => {
@@ -277,21 +281,29 @@ export default async function ProjectsPage(props: {
   const projectList = (projects || []).map((project) => {
     const lastActivityDate = getLatestActivityDate(project)
     const daysSinceActivity = calcDaysSince(lastActivityDate)
+    const aging = getAgingColors(daysSinceActivity)
     return {
       ...project,
       derivedStatus: deriveProjectStatus(project),
       lastActivityDate,
       daysSinceLastActivity: daysSinceActivity,
+      agingBackground: aging.backgroundColor,
+      agingBorder: aging.borderColor,
+      agingState: aging.state,
     }
   })
   const kanbanProjectList = (kanbanProjects || []).map((project) => {
     const lastActivityDate = getLatestActivityDate(project)
     const daysSinceActivity = calcDaysSince(lastActivityDate)
+    const aging = getAgingColors(daysSinceActivity)
     return {
       ...project,
       derivedStatus: deriveProjectStatus(project),
       lastActivityDate,
       daysSinceLastActivity: daysSinceActivity,
+      agingBackground: aging.backgroundColor,
+      agingBorder: aging.borderColor,
+      agingState: aging.state,
     }
   })
 
@@ -448,11 +460,10 @@ export default async function ProjectsPage(props: {
                 </TableHeader>
                 <TableBody>
                   {projectList.map((project) => {
-                    const agingColors = getAgingColors(project.daysSinceLastActivity)
                     return (
                     <TableRow
                       key={project.id}
-                      style={agingColors.backgroundColor !== 'transparent' ? { backgroundColor: agingColors.backgroundColor } : undefined}
+                      style={project.agingBackground && project.agingBackground !== 'transparent' ? { backgroundColor: project.agingBackground } : undefined}
                       className="transition-colors"
                     >
                       <TableCell className="font-medium">{project.project_number}</TableCell>
@@ -503,10 +514,15 @@ export default async function ProjectsPage(props: {
 
             {/* モバイル: カード表示 */}
             <div className="md:hidden space-y-4">
-              {projectList.map((project) => {
-                const agingColors = getAgingColors(project.daysSinceLastActivity)
-                return (
-                <Card key={project.id} style={agingColors.backgroundColor !== 'transparent' ? { backgroundColor: agingColors.backgroundColor } : undefined}>
+              {projectList.map((project) => (
+                <Card
+                  key={project.id}
+                  style={
+                    project.agingBackground && project.agingBackground !== 'transparent'
+                      ? { backgroundColor: project.agingBackground }
+                      : undefined
+                  }
+                >
                   <CardContent className="pt-6">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between">
@@ -578,7 +594,7 @@ export default async function ProjectsPage(props: {
                     </div>
                   </CardContent>
                 </Card>
-              )})}
+              ))}
             </div>
 
               {totalPages > 1 && (
