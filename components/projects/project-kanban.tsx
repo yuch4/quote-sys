@@ -46,11 +46,6 @@ const formatCurrency = (value?: number | string | null) => `¥${formatCurrencyVa
 
 const formatStatCurrency = (value: number) => `¥${Math.round(value).toLocaleString()}`
 
-const getInitial = (text?: string | null) => {
-  if (!text) return '案件'
-  return text.trim().slice(0, 2)
-}
-
 const formatContractProbability = (value?: string | null) => {
   switch (value) {
     case 'S': return 'S（ほぼ確定）'
@@ -231,20 +226,13 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                           draggingId === project.id && 'opacity-70 ring-1 ring-teal-200'
                         )}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                            {getInitial(project.project_name)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs text-gray-400">{project.project_number ?? '未採番'}</p>
-                            <Link
-                              href={`/dashboard/projects/${project.id}`}
-                              className="mt-0.5 block text-sm font-semibold text-blue-600 hover:underline line-clamp-2"
-                            >
-                              {project.project_name ?? '案件名未設定'}
-                            </Link>
-                          </div>
-                        </div>
+                        <p className="text-xs text-gray-400">{project.project_number ?? '未採番'}</p>
+                        <Link
+                          href={`/dashboard/projects/${project.id}`}
+                          className="mt-0.5 block text-sm font-semibold text-blue-600 hover:underline line-clamp-2"
+                        >
+                          {project.project_name ?? '案件名未設定'}
+                        </Link>
                         <p className="mt-2 text-xs text-gray-500">
                           {project.customer?.customer_name ?? '顧客未設定'}
                         </p>
