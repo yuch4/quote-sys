@@ -57,14 +57,15 @@ export function ProjectActivityEntryButton({
           {label}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>活動を登録</SheetTitle>
-          <SheetDescription>
-            {projectNumber} · {projectName}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="mt-4">
+      <SheetContent side="right" className="sm:max-w-lg p-0">
+        <div className="flex h-full flex-col gap-4 p-6">
+          <SheetHeader className="text-left">
+            <SheetTitle>活動を登録</SheetTitle>
+            <SheetDescription className="text-sm text-gray-600">
+              {projectNumber} · {projectName}
+              {customerName ? ` / ${customerName}` : ''}
+            </SheetDescription>
+          </SheetHeader>
           <ProjectActivityForm projects={projects} onSuccess={handleSuccess} />
         </div>
       </SheetContent>

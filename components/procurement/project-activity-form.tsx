@@ -77,8 +77,8 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {showProjectSelect ? (
           <div className="space-y-2">
             <Label htmlFor="activity-project">案件 *</Label>
@@ -102,7 +102,7 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
         ) : (
           <div className="space-y-2">
             <Label>案件 *</Label>
-            <div className="rounded-md border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+            <div className="rounded-2xl border border-dashed bg-slate-50 px-4 py-3 text-sm text-slate-700">
               {selectedProject
                 ? `${selectedProject.projectNumber} - ${selectedProject.projectName}${
                     selectedProject.customerName ? ` / ${selectedProject.customerName}` : ''
@@ -118,6 +118,7 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
             type="date"
             value={formState.activityDate}
             onChange={(event) => setFormState((prev) => ({ ...prev, activityDate: event.target.value }))}
+            className="rounded-xl border-gray-300 px-3 py-2"
           />
         </div>
       </div>
@@ -130,6 +131,7 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
           maxLength={120}
           placeholder="例: 顧客定例ミーティング"
           onChange={(event) => setFormState((prev) => ({ ...prev, subject: event.target.value }))}
+          className="rounded-xl border-gray-300 px-3 py-2"
         />
       </div>
 
@@ -141,6 +143,7 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
           placeholder="議事録や次回アクションなどを入力"
           rows={4}
           onChange={(event) => setFormState((prev) => ({ ...prev, details: event.target.value }))}
+          className="rounded-2xl border-gray-300 px-3 py-2"
         />
       </div>
 
@@ -157,7 +160,7 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
       )}
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" className="rounded-xl px-6" disabled={isPending}>
           {isPending ? '登録中...' : '活動を登録'}
         </Button>
       </div>
