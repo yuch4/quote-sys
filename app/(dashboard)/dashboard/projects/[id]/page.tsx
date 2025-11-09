@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { deriveProjectStatus } from '@/lib/projects/status'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 import { ProjectActivityForm } from '@/components/procurement/project-activity-form'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type ProjectDetailParams = { id: string }
 
@@ -161,267 +162,281 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
         <div>
           <h1 className="text-3xl font-bold text-gray-900">案件詳細</h1>
           <p className="text-gray-600 mt-2">{project.project_number}</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/dashboard/projects/${project.id}/edit`}>
-            <Button variant="outline">編集</Button>
-          </Link>
-          <Link href="/dashboard/projects">
-            <Button variant="outline">一覧に戻る</Button>
-          </Link>
-        </div>
       </div>
+      <div className="flex gap-2">
+        <Link href={`/dashboard/projects/${project.id}/edit`}>
+          <Button variant="outline">編集</Button>
+        </Link>
+        <Link href="/dashboard/projects">
+          <Button variant="outline">一覧に戻る</Button>
+        </Link>
+      </div>
+    </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>基本情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">案件番号</p>
-              <p className="text-lg">{project.project_number}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">ステータス</p>
-              <Badge variant={getStatusBadgeVariant(derivedStatus)} className="mt-1">
-                {derivedStatus}
-              </Badge>
-            </div>
-          </div>
+      <Tabs defaultValue="info" className="w-full">
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="info">基本情報/顧客情報</TabsTrigger>
+          <TabsTrigger value="activities">活動履歴</TabsTrigger>
+          <TabsTrigger value="quotes">見積/発注</TabsTrigger>
+        </TabsList>
 
-          <div>
-            <p className="text-sm font-medium text-gray-500">案件名</p>
-            <p className="text-lg">{project.project_name}</p>
-          </div>
+        <TabsContent value="info" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>基本情報</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">案件番号</p>
+                  <p className="text-lg">{project.project_number}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">ステータス</p>
+                  <Badge variant={getStatusBadgeVariant(derivedStatus)} className="mt-1">
+                    {derivedStatus}
+                  </Badge>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">カテゴリ</p>
-              <p className="text-lg">{project.category}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">部門</p>
-              <p className="text-lg">{project.department}</p>
-            </div>
-          </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">案件名</p>
+                <p className="text-lg">{project.project_name}</p>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">受注月</p>
-              <p className="text-lg">{formatMonth(project.order_month)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">計上月</p>
-              <p className="text-lg">{formatMonth(project.accounting_month)}</p>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">カテゴリ</p>
+                  <p className="text-lg">{project.category}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">部門</p>
+                  <p className="text-lg">{project.department}</p>
+                </div>
+              </div>
 
-          <div>
-            <p className="text-sm font-medium text-gray-500">営業担当</p>
-            <p className="text-lg">{project.sales_rep?.display_name}</p>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">受注月</p>
+                  <p className="text-lg">{formatMonth(project.order_month)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">計上月</p>
+                  <p className="text-lg">{formatMonth(project.accounting_month)}</p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4 border-t pt-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">見込売上</p>
-              <p className="text-lg">{formatCurrency(project.expected_sales)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">見込粗利</p>
-              <p className="text-lg">{formatCurrency(project.expected_gross_profit)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">契約確度</p>
-              <p className="text-lg">{formatContractProbability(project.contract_probability)}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <div>
+                <p className="text-sm font-medium text-gray-500">営業担当</p>
+                <p className="text-lg">{project.sales_rep?.display_name}</p>
+              </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>顧客情報</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-sm font-medium text-gray-500">顧客名</p>
-            <p className="text-lg">{project.customer?.customer_name}</p>
-          </div>
+              <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">見込売上</p>
+                  <p className="text-lg">{formatCurrency(project.expected_sales)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">見込粗利</p>
+                  <p className="text-lg">{formatCurrency(project.expected_gross_profit)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">契約確度</p>
+                  <p className="text-lg">{formatContractProbability(project.contract_probability)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {project.customer?.contact_person && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">担当者</p>
-              <p className="text-lg">{project.customer.contact_person}</p>
-            </div>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>顧客情報</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-500">顧客名</p>
+                <p className="text-lg">{project.customer?.customer_name}</p>
+              </div>
 
-          {project.customer?.phone && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">電話番号</p>
-              <p className="text-lg">{project.customer.phone}</p>
-            </div>
-          )}
-
-          {project.customer?.email && (
-            <div>
-              <p className="text-sm font-medium text-gray-500">メールアドレス</p>
-              <p className="text-lg">{project.customer.email}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-1">
-            <CardTitle>活動履歴</CardTitle>
-            <CardDescription>この案件に紐づく活動記録と共有メモ</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-8 lg:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">履歴一覧</h3>
-              {projectActivityRecords.length === 0 ? (
-                <p className="text-sm text-gray-500">活動はまだ登録されていません。</p>
-              ) : (
-                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-                  {projectActivityRecords.map((activity) => (
-                    <div key={activity.id} className="rounded-lg border px-4 py-3 space-y-1">
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{formatActivityDate(activity.activity_date)}</span>
-                          <span>{activity.created_by_user?.display_name ?? '-'}</span>
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">{activity.subject}</p>
-                        {activity.details ? (
-                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{activity.details}</p>
-                        ) : null}
-                        {(activity.next_action || activity.next_action_due_date) && (
-                          <div className="rounded-lg bg-slate-50 p-3 text-xs text-gray-600 space-y-1">
-                            <p className="font-semibold text-gray-800">次回アクション</p>
-                            {activity.next_action ? <p>{activity.next_action}</p> : null}
-                            {activity.next_action_due_date ? (
-                              <p className="text-gray-500">期限: {formatActivityDate(activity.next_action_due_date)}</p>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              {project.customer?.contact_person && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">担当者</p>
+                  <p className="text-lg">{project.customer.contact_person}</p>
+                </div>
               )}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">新規登録</h3>
-              <ProjectActivityForm projects={projectActivityFormOptions} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>見積一覧</CardTitle>
-            <Link href={`/dashboard/quotes/new?project_id=${project.id}`}>
-              <Button>見積作成</Button>
-            </Link>
-          </div>
-          <CardDescription>この案件に紐づく見積</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {quotes.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">見積がまだ作成されていません</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>見積番号</TableHead>
-                    <TableHead>ステータス</TableHead>
-                    <TableHead>金額</TableHead>
-                    <TableHead>発行日</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {quotes.map((quote) => (
-                    <TableRow key={quote.id}>
-                      <TableCell className="font-medium">{quote.quote_number}</TableCell>
-                      <TableCell>
-                        <Badge variant={getQuoteStatusVariant(quote.approval_status)}>
-                          {quote.approval_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatCurrency(quote.total_amount)}</TableCell>
-                      <TableCell>
-                        {quote.issue_date ? new Date(quote.issue_date).toLocaleDateString('ja-JP') : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Link href={`/dashboard/quotes/${quote.id}`}>
-                          <Button variant="outline" size="sm">詳細</Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {project.customer?.phone && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">電話番号</p>
+                  <p className="text-lg">{project.customer.phone}</p>
+                </div>
+              )}
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <CardTitle>発注書一覧</CardTitle>
-              <CardDescription>案件に紐づく発注書（見積経由）</CardDescription>
-            </div>
-            <PurchaseOrderCreateDialog quotes={purchaseOrderQuoteOptions} suppliers={suppliers} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {purchaseOrders.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-8">発注書はまだ作成されていません</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>発注書番号</TableHead>
-                    <TableHead>紐づく見積</TableHead>
-                    <TableHead>ステータス</TableHead>
-                    <TableHead>承認ステータス</TableHead>
-                    <TableHead>仕入先</TableHead>
-                    <TableHead>発注金額</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {purchaseOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
-                      <TableCell>{order.quote_number}</TableCell>
-                      <TableCell>
-                        <Badge variant={getPurchaseOrderStatusVariant(order.status)}>
-                          {order.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={order.approval_status === '承認済み' ? 'default' : 'secondary'}>
-                          {order.approval_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{order.supplier?.supplier_name ?? '-'}</TableCell>
-                      <TableCell>{formatCurrency(order.total_cost)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {project.customer?.email && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">メールアドレス</p>
+                  <p className="text-lg">{project.customer.email}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activities" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-1">
+                <CardTitle>活動履歴</CardTitle>
+                <CardDescription>この案件に紐づく活動記録と共有メモ</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-8 lg:grid-cols-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">履歴一覧</h3>
+                  {projectActivityRecords.length === 0 ? (
+                    <p className="text-sm text-gray-500">活動はまだ登録されていません。</p>
+                  ) : (
+                    <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+                      {projectActivityRecords.map((activity) => (
+                        <div key={activity.id} className="rounded-lg border px-4 py-3 space-y-1">
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span>{formatActivityDate(activity.activity_date)}</span>
+                              <span>{activity.created_by_user?.display_name ?? '-'}</span>
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900">{activity.subject}</p>
+                            {activity.details ? (
+                              <p className="text-sm text-gray-600 whitespace-pre-wrap">{activity.details}</p>
+                            ) : null}
+                            {(activity.next_action || activity.next_action_due_date) && (
+                              <div className="rounded-lg bg-slate-50 p-3 text-xs text-gray-600 space-y-1">
+                                <p className="font-semibold text-gray-800">次回アクション</p>
+                                {activity.next_action ? <p>{activity.next_action}</p> : null}
+                                {activity.next_action_due_date ? (
+                                  <p className="text-gray-500">期限: {formatActivityDate(activity.next_action_due_date)}</p>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">新規登録</h3>
+                  <ProjectActivityForm projects={projectActivityFormOptions} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="quotes" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>見積一覧</CardTitle>
+                <Link href={`/dashboard/quotes/new?project_id=${project.id}`}>
+                  <Button>見積作成</Button>
+                </Link>
+              </div>
+              <CardDescription>この案件に紐づく見積</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {quotes.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">見積がまだ作成されていません</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>見積番号</TableHead>
+                        <TableHead>ステータス</TableHead>
+                        <TableHead>金額</TableHead>
+                        <TableHead>発行日</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {quotes.map((quote) => (
+                        <TableRow key={quote.id}>
+                          <TableCell className="font-medium">{quote.quote_number}</TableCell>
+                          <TableCell>
+                            <Badge variant={getQuoteStatusVariant(quote.approval_status)}>
+                              {quote.approval_status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatCurrency(quote.total_amount)}</TableCell>
+                          <TableCell>
+                            {quote.issue_date ? new Date(quote.issue_date).toLocaleDateString('ja-JP') : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link href={`/dashboard/quotes/${quote.id}`}>
+                              <Button variant="outline" size="sm">詳細</Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>発注書一覧</CardTitle>
+                  <CardDescription>案件に紐づく発注書（見積経由）</CardDescription>
+                </div>
+                <PurchaseOrderCreateDialog quotes={purchaseOrderQuoteOptions} suppliers={suppliers} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {purchaseOrders.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">発注書はまだ作成されていません</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>発注書番号</TableHead>
+                        <TableHead>紐づく見積</TableHead>
+                        <TableHead>ステータス</TableHead>
+                        <TableHead>承認ステータス</TableHead>
+                        <TableHead>仕入先</TableHead>
+                        <TableHead>発注金額</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchaseOrders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{order.purchase_order_number}</TableCell>
+                          <TableCell>{order.quote_number}</TableCell>
+                          <TableCell>
+                            <Badge variant={getPurchaseOrderStatusVariant(order.status)}>
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={order.approval_status === '承認済み' ? 'default' : 'secondary'}>
+                              {order.approval_status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{order.supplier?.supplier_name ?? '-'}</TableCell>
+                          <TableCell>{formatCurrency(order.total_cost)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
