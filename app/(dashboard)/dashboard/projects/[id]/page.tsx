@@ -63,6 +63,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
       activity_date,
       subject,
       details,
+      next_action,
+      next_action_due_date,
       created_at,
       created_by_user:users(display_name)
     `)
@@ -287,17 +289,26 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
                   {projectActivityRecords.map((activity) => (
                     <div key={activity.id} className="rounded-lg border px-4 py-3 space-y-1">
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{formatActivityDate(activity.activity_date)}</span>
-                        <span>{activity.created_by_user?.display_name ?? '-'}</span>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>{formatActivityDate(activity.activity_date)}</span>
+                          <span>{activity.created_by_user?.display_name ?? '-'}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-gray-900">{activity.subject}</p>
+                        {activity.details ? (
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap">{activity.details}</p>
+                        ) : null}
+                        {(activity.next_action || activity.next_action_due_date) && (
+                          <div className="rounded-lg bg-slate-50 p-3 text-xs text-gray-600 space-y-1">
+                            <p className="font-semibold text-gray-800">次回アクション</p>
+                            {activity.next_action ? <p>{activity.next_action}</p> : null}
+                            {activity.next_action_due_date ? (
+                              <p className="text-gray-500">期限: {formatActivityDate(activity.next_action_due_date)}</p>
+                            ) : null}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm font-semibold text-gray-900">{activity.subject}</p>
-                      {activity.details ? (
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{activity.details}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
               )}
             </div>
             <div>

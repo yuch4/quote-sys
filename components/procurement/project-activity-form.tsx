@@ -35,6 +35,8 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
     activityDate: today,
     subject: '',
     details: '',
+    nextAction: '',
+    nextActionDueDate: '',
   })
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -55,6 +57,8 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
         activityDate: formState.activityDate,
         subject: formState.subject,
         details: formState.details,
+        nextAction: formState.nextAction,
+        nextActionDueDate: formState.nextActionDueDate || undefined,
       })
 
       if (!result.success) {
@@ -63,7 +67,13 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
       }
 
       setMessage({ type: 'success', text: '活動を登録しました。' })
-      setFormState((prev) => ({ ...prev, subject: '', details: '' }))
+      setFormState((prev) => ({
+        ...prev,
+        subject: '',
+        details: '',
+        nextAction: '',
+        nextActionDueDate: '',
+      }))
       onSuccess?.()
     })
   }
@@ -145,6 +155,38 @@ export function ProjectActivityForm({ projects, onSuccess }: ProjectActivityForm
           onChange={(event) => setFormState((prev) => ({ ...prev, details: event.target.value }))}
           className="rounded-2xl border-gray-300 px-3 py-2"
         />
+      </div>
+
+      <div className="space-y-3 rounded-2xl border border-dashed border-gray-200 p-4">
+        <div>
+          <Label className="text-sm font-semibold text-gray-700">次回アクション（任意）</Label>
+          <p className="text-xs text-gray-500 mt-1">
+            次に取るべきアクションと期限を残しておくとタスク管理に活用できます。
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="next-action">アクション内容</Label>
+            <Input
+              id="next-action"
+              value={formState.nextAction}
+              placeholder="例: 5/12 提案見積送付"
+              className="rounded-xl border-gray-300 px-3 py-2"
+              onChange={(event) => setFormState((prev) => ({ ...prev, nextAction: event.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="next-action-due">期限</Label>
+            <Input
+              id="next-action-due"
+              type="date"
+              value={formState.nextActionDueDate}
+              disabled={!formState.nextAction.trim()}
+              className="rounded-xl border-gray-300 px-3 py-2 disabled:bg-gray-50"
+              onChange={(event) => setFormState((prev) => ({ ...prev, nextActionDueDate: event.target.value }))}
+            />
+          </div>
+        </div>
       </div>
 
       {message && (

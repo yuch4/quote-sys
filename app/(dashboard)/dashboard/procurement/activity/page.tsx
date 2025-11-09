@@ -112,6 +112,8 @@ export default async function ProcurementActivityPage() {
       activity_date,
       subject,
       details,
+      next_action,
+      next_action_due_date,
       created_at,
       project:projects(
         id,
@@ -299,7 +301,9 @@ export default async function ProcurementActivityPage() {
       customerName: activity.project.customer?.customer_name ?? null,
       actor: activity.created_by_user?.display_name ?? null,
       title: activity.subject,
-      notes: activity.details ?? undefined,
+      notes: [activity.details, activity.next_action ? `次回: ${activity.next_action}${activity.next_action_due_date ? ` (${activity.next_action_due_date})` : ''}` : null]
+        .filter(Boolean)
+        .join('\n') || undefined,
     })
   }
 

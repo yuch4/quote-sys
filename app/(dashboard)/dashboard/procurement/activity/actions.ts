@@ -8,6 +8,8 @@ interface CreateProjectActivityInput {
   activityDate: string
   subject: string
   details?: string
+  nextAction?: string
+  nextActionDueDate?: string
 }
 
 export async function createProjectActivity(input: CreateProjectActivityInput) {
@@ -27,6 +29,8 @@ export async function createProjectActivity(input: CreateProjectActivityInput) {
     activity_date: input.activityDate,
     subject: input.subject.trim(),
     details: input.details?.trim() || null,
+    next_action: input.nextAction?.trim() || null,
+    next_action_due_date: input.nextActionDueDate || null,
     created_by: user.id,
   }
 

@@ -4,6 +4,8 @@ CREATE TABLE public.project_activities (
   activity_date DATE NOT NULL,
   subject TEXT NOT NULL,
   details TEXT,
+  next_action TEXT,
+  next_action_due_date DATE,
   created_by UUID NOT NULL REFERENCES public.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
