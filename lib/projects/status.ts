@@ -9,7 +9,7 @@ type ProjectLike = {
 
 const normalizeStatus = (status?: string | null) => status ?? 'リード'
 
-const MANUAL_STATUSES = new Set(['受注', '計上OK', '計上済み', '失注', 'キャンセル'])
+const MANUAL_STATUSES = new Set(['リード', '見積中', '受注', '計上OK', '計上済み', '失注', 'キャンセル'])
 
 export const deriveProjectStatus = (project: ProjectLike) => {
   const quotes = project.quotes ?? []

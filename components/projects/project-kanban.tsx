@@ -1,6 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { updateProjectStatus } from '@/app/(dashboard)/dashboard/projects/actions'
 
 const KANBAN_STATUSES = [
   { value: 'リード', label: 'リード' },
@@ -11,6 +15,10 @@ const KANBAN_STATUSES = [
   { value: '失注', label: '失注' },
   { value: 'キャンセル', label: 'キャンセル' },
 ] as const
+
+type KanbanStatus = (typeof KANBAN_STATUSES)[number]['value']
+const DEFAULT_STATUS: KanbanStatus = 'リード'
+const STATUS_SET = new Set<string>(KANBAN_STATUSES.map((status) => status.value))
 
 export type KanbanProject = {
   id: string
@@ -40,54 +48,124 @@ const getInitial = (text?: string | null) => {
   return text.trim().slice(0, 2)
 }
 
+const normalizeStatus = (value?: string | null): KanbanStatus => {
+  if (value && STATUS_SET.has(value)) {
+    return value as KanbanStatus
+  }
+  return DEFAULT_STATUS
+}
+
 export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) {
-  const grouped = KANBAN_STATUSES.map((status) => {
-    const items = projects.filter((project) => {
-      const derived = project.derivedStatus ?? project.status ?? 'リード'
-      return derived === status.value
+  const [projectState, setProjectState] = useState(projects)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverStatus, setDragOverStatus] = useState<KanbanStatus | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const previousStateRef = useRef(projects)
+
+  useEffect(() => {
+    setProjectState(projects)
+    previousStateRef.current = projects
+  }, [projects])
+
+  const grouped = useMemo(() => {
+    return KANBAN_STATUSES.map((status) => {
+      const items = projectState.filter((project) => normalizeStatus(project.derivedStatus ?? project.status) === status.value)
+
+      const totalSales = items.reduce((sum, item) => {
+        const numeric = typeof item.expected_sales === 'string'
+          ? Number(item.expected_sales)
+          : item.expected_sales ?? 0
+        return sum + (Number.isNaN(numeric) ? 0 : numeric)
+      }, 0)
+
+      const totalGrossProfit = items.reduce((sum, item) => {
+        const numeric = typeof item.expected_gross_profit === 'string'
+          ? Number(item.expected_gross_profit)
+          : item.expected_gross_profit ?? 0
+        return sum + (Number.isNaN(numeric) ? 0 : numeric)
+      }, 0)
+
+      return {
+        ...status,
+        items,
+        stats: {
+          count: items.length,
+          totalSales,
+          totalGrossProfit,
+        },
+      }
     })
-
-    const totalSales = items.reduce((sum, item) => {
-      const numeric = typeof item.expected_sales === 'string'
-        ? Number(item.expected_sales)
-        : item.expected_sales ?? 0
-      return sum + (Number.isNaN(numeric) ? 0 : numeric)
-    }, 0)
-
-    const totalGrossProfit = items.reduce((sum, item) => {
-      const numeric = typeof item.expected_gross_profit === 'string'
-        ? Number(item.expected_gross_profit)
-        : item.expected_gross_profit ?? 0
-      return sum + (Number.isNaN(numeric) ? 0 : numeric)
-    }, 0)
-
-    return {
-      ...status,
-      items,
-      stats: {
-        count: items.length,
-        totalSales,
-        totalGrossProfit,
-      },
-    }
-  })
+  }, [projectState])
 
   const totalVisibleProjects = grouped.reduce((sum, column) => sum + column.stats.count, 0)
 
+  const handleDrop = (status: KanbanStatus) => (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDragOverStatus(null)
+    if (!draggingId) return
+
+    const projectId = draggingId
+    setDraggingId(null)
+
+    const currentProject = projectState.find((project) => project.id === projectId)
+    if (!currentProject) return
+
+    const currentStatus = normalizeStatus(currentProject.derivedStatus ?? currentProject.status)
+    if (currentStatus === status) {
+      return
+    }
+
+    setProjectState((prev) => {
+      previousStateRef.current = prev
+      return prev.map((project) =>
+        project.id === projectId
+          ? { ...project, derivedStatus: status, status }
+          : project
+      )
+    })
+
+    startTransition(async () => {
+      const result = await updateProjectStatus({ projectId, status })
+      if (!result?.success) {
+        setProjectState(previousStateRef.current)
+        toast.error(result?.message ?? 'ステータスの更新に失敗しました。')
+      }
+    })
+  }
+
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">案件カンバン</h2>
-        <p className="text-sm text-gray-500">
-          ステージ別の進捗と金額感を確認できます（{totalVisibleProjects}件）
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">案件カンバン</h2>
+          <p className="text-sm text-gray-500">
+            ステージ別の進捗と金額感を確認できます（{totalVisibleProjects}件）
+          </p>
+        </div>
+        {isPending && (
+          <p className="text-xs text-teal-700">ステータスを更新中...</p>
+        )}
       </div>
 
       <div className="overflow-x-auto pb-1">
         <div className="flex gap-4 min-w-[960px]">
           {grouped.map((column) => (
             <section key={column.value} className="flex-1 min-w-[260px] max-w-[340px]">
-              <div className="h-full rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div
+                className={cn(
+                  'h-full rounded-3xl border bg-white p-5 shadow-sm transition',
+                  dragOverStatus === column.value ? 'border-teal-400 ring-2 ring-teal-200' : 'border-gray-200'
+                )}
+                onDragOver={(event) => event.preventDefault()}
+                onDragEnter={() => setDragOverStatus(column.value)}
+                onDragLeave={(event) => {
+                  const nextTarget = event.relatedTarget as Node | null
+                  if (!nextTarget || !event.currentTarget.contains(nextTarget)) {
+                    setDragOverStatus(null)
+                  }
+                }}
+                onDrop={handleDrop(column.value)}
+              >
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-base font-bold text-gray-900">{column.label}</p>
@@ -109,7 +187,7 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3 border-t border-gray-100 pt-4">
+                <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 min-h-[120px]">
                   {column.items.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-400">
                       案件なし
@@ -118,7 +196,19 @@ export function ProjectKanbanBoard({ projects }: { projects: KanbanProject[] }) 
                     column.items.map((project) => (
                       <article
                         key={project.id}
-                        className="rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:border-blue-200"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move'
+                          setDraggingId(project.id)
+                        }}
+                        onDragEnd={() => {
+                          setDraggingId(null)
+                          setDragOverStatus(null)
+                        }}
+                        className={cn(
+                          'rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:border-blue-200 cursor-grab active:cursor-grabbing select-none',
+                          draggingId === project.id && 'opacity-70 ring-1 ring-teal-200'
+                        )}
                       >
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
