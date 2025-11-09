@@ -4,6 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { deriveProjectStatus } from '@/lib/projects/status'
+import { ProjectKanbanBoard } from '@/components/projects/project-kanban'
+import { ProjectFilters } from '@/components/projects/project-filters'
+import { cn } from '@/lib/utils'
 import {
   Pagination,
   PaginationContent,
@@ -21,22 +24,12 @@ type ProjectSearchParams = Promise<{
   sales_rep?: string
   sort?: string
   q?: string
+  view?: string
 }>
 
 type ProjectsQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>
 
 const ITEMS_PER_PAGE = 20
-const STATUS_FILTERS = [
-  { value: 'all', label: 'すべて' },
-  { value: 'リード', label: 'リード' },
-  { value: '見積中', label: '見積中' },
-  { value: '受注', label: '受注' },
-  { value: '計上OK', label: '計上OK' },
-  { value: '計上済み', label: '計上済み' },
-  { value: '失注', label: '失注' },
-  { value: 'キャンセル', label: 'キャンセル' },
-]
-
 const DEFAULT_SORT = { column: 'created_at', direction: 'desc' as 'asc' | 'desc' }
 const SORTABLE_COLUMNS = {
   project_number: { column: 'project_number', label: '案件番号' },
@@ -46,6 +39,11 @@ const SORTABLE_COLUMNS = {
   expected_gross_profit: { column: 'expected_gross_profit', label: '見込粗利' },
   created_at: { column: 'created_at', label: '作成日' },
 } as const
+
+const VIEW_OPTIONS = [
+  { value: 'kanban', label: 'カンバン' },
+  { value: 'list', label: 'リスト' },
+] as const
 
 export default async function ProjectsPage(props: {
   searchParams: ProjectSearchParams
@@ -64,6 +62,8 @@ export default async function ProjectsPage(props: {
     ? sortColumnParam
     : DEFAULT_SORT.column) as keyof typeof SORTABLE_COLUMNS
   const keyword = (searchParams.q || '').trim()
+  const viewMode = searchParams.view === 'list' ? 'list' : 'kanban'
+  const resetHref = viewMode === 'kanban' ? '/dashboard/projects' : '/dashboard/projects?view=list'
 
   const applyFilters = (query: ProjectsQuery) => {
     let nextQuery = query
@@ -126,6 +126,25 @@ export default async function ProjectsPage(props: {
     .select('id, display_name')
     .is('is_active', true)
     .order('display_name', { ascending: true })
+  const salesRepOptions = salesReps ?? []
+
+  const { data: kanbanProjects } = await applyFilters(
+    supabase
+      .from('projects')
+      .select(`
+        id,
+        project_number,
+        project_name,
+        status,
+        expected_sales,
+        expected_gross_profit,
+        customer:customers(customer_name),
+        sales_rep:users!projects_sales_rep_id_fkey(display_name),
+        quotes:quotes(approval_status)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(200)
+  )
 
   if (error) {
     console.error('Error fetching projects:', error)
@@ -168,6 +187,10 @@ export default async function ProjectsPage(props: {
     ...project,
     derivedStatus: deriveProjectStatus(project),
   }))
+  const kanbanProjectList = (kanbanProjects || []).map((project) => ({
+    ...project,
+    derivedStatus: deriveProjectStatus(project),
+  }))
 
   const formatMonth = (value?: string | null) => {
     if (!value) return '-'
@@ -193,6 +216,7 @@ export default async function ProjectsPage(props: {
           ? `${selectedSortColumn}:${sortDirection}`
           : undefined,
       q: keyword || undefined,
+      view: viewMode !== 'kanban' ? viewMode : undefined,
     }
     Object.entries({ ...baseParams, ...params }).forEach(([key, value]) => {
       if (value !== undefined && value !== '') {
@@ -228,71 +252,51 @@ export default async function ProjectsPage(props: {
 
       <Card>
         <CardHeader>
-          <CardTitle>案件一覧</CardTitle>
-          <CardDescription>
-            登録されている案件情報（全{totalCount}件）
-          </CardDescription>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>案件一覧</CardTitle>
+              <CardDescription>
+                {viewMode === 'kanban'
+                  ? 'ステージ別に最大200件まで表示します'
+                  : `登録されている案件情報（全${totalCount}件）`}
+              </CardDescription>
+            </div>
+            <div className="inline-flex rounded-full bg-gray-100 p-1 text-sm font-medium">
+              {VIEW_OPTIONS.map((option) => (
+                <Link
+                  key={option.value}
+                  href={buildQueryString({ page: 1, view: option.value })}
+                  className={cn(
+                    'rounded-full px-4 py-1.5 transition',
+                    viewMode === option.value ? 'bg-white text-gray-900 shadow' : 'text-gray-500 hover:text-gray-900'
+                  )}
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form className="grid gap-4 md:grid-cols-5 lg:grid-cols-6" method="GET">
-            <input type="hidden" name="page" value="1" />
-            <input type="hidden" name="sort" value={`${selectedSortColumn}:${sortDirection}`} />
-            <div className="flex flex-col gap-1">
-              <label htmlFor="status" className="text-xs font-medium text-gray-500">ステータス</label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={statusFilter}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-              >
-                {STATUS_FILTERS.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="sales_rep" className="text-xs font-medium text-gray-500">営業担当</label>
-              <select
-                id="sales_rep"
-                name="sales_rep"
-                defaultValue={salesRepFilter}
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-              >
-                <option value="all">すべて</option>
-                {(salesReps || []).map((rep) => (
-                  <option key={rep.id} value={rep.id}>
-                    {rep.display_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1 md:col-span-2 lg:col-span-3">
-              <label htmlFor="q" className="text-xs font-medium text-gray-500">キーワード</label>
-              <input
-                id="q"
-                name="q"
-                type="text"
-                defaultValue={keyword}
-                placeholder="案件名で検索"
-                className="rounded-md border border-gray-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:col-span-2 lg:col-span-1">
-              <Button type="submit" className="w-full md:flex-1">絞り込む</Button>
-              {(statusFilter !== 'all'
-                || salesRepFilter !== 'all'
-                || `${selectedSortColumn}:${sortDirection}` !== `${DEFAULT_SORT.column}:${DEFAULT_SORT.direction}`
-                || keyword) && (
-                <Button asChild type="button" variant="outline" className="w-full md:flex-1">
-                  <Link href="/dashboard/projects">リセット</Link>
-                </Button>
-              )}
-            </div>
-          </form>
+          <ProjectFilters
+            statusFilter={statusFilter}
+            salesRepFilter={salesRepFilter}
+            keyword={keyword}
+            salesReps={salesRepOptions}
+            resetHref={resetHref}
+          />
 
-          {projectList.length > 0 ? (
+          {viewMode === 'kanban' ? (
+            kanbanProjectList.length > 0 ? (
+              <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 shadow-sm">
+                <ProjectKanbanBoard projects={kanbanProjectList} />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-8">
+                表示できる案件がありません。フィルタを見直してください。
+              </p>
+            )
+          ) : projectList.length > 0 ? (
             <>
             {/* デスクトップ: テーブル表示 */}
             <div className="hidden md:block">

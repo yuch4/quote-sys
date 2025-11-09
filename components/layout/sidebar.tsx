@@ -101,10 +101,10 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                 href={item.href}
                 onClick={handleClick}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
                   isActive
-                    ? 'bg-white/15 text-white'
-                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -128,13 +128,13 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                   href={item.href}
                   onClick={handleClick}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-white/15 text-white'
-                      : 'text-gray-300 hover:bg-white/10 hover:text-white'
-                  )}
-                  title={item.description}
-                >
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
+                  isActive
+                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
+                )}
+                title={item.description}
+              >
                   <Icon className="h-5 w-5" />
                   {item.name}
                 </Link>
@@ -149,10 +149,10 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
               href="/dashboard/billing"
               onClick={handleClick}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
                 pathname === '/dashboard/billing'
-                  ? 'bg-white/15 text-white'
-                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+                  : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
               )}
             >
               <CreditCard className="h-5 w-5" />
@@ -162,10 +162,10 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
               href="/dashboard/reports"
               onClick={handleClick}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
                 pathname === '/dashboard/reports'
-                  ? 'bg-white/15 text-white'
-                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                  ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+                  : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
               )}
             >
               <TrendingUp className="h-5 w-5" />
@@ -176,10 +176,10 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
                 href="/dashboard/settings"
                 onClick={handleClick}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
                   pathname.startsWith('/dashboard/settings')
-                    ? 'bg-white/15 text-white'
-                    : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
                 )}
               >
                 <Settings className="h-5 w-5" />
