@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/pagination'
 import Link from 'next/link'
 import type { PostgrestFilterBuilder } from '@supabase/postgrest-js'
-import type { ApprovalStatus } from '@/types/database'
+import type { ApprovalStatus, QuoteApprovalInstance } from '@/types/database'
 
 const ITEMS_PER_PAGE = 20
 const APPROVAL_STATUSES: ApprovalStatus[] = ['下書き', '承認待ち', '承認済み', '却下']
@@ -175,13 +175,18 @@ export default async function QuotesPage(props: {
     return new Date(dateString).toLocaleDateString('ja-JP')
   }
 
-  const getApprovalInstance = (quote: any) => {
+  type QuoteWithApproval = {
+    approval_instance?: QuoteApprovalInstance | QuoteApprovalInstance[] | null
+    approval_status: ApprovalStatus
+  }
+
+  const getApprovalInstance = (quote: QuoteWithApproval) => {
     const raw = quote.approval_instance
     if (!raw) return null
     return Array.isArray(raw) ? (raw[0] ?? null) : raw
   }
 
-  const getCurrentApproverLabel = (quote: any) => {
+  const getCurrentApproverLabel = (quote: QuoteWithApproval) => {
     const instance = getApprovalInstance(quote)
     if (!instance) {
       return quote.approval_status === '承認待ち' ? '未設定' : '-'

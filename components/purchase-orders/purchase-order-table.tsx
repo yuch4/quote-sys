@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PurchaseOrderEditDialog, type PurchaseOrderEditable } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
 import { PurchaseOrderPdfButton } from '@/components/purchase-orders/purchase-order-pdf-button'
@@ -70,12 +70,16 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
+  const restoreFilters = useCallback(() => {
     if (typeof window === 'undefined') return
     try {
       const stored = window.localStorage.getItem('purchase-order-table-filters')
       if (stored) {
-        const { status, procurement, query } = JSON.parse(stored)
+        const { status, procurement, query } = JSON.parse(stored) as {
+          status?: StatusFilter
+          procurement?: ProcurementFilter
+          query?: string
+        }
         if (status && ['all', '未発注', '発注済', 'キャンセル'].includes(status)) {
           setStatusFilter(status)
         }
@@ -90,6 +94,10 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
       console.warn('failed to restore purchase order filters', error)
     }
   }, [])
+
+  useEffect(() => {
+    restoreFilters()
+  }, [restoreFilters])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -142,7 +150,7 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
 
       return true
     })
-  }, [orders, statusFilter, searchQuery])
+  }, [orders, procurementFilter, searchQuery, statusFilter])
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {

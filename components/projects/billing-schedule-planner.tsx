@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -77,8 +77,8 @@ export function MonthlyBillingPlanner({
   const [totalDirty, setTotalDirty] = useState(initialRows.length > 0)
   const [hydrated, setHydrated] = useState(initialRows.length > 0)
 
-  useEffect(() => {
-    if (!hydrated && initialRows.length > 0) {
+  const hydrateFromInitialRows = useCallback(() => {
+    if (initialRows.length > 0) {
       setRows(initialRows)
       setEnabled(initialEnabled ?? true)
       setConfig((prev) => ({
@@ -90,18 +90,32 @@ export function MonthlyBillingPlanner({
       setTotalDirty(true)
       setHydrated(true)
     }
-  }, [defaultStartMonth, hydrated, initialEnabled, initialRows])
+  }, [defaultStartMonth, initialEnabled, initialRows])
 
   useEffect(() => {
+    if (!hydrated && initialRows.length > 0) {
+      hydrateFromInitialRows()
+    }
+  }, [hydrateFromInitialRows, hydrated, initialRows.length])
+
+  const ensureStartMonth = useCallback(() => {
     if (!config.startMonth && defaultStartMonth) {
       setConfig((prev) => (prev.startMonth ? prev : { ...prev, startMonth: defaultStartMonth }))
     }
-  }, [defaultStartMonth, config.startMonth])
+  }, [config.startMonth, defaultStartMonth])
 
   useEffect(() => {
+    ensureStartMonth()
+  }, [ensureStartMonth])
+
+  const syncExpectedAmount = useCallback(() => {
     if (totalDirty) return
     setConfig((prev) => ({ ...prev, totalAmount: expectedAmount || 0 }))
   }, [expectedAmount, totalDirty])
+
+  useEffect(() => {
+    syncExpectedAmount()
+  }, [syncExpectedAmount])
 
   useEffect(() => {
     onChange?.({ enabled, rows })

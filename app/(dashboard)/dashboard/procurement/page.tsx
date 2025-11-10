@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,11 @@ type DashboardItemSource = 'quote' | 'standalone'
 
 type ProcurementStatus = '未発注' | '発注済' | '入荷済'
 
+type ProcurementLog = {
+  action_type: string
+  action_date: string
+}
+
 interface DashboardItem {
   id: string
   source: DashboardItemSource
@@ -35,10 +40,7 @@ interface DashboardItem {
   supplier_name: string | null
   cost_amount: number
   order_date: string | null
-  procurement_logs: Array<{
-    action_type: string
-    action_date: string
-  }>
+  procurement_logs: ProcurementLog[]
 }
 
 interface SupplierSummary {
@@ -46,6 +48,48 @@ interface SupplierSummary {
   pending_count: number
   ordered_count: number
   total_cost: number
+}
+
+type QuoteItemRow = {
+  id: string
+  product_name: string
+  description: string | null
+  quantity: number | null
+  cost_amount: number | null
+  procurement_status: ProcurementStatus | null
+  ordered_at: string | null
+  quote: {
+    quote_number: string
+    project: {
+      project_number: string
+      project_name: string
+      customer: {
+        customer_name: string
+      }
+    }
+  }
+  supplier: {
+    supplier_name: string | null
+  } | null
+  procurement_logs: ProcurementLog[] | null
+}
+
+type StandaloneOrderRow = {
+  id: string
+  purchase_order_number: string | null
+  status: ProcurementStatus
+  order_date: string | null
+  supplier: {
+    supplier_name: string | null
+  } | null
+  items: Array<{
+    id: string
+    quantity: number | null
+    amount: number | null
+    manual_name: string | null
+    manual_description: string | null
+    quote_item_id: string | null
+  }> | null
 }
 
 export default function ProcurementDashboardPage() {
@@ -62,21 +106,7 @@ export default function ProcurementDashboardPage() {
   const [alertItems, setAlertItems] = useState<DashboardItem[]>([])
   const [supplierSummary, setSupplierSummary] = useState<SupplierSummary[]>([])
 
-  useEffect(() => {
-    loadDashboardData()
-  }, [])
-
-  const alertSummaries = useMemo(() => {
-    return alertItems.map((item) => ({
-      id: item.id,
-      productName: item.product_name,
-      supplierName: item.supplier_name,
-      daysElapsed: item.order_date ? getDaysElapsed(item.order_date) : 0,
-      purchaseOrderNumber: item.purchase_order_number || item.quote_number,
-    }))
-  }, [alertItems])
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       // 見積紐付きの仕入明細を取得
       const { data: quoteItemsData, error: quoteItemsError } = await supabase
@@ -103,16 +133,17 @@ export default function ProcurementDashboardPage() {
         `)
         .is('requires_procurement', true)
         .eq('quote.approval_status', '承認済み')
+        .returns<QuoteItemRow[]>()
 
       if (quoteItemsError) throw quoteItemsError
 
       const quoteItems: DashboardItem[] = (quoteItemsData || []).map((item) => {
         const normalizedStatus: ProcurementStatus =
           item.procurement_status === '発注済' || item.procurement_status === '入荷済'
-            ? (item.procurement_status as ProcurementStatus)
+            ? item.procurement_status
             : '未発注'
 
-        const orderLogDate = item.procurement_logs?.find((log: any) => log.action_type === '発注')?.action_date
+        const orderLogDate = item.procurement_logs?.find((log) => log.action_type === '発注')?.action_date || null
 
         return {
           id: item.id,
@@ -129,7 +160,7 @@ export default function ProcurementDashboardPage() {
           supplier_name: item.supplier?.supplier_name ?? null,
           cost_amount: Number(item.cost_amount || 0),
           order_date: orderLogDate || item.ordered_at || null,
-          procurement_logs: item.procurement_logs || [],
+          procurement_logs: item.procurement_logs ?? [],
         }
       })
 
@@ -153,6 +184,7 @@ export default function ProcurementDashboardPage() {
         `)
         .is('quote_id', null)
         .neq('status', 'キャンセル')
+        .returns<StandaloneOrderRow[]>()
 
       if (standaloneError) throw standaloneError
 
@@ -249,7 +281,22 @@ export default function ProcurementDashboardPage() {
       alert('データの読込に失敗しました')
       setLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [loadDashboardData])
+
+  const alertSummaries = useMemo(() => {
+    return alertItems.map((item) => ({
+      id: item.id,
+      productName: item.product_name,
+      supplierName: item.supplier_name,
+      daysElapsed: item.order_date ? getDaysElapsed(item.order_date) : 0,
+      purchaseOrderNumber: item.purchase_order_number || item.quote_number,
+    }))
+  }, [alertItems])
+
 
   function getDaysElapsed(dateString: string) {
     const date = new Date(dateString)

@@ -36,6 +36,20 @@ interface QuoteItemFormData {
   requires_procurement: boolean
 }
 
+interface QuoteItemRow {
+  line_number: number
+  product_name: string
+  description: string | null
+  quantity: number
+  unit_price: number
+  amount: number
+  supplier_id: string | null
+  cost_price: number | null
+  cost_amount: number
+  gross_profit: number
+  requires_procurement: boolean
+}
+
 export default function QuoteEditPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
@@ -100,9 +114,10 @@ export default function QuoteEditPage() {
       setNotes(quote.notes || '')
 
       // 明細データ変換
-      const itemsData: QuoteItemFormData[] = quote.items
-        .sort((a: any, b: any) => a.line_number - b.line_number)
-        .map((item: any) => ({
+      const quoteItems = (quote.items ?? []) as QuoteItemRow[]
+      const itemsData: QuoteItemFormData[] = quoteItems
+        .sort((a, b) => a.line_number - b.line_number)
+        .map((item) => ({
           line_number: item.line_number,
           product_name: item.product_name,
           description: item.description || '',
@@ -151,9 +166,11 @@ export default function QuoteEditPage() {
   }
 
   // 明細の値を更新
-  const handleItemChange = (index: number, field: keyof QuoteItemFormData, value: any) => {
+  type QuoteItemFieldValue = string | number | boolean
+
+  const handleItemChange = (index: number, field: keyof QuoteItemFormData, value: QuoteItemFieldValue) => {
     const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
+    newItems[index] = { ...newItems[index], [field]: value } as QuoteItemFormData
     newItems[index] = calculateItemAmounts(newItems[index])
     setItems(newItems)
   }

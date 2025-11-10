@@ -4,6 +4,42 @@ import { Badge } from '@/components/ui/badge'
 import { AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 
+type ProjectRelation =
+  | {
+      project_name: string | null
+      customers?: {
+        customer_name: string | null
+      } | null
+    }
+  | null
+
+type PendingApprovalQuote = {
+  id: string
+  quote_number: string
+  created_at: string
+  projects?: ProjectRelation
+}
+
+type LongDelayItem = {
+  id: string
+  product_name: string
+  ordered_at: string | null
+  quotes?: {
+    projects?: ProjectRelation
+  } | null
+  suppliers?: {
+    supplier_name: string | null
+  } | null
+}
+
+type RecentQuoteActivity = {
+  id: string
+  quote_number: string
+  approval_status: string
+  updated_at: string
+  projects?: ProjectRelation
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -57,7 +93,7 @@ export default async function DashboardPage() {
   }
 
   // 承認済み見積数（今月）
-  let quoteQuery = supabase
+  const quoteQuery = supabase
     .from('quotes')
     .select('id, project_id', { count: 'exact', head: true })
     .eq('approval_status', '承認済み')
@@ -70,7 +106,7 @@ export default async function DashboardPage() {
   }
 
   // 今月の売上・粗利（承認済み見積）
-  let salesQuery = supabase
+  const salesQuery = supabase
     .from('quotes')
     .select('total_amount, gross_profit, project_id')
     .eq('approval_status', '承認済み')
@@ -86,7 +122,7 @@ export default async function DashboardPage() {
   const totalProfit = salesData?.reduce((sum, q) => sum + Number(q.gross_profit || 0), 0) || 0
 
   // 承認待ち見積（アラート）
-  let pendingApprovalQuery = supabase
+  const pendingApprovalQuery = supabase
     .from('quotes')
     .select(`
       id,
@@ -103,7 +139,7 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  const { data: pendingApprovals, error: pendingError } = await pendingApprovalQuery
+  const { data: pendingApprovals, error: pendingError } = await pendingApprovalQuery.returns<PendingApprovalQuote[]>()
 
   if (pendingError) {
     console.error('承認待ち見積取得エラー:', pendingError)
@@ -134,13 +170,14 @@ export default async function DashboardPage() {
     .eq('procurement_status', '発注済')
     .lte('ordered_at', fourteenDaysAgo.toISOString())
     .limit(5)
+    .returns<LongDelayItem[]>()
 
   if (delayError) {
     console.error('長期未入荷データ取得エラー:', delayError)
   }
 
   // 最近の案件・見積
-  let recentActivityQuery = supabase
+  const recentActivityQuery = supabase
     .from('quotes')
     .select(`
       id,
@@ -156,7 +193,7 @@ export default async function DashboardPage() {
     .order('updated_at', { ascending: false })
     .limit(5)
 
-  const { data: recentActivity, error: recentError } = await recentActivityQuery
+  const { data: recentActivity, error: recentError } = await recentActivityQuery.returns<RecentQuoteActivity[]>()
 
   if (recentError) {
     console.error('最近の活動取得エラー:', recentError)
@@ -240,7 +277,7 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {pendingApprovals.map((quote: any) => (
+                  {pendingApprovals.map((quote) => (
                     <Link
                       key={quote.id}
                       href={`/dashboard/quotes/${quote.id}`}
@@ -274,7 +311,7 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {longDelayItems.slice(0, 3).map((item: any) => (
+                  {longDelayItems.slice(0, 3).map((item) => (
                     <div key={item.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
                       <p className="font-medium text-sm">{item.product_name}</p>
                       <p className="text-xs text-gray-600">
@@ -301,7 +338,7 @@ export default async function DashboardPage() {
         <CardContent>
           {recentActivity && recentActivity.length > 0 ? (
             <div className="space-y-2">
-              {recentActivity.map((quote: any) => (
+              {recentActivity.map((quote) => (
                 <Link
                   key={quote.id}
                   href={`/dashboard/quotes/${quote.id}`}

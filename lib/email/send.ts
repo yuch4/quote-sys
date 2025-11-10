@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
 interface SendEmailParams {
   type: 'quote_approval' | 'billing_request' | 'long_delay_alert'
   recipientEmail: string
-  [key: string]: any
+  [key: string]: JsonValue | undefined
 }
 
 export async function sendEmail(params: SendEmailParams) {
@@ -181,6 +183,7 @@ export async function sendLongDelayAlertEmail() {
     `)
     .eq('procurement_status', '発注済')
     .lte('ordered_at', fourteenDaysAgo.toISOString())
+    .returns<LongDelayItemRecord[]>()
 
   if (!longDelayItems || longDelayItems.length === 0) {
     return { success: true, message: 'No long delay items' }
@@ -200,7 +203,25 @@ export async function sendLongDelayAlertEmail() {
 
   const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/procurement`
 
-  const items = longDelayItems.map((item: any) => {
+  type LongDelayItemRecord = {
+    product_name: string
+    ordered_at: string
+    quote: {
+      project: {
+        project_name: string
+        customer: {
+          customer_name: string
+        }
+      }
+    }
+    supplier: {
+      supplier_name: string | null
+    } | null
+  }
+
+  const typedItems = longDelayItems as LongDelayItemRecord[]
+
+  const items = typedItems.map((item) => {
     const orderedDate = new Date(item.ordered_at)
     const today = new Date()
     const daysElapsed = Math.floor((today.getTime() - orderedDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -217,7 +238,7 @@ export async function sendLongDelayAlertEmail() {
 
   // 各管理者にメール送信
   const results = await Promise.all(
-    adminUsers.map(user =>
+    adminUsers.map((user) =>
       sendEmail({
         type: 'long_delay_alert',
         recipientEmail: user.email,

@@ -34,7 +34,8 @@ export default function LoginPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (err) {
+    } catch (error) {
+      console.error('ログインエラー:', error)
       setError('ログインに失敗しました')
     } finally {
       setLoading(false)

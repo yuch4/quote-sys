@@ -102,6 +102,20 @@ interface ApprovalRouteFormState {
 type DialogMode = 'create' | 'edit'
 type DataType = 'user' | 'customer' | 'supplier'
 
+type ManagementFormState = Partial<{
+  email: string
+  password: string
+  display_name: string
+  role: string
+  customer_code: string
+  customer_name: string
+  supplier_code: string
+  supplier_name: string
+  contact_person: string
+  phone: string
+  address: string
+}>
+
 export default function SettingsPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -147,7 +161,7 @@ export default function SettingsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   // フォーム
-  const [formData, setFormData] = useState<any>({})
+  const [formData, setFormData] = useState<ManagementFormState>({})
   const [submitting, setSubmitting] = useState(false)
   const [routeDialogOpen, setRouteDialogOpen] = useState(false)
   const [routeDialogMode, setRouteDialogMode] = useState<DialogMode>('create')
@@ -418,7 +432,7 @@ export default function SettingsPage() {
     )
   }
 
-  const generateNextCode = <T extends Record<string, any>>(
+  const generateNextCode = <T extends Record<string, unknown>>(
     items: T[],
     field: keyof T,
     prefix: string,
@@ -955,15 +969,42 @@ export default function SettingsPage() {
     setSelectedId(id || null)
 
     if (mode === 'edit' && id) {
-      let data: any = null
       if (type === 'user') {
-        data = users.find((u) => u.id === id)
+        const user = users.find((u) => u.id === id)
+        if (user) {
+          setFormData({
+            email: user.email,
+            display_name: user.display_name,
+            role: user.role,
+          })
+        }
       } else if (type === 'customer') {
-        data = customers.find((c) => c.id === id)
+        const customer = customers.find((c) => c.id === id)
+        if (customer) {
+          setFormData({
+            customer_code: customer.customer_code,
+            customer_name: customer.customer_name,
+            contact_person: customer.contact_person ?? undefined,
+            email: customer.email ?? undefined,
+            phone: customer.phone ?? undefined,
+            address: customer.address ?? undefined,
+          })
+        }
       } else if (type === 'supplier') {
-        data = suppliers.find((s) => s.id === id)
+        const supplier = suppliers.find((s) => s.id === id)
+        if (supplier) {
+          setFormData({
+            supplier_code: supplier.supplier_code,
+            supplier_name: supplier.supplier_name,
+            contact_person: supplier.contact_person ?? undefined,
+            email: supplier.email ?? undefined,
+            phone: supplier.phone ?? undefined,
+            address: supplier.address ?? undefined,
+          })
+        }
+      } else {
+        setFormData({})
       }
-      setFormData(data || {})
     } else {
       if (type === 'customer') {
         setFormData({

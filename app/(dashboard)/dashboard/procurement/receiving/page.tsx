@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 
 interface Supplier {
@@ -28,12 +27,12 @@ type StatusFilter = 'pending' | 'ordered' | 'received' | 'all'
 
 interface OrderedItem {
   id: string
-  line_number: number
+  line_number: number | null
   product_name: string
   description: string | null
   quantity: number
-  cost_price: string
-  cost_amount: string
+  cost_price: number | null
+  cost_amount: number | null
   procurement_status: string
   quote: {
     quote_number: string
@@ -78,15 +77,7 @@ export default function ReceivingPage() {
   const [receivingQuantity, setReceivingQuantity] = useState(0)
   const [receivingNotes, setReceivingNotes] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [items, supplierFilter, searchQuery, statusFilter])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // 仕入先一覧取得
       const { data: suppliersData } = await supabase
@@ -121,19 +112,20 @@ export default function ReceivingPage() {
           procurement_logs(action_type, action_date)
         `)
         .is('requires_procurement', true)
+        .returns<OrderedItem[]>()
 
       if (error) throw error
 
-      setItems(itemsData as any || [])
+      setItems(itemsData || [])
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)
       alert('データの読込に失敗しました')
       setLoading(false)
     }
-  }
+  }, [supabase])
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...items]
 
     // ステータスフィルタ
@@ -164,7 +156,15 @@ export default function ReceivingPage() {
     }
 
     setFilteredItems(filtered)
-  }
+  }, [items, searchQuery, statusFilter, supplierFilter])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
 
   const statusFilterLabel: Record<StatusFilter, string> = {
     pending: '未入荷',
@@ -248,10 +248,6 @@ export default function ReceivingPage() {
     } else {
       return <Badge variant="destructive">{days}日経過</Badge>
     }
-  }
-
-  const formatCurrency = (amount: string) => {
-    return `¥${Number(amount).toLocaleString()}`
   }
 
   const getStatusBadge = (status: string | null) => {

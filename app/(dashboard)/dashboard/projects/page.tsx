@@ -54,6 +54,17 @@ type ActivitySettings = {
   danger_color: string
 }
 
+type ProjectActivityRecord = {
+  activity_date: string | null
+  created_at: string | null
+}
+
+type ProjectWithActivityInfo = {
+  project_activities?: ProjectActivityRecord[] | null
+  updated_at?: string | null
+  created_at?: string | null
+}
+
 export default async function ProjectsPage(props: {
   searchParams: ProjectSearchParams
 }) {
@@ -243,7 +254,8 @@ export default async function ProjectsPage(props: {
     if (!value) return null
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return null
-    const diff = Date.now() - date.getTime()
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
     return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
   }
 
@@ -253,10 +265,10 @@ export default async function ProjectsPage(props: {
     return `${days}日前`
   }
 
-  const getLatestActivityDate = (project: any) => {
+  const getLatestActivityDate = (project: ProjectWithActivityInfo) => {
     const activities = project.project_activities ?? []
     let latest: string | null = null
-    activities.forEach((activity: any) => {
+    activities.forEach((activity: ProjectActivityRecord) => {
       const candidate = activity.activity_date ?? activity.created_at
       if (!candidate) return
       if (!latest || new Date(candidate) > new Date(latest)) {

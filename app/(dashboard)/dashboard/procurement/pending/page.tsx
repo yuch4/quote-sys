@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState, useTransition, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,6 @@ interface ProcurementItem {
 export default function ProcurementPendingPage() {
   const supabase = createClient()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const currentPage = Number(searchParams.get('page')) || 1
 
   const [loading, setLoading] = useState(true)
@@ -180,15 +179,7 @@ export default function ProcurementPendingPage() {
     })
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [items, supplierFilter, searchQuery, statusFilter])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // 仕入先一覧取得
       const { data: suppliersData } = await supabase
@@ -319,9 +310,9 @@ export default function ProcurementPendingPage() {
       alert('データの読込に失敗しました')
       setLoading(false)
     }
-  }
+  }, [supabase])
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...items]
 
     // ステータスフィルタ
@@ -367,7 +358,15 @@ export default function ProcurementPendingPage() {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
     const endIndex = startIndex + ITEMS_PER_PAGE
     setPaginatedItems(filtered.slice(startIndex, endIndex))
-  }
+  }, [currentPage, items, searchQuery, statusFilter, supplierFilter])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {

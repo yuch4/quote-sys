@@ -6,9 +6,7 @@ import { test as base } from '@playwright/test';
  */
 
 // 拡張可能なフィクスチャタイプ
-export type TestFixtures = {
-  // 例: authenticatedPage などを追加できる
-};
+export type TestFixtures = Record<string, never>;
 
 // カスタムテストオブジェクト
 export const test = base.extend<TestFixtures>({

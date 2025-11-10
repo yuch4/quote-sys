@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -78,21 +78,25 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    if (!open) {
-      setMode('quote')
-      setSelectedQuoteId('')
-      setItems([])
-      setSelectedItems(new Set())
-      setCombineBySupplier(true)
+  const resetFormState = useCallback(() => {
+    setMode('quote')
+    setSelectedQuoteId('')
+    setItems([])
+    setSelectedItems(new Set())
+    setCombineBySupplier(true)
       setOrderDate(new Date().toISOString().split('T')[0])
       setNotes('')
       setOrderTitle('')
-      setContactInfo('')
-      setManualSupplierId('')
-      setManualItems([createManualItem()])
+    setContactInfo('')
+    setManualSupplierId('')
+    setManualItems([createManualItem()])
+  }, [])
+
+  useEffect(() => {
+    if (!open) {
+      resetFormState()
     }
-  }, [open])
+  }, [open, resetFormState])
 
   useEffect(() => {
     if (open) {

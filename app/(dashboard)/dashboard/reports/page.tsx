@@ -66,6 +66,53 @@ interface CategoryReport {
 
 type PeriodType = 'month' | 'quarter' | 'year' | 'custom'
 
+interface ReportQuoteItem {
+  requires_procurement: boolean
+  procurement_status: string | null
+}
+
+interface ReportBillingRequest {
+  status: string
+}
+
+interface ReportQuote {
+  id: string
+  quote_number: string
+  approval_status: string
+  total_amount: number
+  total_cost: number
+  created_at: string
+  quote_items: ReportQuoteItem[] | null
+  billing_requests: ReportBillingRequest[] | null
+}
+
+interface ReportProject {
+  id: string
+  project_number: string
+  project_name: string
+  category: string | null
+  customer: {
+    id: string
+    customer_name: string
+  } | null
+  sales_rep: {
+    id: string
+    display_name: string
+  } | null
+  quotes: ReportQuote[] | null
+}
+
+interface MonthlySalesPoint {
+  month: string
+  売上: number
+  粗利: number
+}
+
+type MonthlyQuoteRow = {
+  total_amount: number | null
+  total_cost: number | null
+}
+
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export default function ReportsPage() {
@@ -80,7 +127,7 @@ export default function ReportsPage() {
   const [categoryReports, setCategoryReports] = useState<CategoryReport[]>([])
   const [selectedUserId, setSelectedUserId] = useState<string>('all')
   const [users, setUsers] = useState<User[]>([])
-  const [monthlySalesData, setMonthlySalesData] = useState<any[]>([])
+  const [monthlySalesData, setMonthlySalesData] = useState<MonthlySalesPoint[]>([])
 
   // 期間フィルター
   const [periodType, setPeriodType] = useState<PeriodType>('month')
@@ -187,7 +234,7 @@ export default function ReportsPage() {
         query = query.eq('sales_rep_id', selectedUserId)
       }
 
-      const { data: projects, error } = await query
+      const { data: projects, error } = await query.returns<ReportProject[]>()
 
       if (error) throw error
 
@@ -198,7 +245,8 @@ export default function ReportsPage() {
       // カテゴリ別サマリー作成
       const categoryMap = new Map<string, CategoryReport>()
 
-      projects?.forEach((project: any) => {
+      projects?.forEach((project) => {
+        if (!project.sales_rep || !project.customer) return
         const salesRepId = project.sales_rep.id
         const salesRepName = project.sales_rep.display_name
         const customerId = project.customer.id
@@ -253,7 +301,7 @@ export default function ReportsPage() {
         categoryReport.total_projects++
 
         // 承認済み見積がある案件のみカウント
-        const approvedQuote = project.quotes.find((q: any) => q.approval_status === '承認済み')
+        const approvedQuote = project.quotes?.find((q) => q.approval_status === '承認済み')
         if (approvedQuote) {
           const amount = Number(approvedQuote.total_amount)
           const cost = Number(approvedQuote.total_cost)
@@ -271,14 +319,15 @@ export default function ReportsPage() {
           categoryReport.total_profit += profit
 
           // 計上状況チェック
-          const billingRequest = approvedQuote.billing_requests[0]
+          const billingRequest = approvedQuote.billing_requests?.[0]
           if (billingRequest?.status === '承認済み') {
             salesReport.billed_count++
           } else {
             // 全明細入荷済みかチェック
-            const procurementItems = approvedQuote.quote_items.filter((item: any) => item.requires_procurement)
-            const allReceived = procurementItems.length === 0 || 
-              procurementItems.every((item: any) => item.procurement_status === '入荷済')
+            const procurementItems = (approvedQuote.quote_items || []).filter((item) => item.requires_procurement)
+            const allReceived =
+              procurementItems.length === 0 ||
+              procurementItems.every((item) => item.procurement_status === '入荷済')
             if (allReceived) {
               salesReport.pending_billing_count++
             }
@@ -315,8 +364,9 @@ export default function ReportsPage() {
 
       // 案件サマリー作成
       const summaries: ProjectSummary[] = []
-      projects?.forEach((project: any) => {
-        const approvedQuote = project.quotes.find((q: any) => q.approval_status === '承認済み')
+      projects?.forEach((project) => {
+        if (!project.customer) return
+        const approvedQuote = project.quotes?.find((q) => q.approval_status === '承認済み')
         if (approvedQuote) {
           const totalAmount = Number(approvedQuote.total_amount)
           const totalCost = Number(approvedQuote.total_cost)
@@ -324,7 +374,7 @@ export default function ReportsPage() {
           const profitRate = totalAmount > 0 ? (profit / totalAmount) * 100 : 0
 
           let billingStatus = '未計上'
-          const billingRequest = approvedQuote.billing_requests[0]
+          const billingRequest = approvedQuote.billing_requests?.[0]
           if (billingRequest) {
             billingStatus = billingRequest.status === '承認済み' ? '計上済み' : billingRequest.status
           }
@@ -362,7 +412,7 @@ export default function ReportsPage() {
       if (!startDate || !endDate) return
 
       // 期間内の月ごとにデータを集計
-      const monthlyData = []
+      const monthlyData: MonthlySalesPoint[] = []
       const start = new Date(startDate)
       const end = new Date(endDate)
       
@@ -385,7 +435,7 @@ export default function ReportsPage() {
           query = query.eq('project.sales_rep_id', selectedUserId)
         }
 
-        const { data } = await query
+        const { data } = await query.returns<MonthlyQuoteRow[]>()
 
         const totalSales = data?.reduce((sum, q) => sum + Number(q.total_amount || 0), 0) || 0
         const totalCost = data?.reduce((sum, q) => sum + Number(q.total_cost || 0), 0) || 0
