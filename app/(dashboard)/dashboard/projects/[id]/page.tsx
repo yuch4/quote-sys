@@ -77,6 +77,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     console.error('Failed to load project activities:', projectActivitiesError)
   }
 
+  const { data: billingSchedulesData, error: billingSchedulesError } = await supabase
+    .from('project_billing_schedules')
+    .select('*')
+    .eq('project_id', id)
+    .order('billing_month', { ascending: true })
+
+  if (billingSchedulesError) {
+    console.error('Failed to load billing schedules:', billingSchedulesError)
+  }
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'リード': return 'outline'
@@ -109,6 +119,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     }
   }
 
+  const getBillingScheduleStatusVariant = (status: string) => {
+    switch (status) {
+      case '請求済':
+        return 'default'
+      case '確定':
+        return 'secondary'
+      default:
+        return 'outline'
+    }
+  }
+
   const derivedStatus = deriveProjectStatus(project)
   const quotes = project.quotes ?? []
   const suppliers = suppliersData ?? []
@@ -134,6 +155,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
       customerName: project.customer?.customer_name ?? null,
     },
   ]
+  const billingSchedules = billingSchedulesData ?? []
+  const billingTotalAmount = billingSchedules.reduce(
+    (total, schedule) => total + Number(schedule.amount ?? 0),
+    0,
+  )
+  const billingDiffFromExpected =
+    project.expected_sales != null ? billingTotalAmount - Number(project.expected_sales) : null
 
   const formatCurrency = (amount?: number | string | null) => {
     if (amount == null) return '-'
@@ -178,6 +206,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
           <TabsTrigger value="info">基本情報/顧客情報</TabsTrigger>
           <TabsTrigger value="activities">活動履歴</TabsTrigger>
           <TabsTrigger value="quotes">見積/発注</TabsTrigger>
+          <TabsTrigger value="billing">計上予定</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6">
@@ -431,6 +460,81 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>月次計上予定</CardTitle>
+              <CardDescription>自動按分された請求・計上予定を閲覧し、計上準備状況を把握できます。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {billingSchedules.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  計上予定はまだ登録されていません。案件編集から自動生成できます。
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-4 rounded-lg border bg-slate-50 p-4 text-sm text-gray-700 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-gray-500">計上予定合計</p>
+                      <p className="text-2xl font-semibold text-gray-900">{formatCurrency(billingTotalAmount)}</p>
+                    </div>
+                    {project.expected_sales != null && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-gray-500">見込売上</p>
+                        <p className="text-lg font-semibold text-gray-900">{formatCurrency(project.expected_sales)}</p>
+                        <p
+                          className={`text-xs font-medium ${
+                            billingDiffFromExpected === 0
+                              ? 'text-gray-600'
+                              : billingDiffFromExpected && billingDiffFromExpected > 0
+                                ? 'text-emerald-600'
+                                : 'text-rose-600'
+                          }`}
+                        >
+                          {billingDiffFromExpected === 0
+                            ? '見込売上と一致'
+                            : billingDiffFromExpected != null
+                              ? `差額 ${billingDiffFromExpected > 0 ? '+' : ''}${formatCurrency(Math.abs(billingDiffFromExpected))}`
+                              : ''}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>対象月</TableHead>
+                          <TableHead>請求予定日</TableHead>
+                          <TableHead>金額</TableHead>
+                          <TableHead>ステータス</TableHead>
+                          <TableHead>備考</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {billingSchedules.map((schedule) => (
+                          <TableRow key={schedule.id}>
+                            <TableCell>{formatMonth(schedule.billing_month)}</TableCell>
+                            <TableCell>{formatActivityDate(schedule.billing_date)}</TableCell>
+                            <TableCell>{formatCurrency(schedule.amount)}</TableCell>
+                            <TableCell>
+                              <Badge variant={getBillingScheduleStatusVariant(schedule.status)}>
+                                {schedule.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{schedule.notes || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               )}
             </CardContent>

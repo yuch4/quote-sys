@@ -93,6 +93,7 @@ export interface Project {
   customer?: Customer
   sales_rep?: User
   quotes?: Quote[]
+  billing_schedules?: ProjectBillingSchedule[]
 }
 
 // 見積型
@@ -193,6 +194,20 @@ export interface PurchaseOrderItem {
   quote_item?: QuoteItem
   manual_name?: string | null
   manual_description?: string | null
+}
+
+export type BillingScheduleStatus = '予定' | '確定' | '請求済'
+
+export interface ProjectBillingSchedule {
+  id: string
+  project_id: string
+  billing_month: string
+  billing_date: string | null
+  amount: number
+  status: BillingScheduleStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
 }
 
 // 発注・入荷履歴型
