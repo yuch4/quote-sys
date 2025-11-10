@@ -260,23 +260,24 @@ export default function ProcurementPendingPage() {
 
       const quoteItemsRaw = (quoteItemsData || []) as QuoteItemRow[]
 
-      const quoteItems = quoteItemsRaw
-        .map((item) => {
-          const quoteRecord = firstRelation(item.quote)
-          const project = quoteRecord ? firstRelation(quoteRecord.project) : null
-          const customer = project ? firstRelation(project.customer) : null
-          const supplier = firstRelation(item.supplier)
+      const quoteItems: ProcurementItem[] = []
 
-          if (!quoteRecord || !project || !customer) {
-            return null
-          }
+      for (const item of quoteItemsRaw) {
+        const quoteRecord = firstRelation(item.quote)
+        const project = quoteRecord ? firstRelation(quoteRecord.project) : null
+        const customer = project ? firstRelation(project.customer) : null
+        const supplier = firstRelation(item.supplier)
+
+        if (!quoteRecord || !project || !customer) {
+          continue
+        }
 
         const normalizedStatus: ProcurementStatus =
           item.procurement_status === '発注済' || item.procurement_status === '入荷済'
             ? (item.procurement_status as ProcurementStatus)
             : '未発注'
 
-        return {
+        quoteItems.push({
           id: item.id,
           source: 'quote',
           procurement_status: normalizedStatus,
@@ -293,14 +294,11 @@ export default function ProcurementPendingPage() {
           quantity: Number(item.quantity || 0),
           cost_price: item.cost_price != null ? Number(item.cost_price) : null,
           cost_amount: item.cost_amount != null ? Number(item.cost_amount) : null,
-          supplier: supplier
-            ? { id: supplier.id, supplier_name: supplier.supplier_name }
-            : null,
+          supplier: supplier ? { id: supplier.id, supplier_name: supplier.supplier_name } : null,
           selectable: true,
           order_date: null,
-        }
-      })
-        .filter((item): item is ProcurementItem => item !== null)
+        })
+      }
 
       // 単独発注書（見積紐付きでない発注書）
       const { data: standaloneOrders, error: standaloneError } = await supabase
