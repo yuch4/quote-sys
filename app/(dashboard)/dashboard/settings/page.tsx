@@ -11,10 +11,25 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
+import { previewDocumentLayout } from './actions'
+import type {
+  DocumentLayoutConfig,
+  DocumentLayoutSectionConfig,
+  DocumentLayoutTableColumnConfig,
+  DocumentTargetEntity,
+} from '@/types/document-layout'
+import {
+  getDefaultDocumentLayout,
+  mergeDocumentLayoutConfig,
+  sanitizeDocumentLayoutConfig,
+  sortColumns,
+  sortSections,
+} from '@/lib/document-layout'
 
 interface User {
   id: string
@@ -112,6 +127,18 @@ export default function SettingsPage() {
     company_address: '',
   })
   const [companyProfileSaving, setCompanyProfileSaving] = useState(false)
+  const [documentLayouts, setDocumentLayouts] = useState<Record<DocumentTargetEntity, DocumentLayoutConfig>>({
+    quote: getDefaultDocumentLayout('quote'),
+    purchase_order: getDefaultDocumentLayout('purchase_order'),
+  })
+  const [layoutSaving, setLayoutSaving] = useState<Record<DocumentTargetEntity, boolean>>({
+    quote: false,
+    purchase_order: false,
+  })
+  const [previewing, setPreviewing] = useState<Record<DocumentTargetEntity, boolean>>({
+    quote: false,
+    purchase_order: false,
+  })
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -148,6 +175,248 @@ export default function SettingsPage() {
     approver_role: role,
     notes: '',
   })
+
+  const documentTargetLabels: Record<DocumentTargetEntity, string> = {
+    quote: '見積書',
+    purchase_order: '発注書',
+  }
+
+  const FIXED_SECTION_KEYS: Record<DocumentTargetEntity, Set<DocumentSectionKey>> = {
+    quote: new Set(['document_meta', 'company_info', 'customer_info', 'project_info', 'items_table', 'totals', 'notes', 'footer']),
+    purchase_order: new Set(['document_meta', 'company_info', 'supplier_info', 'quote_info', 'items_table', 'totals', 'notes', 'footer']),
+  }
+
+  const sectionColumnOptions: { value: DocumentLayoutSectionConfig['column']; label: string }[] = [
+    { value: 'left', label: '左側' },
+    { value: 'right', label: '右側' },
+    { value: 'full', label: '全幅' },
+  ]
+
+  const renderLayoutEditor = (target: DocumentTargetEntity) => {
+    const layout = documentLayouts[target]
+    if (!layout) return null
+
+    const sections = sortSections(layout.sections)
+    const columns = sortColumns(layout.table_columns)
+    const fixedSections = sections.filter((section) => FIXED_SECTION_KEYS[target].has(section.key))
+    const customSections = sections.filter((section) => !FIXED_SECTION_KEYS[target].has(section.key))
+
+    const renderSectionTable = (tableSections: DocumentLayoutSectionConfig[]) => (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">表示</TableHead>
+            <TableHead>名称</TableHead>
+            <TableHead className="w-24">行</TableHead>
+            <TableHead className="w-32">配置</TableHead>
+            <TableHead className="w-24">幅(%)</TableHead>
+            <TableHead className="w-24">優先度</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {tableSections.map((section) => (
+            <TableRow key={`${target}-${section.key}`}>
+              <TableCell>
+                <Checkbox
+                  checked={section.enabled}
+                  onCheckedChange={(value) =>
+                    handleSectionChange(target, section.key, { enabled: value === true })
+                  }
+                  aria-label={`${section.label}を表示`}
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  value={section.label}
+                  onChange={(event) =>
+                    handleSectionChange(target, section.key, { label: event.target.value })
+                  }
+                />
+                <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                  <label className="flex items-center gap-2">
+                    <Checkbox
+                      checked={section.show_label !== false}
+                      onCheckedChange={(value) =>
+                        handleSectionChange(target, section.key, { show_label: value === false ? false : true })
+                      }
+                    />
+                    <span>ラベルを表示</span>
+                  </label>
+                  <span>リージョン: {section.region}</span>
+                </div>
+                {section.key === 'document_meta' && (
+                  <div className="mt-2 space-y-2">
+                    <Input
+                      placeholder="タイトル (例: 御見積書)"
+                      value={section.title ?? ''}
+                      onChange={(event) =>
+                        handleSectionChange(target, section.key, { title: event.target.value })
+                      }
+                    />
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox
+                        checked={section.show_title !== false}
+                        onCheckedChange={(value) =>
+                          handleSectionChange(target, section.key, {
+                            show_title: value === false ? false : true,
+                          })
+                        }
+                      />
+                      <span>タイトルを表示</span>
+                    </label>
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  min={0}
+                  value={section.row}
+                  onChange={(event) =>
+                    handleSectionChange(target, section.key, { row: Number(event.target.value) || 0 })
+                  }
+                />
+              </TableCell>
+              <TableCell>
+                <Select
+                  value={section.column}
+                  onValueChange={(value) =>
+                    handleSectionChange(target, section.key, {
+                      column: value as DocumentLayoutSectionConfig['column'],
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sectionColumnOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={section.width}
+                  onChange={(event) =>
+                    handleSectionChange(target, section.key, { width: Number(event.target.value) || 0 })
+                  }
+                />
+              </TableCell>
+              <TableCell>
+                <Input
+                  type="number"
+                  min={0}
+                  value={section.order}
+                  onChange={(event) =>
+                    handleSectionChange(target, section.key, { order: Number(event.target.value) || 0 })
+                  }
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div>
+            <h4 className="mb-2 font-semibold">固定表示セクション</h4>
+            {fixedSections.length > 0 ? (
+              renderSectionTable(fixedSections)
+            ) : (
+              <p className="text-sm text-muted-foreground">固定表示セクションはありません。</p>
+            )}
+          </div>
+          <div>
+            <h4 className="mb-2 font-semibold">カスタムセクション</h4>
+            {customSections.length > 0 ? (
+              renderSectionTable(customSections)
+            ) : (
+              <p className="text-sm text-muted-foreground">追加のカスタムセクションはありません。</p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h4 className="mb-2 font-semibold">明細テーブル列</h4>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">表示</TableHead>
+                <TableHead>列名</TableHead>
+                <TableHead className="w-24">幅(%)</TableHead>
+                <TableHead className="w-24">順序</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {columns.map((column) => (
+                <TableRow key={`${target}-${column.key}`}>
+                  <TableCell>
+                    <Checkbox
+                      checked={column.enabled}
+                      onCheckedChange={(value) =>
+                        handleColumnChange(target, column.key, { enabled: value === true })
+                      }
+                      aria-label={`${column.label}列を表示`}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={column.label}
+                      onChange={(event) =>
+                        handleColumnChange(target, column.key, { label: event.target.value })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={100}
+                      step={5}
+                      value={column.width}
+                      onChange={(event) =>
+                        handleColumnChange(target, column.key, { width: Number(event.target.value) || 0 })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={column.order}
+                      onChange={(event) =>
+                        handleColumnChange(target, column.key, { order: Number(event.target.value) || 0 })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={() => handleSaveLayout(target)}
+            disabled={layoutSaving[target] || previewing[target]}
+          >
+            {layoutSaving[target] || previewing[target] ? '保存・プレビュー中...' : '保存してプレビュー'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const generateNextCode = <T extends Record<string, any>>(
     items: T[],
@@ -199,7 +468,15 @@ export default function SettingsPage() {
 
   const loadAllData = async () => {
     try {
-      const [usersRes, customersRes, suppliersRes, routesRes, activitySettingsRes, companyProfileRes] = await Promise.all([
+      const [
+        usersRes,
+        customersRes,
+        suppliersRes,
+        routesRes,
+        activitySettingsRes,
+        companyProfileRes,
+        documentLayoutRes,
+      ] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
@@ -210,6 +487,7 @@ export default function SettingsPage() {
           .order('step_order', { ascending: true, foreignTable: 'approval_route_steps' }),
         supabase.from('project_activity_settings').select('*').maybeSingle(),
         supabase.from('company_profile').select('*').maybeSingle(),
+        supabase.from('document_layout_settings').select('*'),
       ])
 
       if (usersRes.data) setUsers(usersRes.data)
@@ -238,6 +516,24 @@ export default function SettingsPage() {
           company_name: companyProfileRes.data.company_name ?? '',
           company_address: companyProfileRes.data.company_address ?? '',
         })
+      }
+
+      if (documentLayoutRes.data) {
+        const nextLayouts: Record<DocumentTargetEntity, DocumentLayoutConfig> = {
+          quote: getDefaultDocumentLayout('quote'),
+          purchase_order: getDefaultDocumentLayout('purchase_order'),
+        }
+
+        for (const layoutRow of documentLayoutRes.data) {
+          if (layoutRow.target_entity === 'quote' || layoutRow.target_entity === 'purchase_order') {
+            nextLayouts[layoutRow.target_entity] = mergeDocumentLayoutConfig(layoutRow.target_entity, {
+              sections: layoutRow.sections,
+              table_columns: layoutRow.table_columns,
+            })
+          }
+        }
+
+        setDocumentLayouts(nextLayouts)
       }
 
       setLoading(false)
@@ -347,6 +643,109 @@ export default function SettingsPage() {
       toast.error('会社情報の更新に失敗しました')
     } finally {
       setCompanyProfileSaving(false)
+    }
+  }
+
+  const handlePreviewLayout = async (target: DocumentTargetEntity) => {
+    if (typeof window === 'undefined') return
+    const previewWindow = window.open('', '_blank')
+    setPreviewing((prev) => ({ ...prev, [target]: true }))
+    try {
+      const result = await previewDocumentLayout(target)
+      if (!result.success || !result.base64) {
+        previewWindow?.close()
+        toast.error(result.message || 'プレビューの生成に失敗しました')
+        return
+      }
+      const binary = atob(result.base64)
+      const len = binary.length
+      const buffer = new Uint8Array(len)
+      for (let i = 0; i < len; i += 1) {
+        buffer[i] = binary.charCodeAt(i)
+      }
+      const blob = new Blob([buffer], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      previewWindow?.location.replace(url)
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 60_000)
+    } catch (error) {
+      console.error('帳票プレビュー生成エラー:', error)
+      previewWindow?.close()
+      toast.error('プレビューの生成に失敗しました')
+    } finally {
+      setPreviewing((prev) => ({ ...prev, [target]: false }))
+    }
+  }
+
+  const updateDocumentLayout = (
+    target: DocumentTargetEntity,
+    updater: (current: DocumentLayoutConfig) => DocumentLayoutConfig,
+  ) => {
+    setDocumentLayouts((prev) => {
+      const current = prev[target] ?? getDefaultDocumentLayout(target)
+      return {
+        ...prev,
+        [target]: updater(current),
+      }
+    })
+  }
+
+  const handleSectionChange = (
+    target: DocumentTargetEntity,
+    key: string,
+    updates: Partial<Omit<DocumentLayoutSectionConfig, 'key' | 'region'>>,
+  ) => {
+    updateDocumentLayout(target, (current) => ({
+      ...current,
+      sections: current.sections.map((section) =>
+        section.key === key ? { ...section, ...updates } : section
+      ),
+    }))
+  }
+
+  const handleColumnChange = (
+    target: DocumentTargetEntity,
+    key: string,
+    updates: Partial<Omit<DocumentLayoutTableColumnConfig, 'key'>>,
+  ) => {
+    updateDocumentLayout(target, (current) => ({
+      ...current,
+      table_columns: current.table_columns.map((column) =>
+        column.key === key ? { ...column, ...updates } : column
+      ),
+    }))
+  }
+
+  const handleSaveLayout = async (target: DocumentTargetEntity) => {
+    const current = documentLayouts[target]
+    if (!current) return
+
+    setLayoutSaving((prev) => ({ ...prev, [target]: true }))
+    try {
+      const sanitized = sanitizeDocumentLayoutConfig(target, current)
+      const { error } = await supabase
+        .from('document_layout_settings')
+        .upsert({
+          target_entity: target,
+          sections: sanitized.sections,
+          table_columns: sanitized.table_columns,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (error) throw error
+
+      setDocumentLayouts((prev) => ({
+        ...prev,
+        [target]: sanitized,
+      }))
+      toast.success('帳票レイアウトを更新しました')
+      await handlePreviewLayout(target)
+    } catch (error) {
+      console.error('帳票レイアウト更新エラー:', error)
+      toast.error('帳票レイアウトの更新に失敗しました')
+    } finally {
+      setLayoutSaving((prev) => ({ ...prev, [target]: false }))
     }
   }
 
@@ -756,6 +1155,7 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="company">会社情報</TabsTrigger>
+          <TabsTrigger value="documents">帳票レイアウト</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
           <TabsTrigger value="departments">部署マスタ</TabsTrigger>
@@ -870,6 +1270,35 @@ export default function SettingsPage() {
               <Button onClick={handleSaveCompanyProfile} disabled={companyProfileSaving}>
                 {companyProfileSaving ? '保存中...' : '設定を保存'}
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader>
+              <CardTitle>帳票レイアウト</CardTitle>
+              <CardDescription>見積書・発注書のセクションや明細列の表示/配置を調整します。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="quote" className="space-y-4">
+                <TabsList>
+                  {(
+                    Object.keys(documentTargetLabels) as DocumentTargetEntity[]
+                  ).map((target) => (
+                    <TabsTrigger key={target} value={target}>
+                      {documentTargetLabels[target]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {(
+                  Object.keys(documentTargetLabels) as DocumentTargetEntity[]
+                ).map((target) => (
+                  <TabsContent key={target} value={target} className="space-y-4">
+                    {renderLayoutEditor(target)}
+                  </TabsContent>
+                ))}
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>

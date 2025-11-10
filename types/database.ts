@@ -168,6 +168,8 @@ export interface PurchaseOrder {
   status: PurchaseOrderStatus
   total_cost: number
   notes: string | null
+  pdf_url: string | null
+  pdf_generated_at: string | null
   created_by: string
   created_at: string
   updated_at: string

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { pdf } from '@react-pdf/renderer'
 import { QuotePDF } from '@/components/quotes/quote-pdf'
+import { mergeDocumentLayoutConfig } from '@/lib/document-layout'
 
 export async function generateQuotePDF(quoteId: string) {
   const supabase = await createClient()
@@ -47,8 +48,16 @@ export async function generateQuotePDF(quoteId: string) {
       address: companyProfile?.company_address ?? '住所未設定',
     }
 
+    const { data: layoutData } = await supabase
+      .from('document_layout_settings')
+      .select('sections, table_columns')
+      .eq('target_entity', 'quote')
+      .maybeSingle()
+
+    const layoutConfig = mergeDocumentLayoutConfig('quote', layoutData ?? undefined)
+
     // PDF生成
-    const pdfDoc = QuotePDF({ quote, companyInfo })
+    const pdfDoc = QuotePDF({ quote, companyInfo, layout: layoutConfig })
     const blob = await pdf(pdfDoc).toBlob()
 
     // BlobをArrayBufferに変換

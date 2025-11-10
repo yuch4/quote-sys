@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PurchaseOrderEditDialog, type PurchaseOrderEditable } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
+import { PurchaseOrderPdfButton } from '@/components/purchase-orders/purchase-order-pdf-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,6 +34,8 @@ export type PurchaseOrderListItem = PurchaseOrderEditable & {
     received: number
     total: number
   }
+  pdf_url?: string | null
+  pdf_generated_at?: string | null
 }
 
 interface PurchaseOrderTableProps {
@@ -264,6 +267,12 @@ export function PurchaseOrderTable({ orders, currentUser }: PurchaseOrderTablePr
                       <TableCell className="text-right">{formatCurrency(Number(order.total_cost || 0))}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end gap-2">
+                          <PurchaseOrderPdfButton
+                            purchaseOrderId={order.id}
+                            approvalStatus={order.approval_status}
+                            pdfUrl={order.pdf_url}
+                            pdfGeneratedAt={order.pdf_generated_at}
+                          />
                           {currentUser ? (
                             <PurchaseOrderApprovalActions
                               purchaseOrderId={order.id}

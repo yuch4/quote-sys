@@ -1,15 +1,14 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
-import { ensureJapaneseFonts, FONT_FAMILY } from '@/lib/pdf/fonts'
 import type {
   DocumentLayoutConfig,
   DocumentLayoutSectionConfig,
   DocumentTableColumnKey,
 } from '@/types/document-layout'
+import { ensureJapaneseFonts, FONT_FAMILY } from '@/lib/pdf/fonts'
 import { getDefaultDocumentLayout, sortColumns } from '@/lib/document-layout'
 
 ensureJapaneseFonts()
 
-// PDFスタイル定義
 const styles = StyleSheet.create({
   page: {
     padding: 30,
@@ -42,14 +41,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     gap: 2,
   },
-  companyName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   companyLabel: {
     fontSize: 10,
     fontWeight: 'bold',
     marginBottom: 4,
+  },
+  companyName: {
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   companyAddress: {
     fontSize: 10,
@@ -73,11 +72,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   label: {
-    width: '30%',
+    width: '35%',
     fontWeight: 'bold',
   },
   value: {
-    width: '70%',
+    width: '65%',
   },
   table: {
     width: '100%',
@@ -118,23 +117,6 @@ const styles = StyleSheet.create({
   totalValue: {
     fontWeight: 'bold',
   },
-  grandTotal: {
-    flexDirection: 'row',
-    width: '40%',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    paddingHorizontal: 10,
-    borderTop: '1pt solid #000',
-  },
-  grandTotalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  grandTotalValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
   footer: {
     marginTop: 30,
     fontSize: 8,
@@ -142,48 +124,44 @@ const styles = StyleSheet.create({
   },
 })
 
-interface QuoteItem {
+interface PurchaseOrderItemForPDF {
   line_number: number
-  product_name: string
+  name: string
   description: string | null
   quantity: number
-  unit_price: string
-  amount: string
-  supplier?: {
-    supplier_name: string
-  } | null
+  unit_cost: number
+  amount: number
 }
 
-interface QuotePDFProps {
-  quote: {
-    quote_number: string
-    version: number
-    issue_date: string
-    valid_until: string | null
-    subject: string | null
-    total_amount: string
-    total_cost: string
-    gross_profit: string
+interface PurchaseOrderPDFProps {
+  order: {
+    purchase_order_number: string
+    order_date: string
+    status: string
+    total_cost: number
     notes: string | null
-    project: {
-      project_number: string
-      project_name: string
-      customer: {
-        customer_name: string
-        postal_code: string | null
-        address: string | null
-        phone: string | null
-      }
-      sales_rep: {
-        display_name: string
-      }
-    }
-    items: QuoteItem[]
+    supplier: {
+      supplier_name: string | null
+      address: string | null
+      phone: string | null
+      email: string | null
+    } | null
+    quote?: {
+      quote_number: string | null
+      project?: {
+        project_name: string | null
+        project_number: string | null
+        customer?: {
+          customer_name: string | null
+        }
+      } | null
+    } | null
   }
   companyInfo: {
     name: string
     address: string
   }
+  items: PurchaseOrderItemForPDF[]
   layout: DocumentLayoutConfig
 }
 
@@ -199,19 +177,23 @@ const groupSectionsByRow = (sections: DocumentLayoutSectionConfig[]) => {
     .map(([, bucket]) => bucket.sort((a, b) => a.order - b.order))
 }
 
-const getColumnValue = (key: DocumentTableColumnKey, item: QuoteItem, formatCurrency: (value: string | number) => string) => {
+const getColumnValue = (
+  key: DocumentTableColumnKey,
+  item: PurchaseOrderItemForPDF,
+  formatCurrency: (value: number) => string,
+) => {
   switch (key) {
     case 'line_number':
       return String(item.line_number)
     case 'product_name':
-      return item.product_name
+      return item.name
     case 'description':
       return item.description || '-'
     case 'quantity':
       return String(item.quantity)
     case 'unit_price':
     case 'unit_cost':
-      return formatCurrency(item.unit_price)
+      return formatCurrency(item.unit_cost)
     case 'amount':
       return formatCurrency(item.amount)
     default:
@@ -219,12 +201,10 @@ const getColumnValue = (key: DocumentTableColumnKey, item: QuoteItem, formatCurr
   }
 }
 
-export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
-  const formatCurrency = (amount: string) => {
-    return `¥${Number(amount).toLocaleString()}`
-  }
-
+export function PurchaseOrderPDF({ order, companyInfo, items, layout }: PurchaseOrderPDFProps) {
+  const formatCurrency = (value: number) => `¥${Number(value || 0).toLocaleString()}`
   const formatDate = (dateString: string) => {
+    if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
@@ -237,28 +217,26 @@ export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
   const bodyRows = groupSectionsByRow(enabledSections.filter((section) => section.region === 'body'))
   const footerSections = enabledSections.filter((section) => section.region === 'footer').sort((a, b) => a.order - b.order)
 
-  const defaultColumns = sortColumns(getDefaultDocumentLayout('quote').table_columns)
+  const defaultColumns = sortColumns(getDefaultDocumentLayout('purchase_order').table_columns)
   const tableColumns = (() => {
     const active = sortColumns(layout.table_columns).filter((column) => column.enabled)
     return active.length > 0 ? active : defaultColumns
   })()
 
-const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
+  const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
     switch (section.key) {
       case 'document_meta':
         return (
           <View>
             {section.show_title !== false && (
-              <Text style={styles.title}>{section.title?.trim() || '御見積書'}</Text>
+              <Text style={styles.title}>{section.title?.trim() || '発注書'}</Text>
             )}
             {section.show_label !== false && section.label && (
               <Text style={styles.metaLabel}>{section.label}</Text>
             )}
-            <Text>見積番号: {quote.quote_number}</Text>
-            <Text>バージョン: v{quote.version}</Text>
-            <Text>件名: {quote.subject || '（件名未設定）'}</Text>
-            <Text>発行日: {formatDate(quote.issue_date)}</Text>
-            {quote.valid_until && <Text>有効期限: {formatDate(quote.valid_until)}</Text>}
+            <Text>発注書番号: {order.purchase_order_number}</Text>
+            <Text>発注日: {formatDate(order.order_date)}</Text>
+            <Text>ステータス: {order.status}</Text>
           </View>
         )
       case 'company_info':
@@ -275,54 +253,60 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
               ))}
           </View>
         )
-      case 'customer_info':
+      case 'supplier_info':
+        if (!order.supplier) return null
         return (
           <View style={styles.section}>
             {section.show_label !== false && (
-              <Text style={styles.sectionTitle}>{section.label || 'お客様情報'}</Text>
+              <Text style={styles.sectionTitle}>{section.label || '仕入先情報'}</Text>
             )}
             <View style={styles.row}>
-              <Text style={styles.label}>顧客名:</Text>
-              <Text style={styles.value}>{quote.project.customer.customer_name} 御中</Text>
+              <Text style={styles.label}>仕入先名:</Text>
+              <Text style={styles.value}>{order.supplier.supplier_name || '-'}</Text>
             </View>
-            {quote.project.customer.postal_code && (
-              <View style={styles.row}>
-                <Text style={styles.label}>郵便番号:</Text>
-                <Text style={styles.value}>{quote.project.customer.postal_code}</Text>
-              </View>
-            )}
-            {quote.project.customer.address && (
+            {order.supplier.address && (
               <View style={styles.row}>
                 <Text style={styles.label}>住所:</Text>
-                <Text style={styles.value}>{quote.project.customer.address}</Text>
+                <Text style={styles.value}>{order.supplier.address}</Text>
               </View>
             )}
-            {quote.project.customer.phone && (
+            {order.supplier.phone && (
               <View style={styles.row}>
                 <Text style={styles.label}>電話:</Text>
-                <Text style={styles.value}>{quote.project.customer.phone}</Text>
+                <Text style={styles.value}>{order.supplier.phone}</Text>
+              </View>
+            )}
+            {order.supplier.email && (
+              <View style={styles.row}>
+                <Text style={styles.label}>メール:</Text>
+                <Text style={styles.value}>{order.supplier.email}</Text>
               </View>
             )}
           </View>
         )
-      case 'project_info':
+      case 'quote_info':
+        if (!order.quote) return null
         return (
           <View style={styles.section}>
             {section.show_label !== false && (
-              <Text style={styles.sectionTitle}>{section.label || '案件情報'}</Text>
+              <Text style={styles.sectionTitle}>{section.label || '関連見積'}</Text>
             )}
             <View style={styles.row}>
-              <Text style={styles.label}>案件番号:</Text>
-              <Text style={styles.value}>{quote.project.project_number}</Text>
+              <Text style={styles.label}>見積番号:</Text>
+              <Text style={styles.value}>{order.quote.quote_number || '-'}</Text>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>案件名:</Text>
-              <Text style={styles.value}>{quote.project.project_name}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>営業担当:</Text>
-              <Text style={styles.value}>{quote.project.sales_rep.display_name}</Text>
-            </View>
+            {order.quote.project?.project_name && (
+              <View style={styles.row}>
+                <Text style={styles.label}>案件名:</Text>
+                <Text style={styles.value}>{order.quote.project.project_name}</Text>
+              </View>
+            )}
+            {order.quote.project?.customer?.customer_name && (
+              <View style={styles.row}>
+                <Text style={styles.label}>顧客名:</Text>
+                <Text style={styles.value}>{order.quote.project.customer.customer_name}</Text>
+              </View>
+            )}
           </View>
         )
       case 'items_table':
@@ -339,20 +323,18 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
                   </Text>
                 ))}
               </View>
-              {quote.items
-                .sort((a, b) => a.line_number - b.line_number)
-                .map((item) => (
-                  <View key={item.line_number} style={styles.tableRow}>
-                    {tableColumns.map((column) => (
-                      <Text
-                        key={`${item.line_number}-${column.key}`}
-                        style={[styles.tableCell, { width: `${column.width}%` }]}
-                      >
-                        {getColumnValue(column.key, item, formatCurrency)}
-                      </Text>
-                    ))}
-                  </View>
-                ))}
+              {items.map((item, index) => (
+                <View key={`${item.line_number}-${index}`} style={styles.tableRow}>
+                  {tableColumns.map((column) => (
+                    <Text
+                      key={`${column.key}-${item.line_number}-${index}`}
+                      style={[styles.tableCell, { width: `${column.width}%` }]}
+                    >
+                      {getColumnValue(column.key, item, formatCurrency)}
+                    </Text>
+                  ))}
+                </View>
+              ))}
             </View>
           </View>
         )
@@ -360,23 +342,19 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         return (
           <View style={styles.totalSection}>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>{section.label || '小計'}:</Text>
-              <Text style={styles.totalValue}>{formatCurrency(quote.total_amount)}</Text>
-            </View>
-            <View style={styles.grandTotal}>
-              <Text style={styles.grandTotalLabel}>合計金額:</Text>
-              <Text style={styles.grandTotalValue}>{formatCurrency(quote.total_amount)}</Text>
+              <Text style={styles.totalLabel}>{section.label || '合計'}:</Text>
+              <Text style={styles.totalValue}>{formatCurrency(order.total_cost)}</Text>
             </View>
           </View>
         )
       case 'notes':
-        if (!quote.notes) return null
+        if (!order.notes) return null
         return (
           <View style={styles.section}>
             {section.show_label !== false && (
               <Text style={styles.sectionTitle}>{section.label || '備考'}</Text>
             )}
-            <Text>{quote.notes}</Text>
+            <Text>{order.notes}</Text>
           </View>
         )
       case 'footer':
@@ -385,8 +363,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
             {section.show_label !== false && section.label && (
               <Text style={{ fontWeight: 'bold' }}>{section.label}</Text>
             )}
-            <Text>本見積書は {formatDate(quote.issue_date)} に発行されました。</Text>
-            {quote.valid_until && <Text>有効期限: {formatDate(quote.valid_until)} まで</Text>}
+            <Text>この発注書は {formatDate(order.order_date)} に作成されました。</Text>
           </View>
         )
       default:
