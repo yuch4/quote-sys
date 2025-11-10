@@ -74,7 +74,7 @@ export default async function ApprovalsPage() {
   }
 
   const actionableSteps = (pendingSteps || []).filter((step) => {
-    const instance = step.instance
+    const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
     if (!instance) return false
     if (instance.status !== 'pending') return false
     const currentStepOrder = instance.current_step ?? step.step_order
@@ -82,8 +82,10 @@ export default async function ApprovalsPage() {
   })
 
   const sortedSteps = actionableSteps.sort((a, b) => {
-    const aRequested = a.instance?.requested_at ? new Date(a.instance.requested_at).getTime() : 0
-    const bRequested = b.instance?.requested_at ? new Date(b.instance.requested_at).getTime() : 0
+    const aInstance = Array.isArray(a.instance) ? a.instance[0] : a.instance
+    const bInstance = Array.isArray(b.instance) ? b.instance[0] : b.instance
+    const aRequested = aInstance?.requested_at ? new Date(aInstance.requested_at).getTime() : 0
+    const bRequested = bInstance?.requested_at ? new Date(bInstance.requested_at).getTime() : 0
     return aRequested - bRequested
   })
 
@@ -120,7 +122,7 @@ export default async function ApprovalsPage() {
   }
 
   const actionablePurchaseOrderSteps = (pendingPurchaseOrderSteps || []).filter((step) => {
-    const instance = step.instance
+    const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
     if (!instance) return false
     if (instance.status !== 'pending') return false
     const currentStepOrder = instance.current_step ?? step.step_order
@@ -128,8 +130,10 @@ export default async function ApprovalsPage() {
   })
 
   const sortedPurchaseOrderSteps = actionablePurchaseOrderSteps.sort((a, b) => {
-    const aRequested = a.instance?.requested_at ? new Date(a.instance.requested_at).getTime() : 0
-    const bRequested = b.instance?.requested_at ? new Date(b.instance.requested_at).getTime() : 0
+    const aInstance = Array.isArray(a.instance) ? a.instance[0] : a.instance
+    const bInstance = Array.isArray(b.instance) ? b.instance[0] : b.instance
+    const aRequested = aInstance?.requested_at ? new Date(aInstance.requested_at).getTime() : 0
+    const bRequested = bInstance?.requested_at ? new Date(bInstance.requested_at).getTime() : 0
     return aRequested - bRequested
   })
 
@@ -171,8 +175,9 @@ export default async function ApprovalsPage() {
               </TableHeader>
               <TableBody>
                 {sortedSteps.map((step) => {
-                  const instance = step.instance
-                  const quote = instance?.quote
+                  const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
+                  const quoteRaw = instance?.quote
+                  const quote = Array.isArray(quoteRaw) ? quoteRaw[0] : quoteRaw
                   if (!instance || !quote) return null
 
                   return (
@@ -230,8 +235,9 @@ export default async function ApprovalsPage() {
               </TableHeader>
               <TableBody>
                 {sortedPurchaseOrderSteps.map((step) => {
-                  const instance = step.instance
-                  const purchaseOrder = instance?.purchase_order
+                  const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
+                  const purchaseOrderRaw = instance?.purchase_order
+                  const purchaseOrder = Array.isArray(purchaseOrderRaw) ? purchaseOrderRaw[0] : purchaseOrderRaw
                   if (!instance || !purchaseOrder) return null
 
                   return (
