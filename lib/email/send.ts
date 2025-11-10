@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { firstRelation } from '@/lib/supabase/relations'
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
@@ -222,15 +223,18 @@ export async function sendLongDelayAlertEmail() {
   const typedItems = longDelayItems as LongDelayItemRecord[]
 
   const items = typedItems.map((item) => {
+    const project = firstRelation(item.quote?.project)
+    const customer = firstRelation(project?.customer)
+    const supplier = firstRelation(item.supplier)
     const orderedDate = new Date(item.ordered_at)
     const today = new Date()
     const daysElapsed = Math.floor((today.getTime() - orderedDate.getTime()) / (1000 * 60 * 60 * 24))
 
     return {
       productName: item.product_name,
-      projectName: item.quote.project.project_name,
-      customerName: item.quote.project.customer.customer_name,
-      supplierName: item.supplier?.supplier_name || '未設定',
+      projectName: project?.project_name ?? '-',
+      customerName: customer?.customer_name ?? '-',
+      supplierName: supplier?.supplier_name || '未設定',
       orderedDate: orderedDate.toLocaleDateString('ja-JP'),
       daysElapsed,
     }

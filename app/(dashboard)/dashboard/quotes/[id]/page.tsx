@@ -10,7 +10,9 @@ import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
 import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
 import { QuoteBillingPlanManager } from '@/components/quotes/quote-billing-plan'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 import type {
+  Quote,
   QuoteItem,
   PurchaseOrder,
   PurchaseOrderItem,
@@ -25,6 +27,76 @@ import { notFound } from 'next/navigation'
 
 type QuoteDetailParams = { id: string }
 
+type Relation<T> = T | T[] | null | undefined
+
+type PurchaseOrderWithRelations = PurchaseOrder & {
+  supplier?: Relation<PurchaseOrder['supplier']>
+  quote?: Relation<{ id: string; quote_number: string }>
+  items?: Array<
+    PurchaseOrderItem & {
+      quote_item?: Relation<PurchaseOrderItem['quote_item']>
+    }
+  >
+  approval_instance?: Relation<PurchaseOrderApprovalInstance>
+}
+
+type QuoteDetailRaw = Quote & {
+  project: Relation<Quote['project']>
+  items: Array<QuoteItem & { supplier?: Relation<QuoteItem['supplier']> }>
+  purchase_orders: Relation<PurchaseOrderWithRelations>
+  approval_instance?: Relation<QuoteApprovalInstance>
+}
+
+const normalizeApprovalInstance = <T extends QuoteApprovalInstance | PurchaseOrderApprovalInstance>(
+  instance: T | T[] | null | undefined
+): T | null => {
+  const normalized = firstRelation(instance)
+  if (!normalized) return null
+  return {
+    ...normalized,
+    steps: ensureArrayRelation(normalized.steps) as NonNullable<T['steps']>,
+    route: normalized.route ? firstRelation(normalized.route) ?? normalized.route : normalized.route,
+  }
+}
+
+const normalizeQuoteDetail = (rawQuote: QuoteDetailRaw) => {
+  const project = firstRelation(rawQuote.project)
+  if (!project) {
+    return null
+  }
+  const normalizedProject = {
+    ...project,
+    customer: firstRelation(project.customer),
+    sales_rep: firstRelation(project.sales_rep),
+  }
+
+  const items = ensureArrayRelation(rawQuote.items).map((item) => ({
+    ...item,
+    supplier: firstRelation(item.supplier),
+  })) as QuoteItem[]
+
+  const purchaseOrders = ensureArrayRelation(rawQuote.purchase_orders).map((order) => ({
+    ...order,
+    supplier: firstRelation(order.supplier),
+    quote: firstRelation(order.quote),
+    items: ensureArrayRelation(order.items).map((item) => ({
+      ...item,
+      quote_item: firstRelation(item.quote_item),
+    })) as PurchaseOrderItem[],
+    approval_instance: normalizeApprovalInstance<PurchaseOrderApprovalInstance>(order.approval_instance),
+  })) as PurchaseOrder[]
+
+  const approvalInstance = normalizeApprovalInstance<QuoteApprovalInstance>(rawQuote.approval_instance)
+
+  return {
+    ...rawQuote,
+    project: normalizedProject,
+    items,
+    purchase_orders: purchaseOrders,
+    approval_instance: approvalInstance,
+  }
+}
+
 export default async function QuoteDetailPage({ params }: { params: Promise<QuoteDetailParams> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -37,7 +109,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     .eq('id', user?.id)
     .single()
   
-  const { data: quote, error } = await supabase
+  const { data: rawQuote, error } = await supabase
     .from('quotes')
     .select(`
       *,
@@ -109,7 +181,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     .eq('id', id)
     .single()
 
-  if (error || !quote) {
+  if (error || !rawQuote) {
+    notFound()
+  }
+  const quote = normalizeQuoteDetail(rawQuote)
+  if (!quote) {
     notFound()
   }
 

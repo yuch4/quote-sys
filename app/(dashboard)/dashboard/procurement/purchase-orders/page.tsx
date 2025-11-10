@@ -3,6 +3,7 @@ import { PurchaseOrderTable } from '@/components/purchase-orders/purchase-order-
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 import type { PurchaseOrderListItem } from '@/components/purchase-orders/purchase-order-table'
 import type { PurchaseOrderStatus } from '@/types/database'
+import { firstRelation } from '@/lib/supabase/relations'
 
 type QuoteOption = {
   id: string
@@ -108,11 +109,14 @@ export default async function PurchaseOrdersPage() {
   const quoteOptions: QuoteOption[] =
     (quotesData || [])
       .filter((quote) => quote.approval_status === '承認済み')
-      .map((quote) => ({
-        id: quote.id,
-        quote_number: quote.quote_number,
-        project_name: quote.project?.project_name ?? null,
-      }))
+      .map((quote) => {
+        const project = firstRelation(quote.project)
+        return {
+          id: quote.id,
+          quote_number: quote.quote_number,
+          project_name: project?.project_name ?? null,
+        }
+      })
 
   const { data: suppliersData } = await supabase
     .from('suppliers')
@@ -123,10 +127,9 @@ export default async function PurchaseOrdersPage() {
   const suppliers = suppliersData || []
 
   const normalized: PurchaseOrderListItem[] = (orders || []).map((order) => {
-    const approvalInstanceRaw = order.approval_instance
-    const approvalInstance = Array.isArray(approvalInstanceRaw)
-      ? approvalInstanceRaw[0] ?? null
-      : approvalInstanceRaw ?? null
+    const approvalInstance = firstRelation(order.approval_instance)
+    const supplier = firstRelation(order.supplier)
+    const quoteRecord = firstRelation(order.quote)
 
     const procurementStats = (order.items || []).reduce(
       (acc, item) => {
@@ -161,8 +164,8 @@ export default async function PurchaseOrdersPage() {
       pdf_generated_at: order.pdf_generated_at,
       created_at: order.created_at,
       created_by: order.created_by,
-      supplier: order.supplier,
-      quote: order.quote,
+      supplier,
+      quote: quoteRecord,
       items: (order.items || []).map((item) => ({
         id: item.id,
         quantity: Number(item.quantity || 0),
@@ -170,14 +173,16 @@ export default async function PurchaseOrdersPage() {
         amount: Number(item.amount || 0),
         manual_name: item.manual_name,
         manual_description: item.manual_description,
-        quote_item: item.quote_item
-          ? {
-              id: item.quote_item.id,
-              line_number: item.quote_item.line_number,
-              product_name: item.quote_item.product_name,
-              procurement_status: item.quote_item.procurement_status || null,
-            }
-          : null,
+        quote_item: (() => {
+          const quoteItem = firstRelation(item.quote_item)
+          if (!quoteItem) return null
+          return {
+            id: quoteItem.id,
+            line_number: quoteItem.line_number,
+            product_name: quoteItem.product_name,
+            procurement_status: quoteItem.procurement_status || null,
+          }
+        })(),
       })),
       procurementSummary: procurementStats,
     }

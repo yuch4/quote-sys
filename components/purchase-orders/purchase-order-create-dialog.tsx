@@ -25,6 +25,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { createPurchaseOrders } from '@/app/(dashboard)/dashboard/quotes/[id]/actions'
 import { createStandalonePurchaseOrder } from '@/app/(dashboard)/dashboard/procurement/purchase-orders/actions'
 import type { QuoteItem } from '@/types/database'
+import { firstRelation } from '@/lib/supabase/relations'
 
 type QuoteOption = {
   id: string
@@ -145,12 +146,17 @@ export function PurchaseOrderCreateDialog({ quotes, suppliers }: PurchaseOrderCr
         return
       }
 
-      const orderable = (data || []).filter(
+      const normalizedItems = (data || []).map((item) => ({
+        ...item,
+        supplier: firstRelation(item.supplier),
+      })) as OrderableItem[]
+
+      const orderable = normalizedItems.filter(
         (item) =>
           item.requires_procurement &&
           item.procurement_status !== '発注済' &&
           item.supplier?.id
-      ) as OrderableItem[]
+      )
       setItems(orderable)
       setSelectedItems(new Set(orderable.map((item) => item.id)))
       setLoadingItems(false)

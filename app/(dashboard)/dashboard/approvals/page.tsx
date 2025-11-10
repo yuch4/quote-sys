@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { firstRelation } from '@/lib/supabase/relations'
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(amount)
@@ -74,7 +75,7 @@ export default async function ApprovalsPage() {
   }
 
   const actionableSteps = (pendingSteps || []).filter((step) => {
-    const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
+    const instance = firstRelation(step.instance)
     if (!instance) return false
     if (instance.status !== 'pending') return false
     const currentStepOrder = instance.current_step ?? step.step_order
@@ -82,8 +83,8 @@ export default async function ApprovalsPage() {
   })
 
   const sortedSteps = actionableSteps.sort((a, b) => {
-    const aInstance = Array.isArray(a.instance) ? a.instance[0] : a.instance
-    const bInstance = Array.isArray(b.instance) ? b.instance[0] : b.instance
+    const aInstance = firstRelation(a.instance)
+    const bInstance = firstRelation(b.instance)
     const aRequested = aInstance?.requested_at ? new Date(aInstance.requested_at).getTime() : 0
     const bRequested = bInstance?.requested_at ? new Date(bInstance.requested_at).getTime() : 0
     return aRequested - bRequested
@@ -122,7 +123,7 @@ export default async function ApprovalsPage() {
   }
 
   const actionablePurchaseOrderSteps = (pendingPurchaseOrderSteps || []).filter((step) => {
-    const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
+    const instance = firstRelation(step.instance)
     if (!instance) return false
     if (instance.status !== 'pending') return false
     const currentStepOrder = instance.current_step ?? step.step_order
@@ -130,8 +131,8 @@ export default async function ApprovalsPage() {
   })
 
   const sortedPurchaseOrderSteps = actionablePurchaseOrderSteps.sort((a, b) => {
-    const aInstance = Array.isArray(a.instance) ? a.instance[0] : a.instance
-    const bInstance = Array.isArray(b.instance) ? b.instance[0] : b.instance
+    const aInstance = firstRelation(a.instance)
+    const bInstance = firstRelation(b.instance)
     const aRequested = aInstance?.requested_at ? new Date(aInstance.requested_at).getTime() : 0
     const bRequested = bInstance?.requested_at ? new Date(bInstance.requested_at).getTime() : 0
     return aRequested - bRequested
@@ -175,9 +176,8 @@ export default async function ApprovalsPage() {
               </TableHeader>
               <TableBody>
                 {sortedSteps.map((step) => {
-                  const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
-                  const quoteRaw = instance?.quote
-                  const quote = Array.isArray(quoteRaw) ? quoteRaw[0] : quoteRaw
+                  const instance = firstRelation(step.instance)
+                  const quote = firstRelation(instance?.quote)
                   if (!instance || !quote) return null
 
                   return (
@@ -235,13 +235,10 @@ export default async function ApprovalsPage() {
               </TableHeader>
               <TableBody>
                 {sortedPurchaseOrderSteps.map((step) => {
-                  const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
-                  const purchaseOrderRaw = instance?.purchase_order
-                  const purchaseOrder = Array.isArray(purchaseOrderRaw) ? purchaseOrderRaw[0] : purchaseOrderRaw
-                  const supplierRaw = purchaseOrder?.supplier
-                  const supplier = Array.isArray(supplierRaw) ? supplierRaw[0] : supplierRaw
-                  const quote = purchaseOrder?.quote
-                  const quoteRecord = Array.isArray(quote) ? quote[0] : quote
+                  const instance = firstRelation(step.instance)
+                  const purchaseOrder = firstRelation(instance?.purchase_order)
+                  const supplier = firstRelation(purchaseOrder?.supplier)
+                  const quoteRecord = firstRelation(purchaseOrder?.quote)
                   if (!instance || !purchaseOrder) return null
 
                   return (

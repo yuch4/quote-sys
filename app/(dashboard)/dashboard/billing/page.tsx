@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { CalendarDays, CheckCircle2, Clock, PauseCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { BillingScheduleStatus } from '@/types/database'
+import { firstRelation } from '@/lib/supabase/relations'
 
 interface User {
   id: string
@@ -167,13 +168,13 @@ export default function BillingPage() {
       if (error) throw error
 
       const normalized = (data as RawScheduleRow[] | null)?.map((raw) => {
-        const projectRaw = Array.isArray(raw.project) ? raw.project[0] : raw.project
+        const projectRaw = firstRelation(raw.project)
         if (!projectRaw) {
           return null
         }
-        const salesRepRaw = Array.isArray(projectRaw.sales_rep) ? projectRaw.sales_rep[0] : projectRaw.sales_rep
-        const customerRaw = Array.isArray(projectRaw.customer) ? projectRaw.customer[0] : projectRaw.customer
-        const quoteRaw = Array.isArray(raw.quote) ? raw.quote[0] : raw.quote
+        const salesRepRaw = firstRelation(projectRaw.sales_rep)
+        const customerRaw = firstRelation(projectRaw.customer)
+        const quoteRaw = firstRelation(raw.quote)
 
         const normalizedRow: ScheduleRow = {
           id: raw.id,
