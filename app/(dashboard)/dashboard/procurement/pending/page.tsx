@@ -29,6 +29,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 
 const ITEMS_PER_PAGE = 20
 
@@ -64,6 +65,45 @@ interface ProcurementItem {
   } | null
   selectable: boolean
   order_date?: string | null
+}
+
+type QuoteItemRow = {
+  id: string
+  quote_id: string | null
+  line_number: number | null
+  product_name: string
+  description: string | null
+  quantity: number | null
+  cost_price: number | null
+  cost_amount: number | null
+  procurement_status: ProcurementStatus | null
+  quote: Array<{
+    quote_number: string
+    approval_status: string
+    project: Array<{
+      project_number: string
+      project_name: string
+      customer: Array<{ customer_name: string }>
+    }>
+  }>
+  supplier: Array<{ id: string | null; supplier_name: string | null }>
+}
+
+type StandaloneOrderRow = {
+  id: string
+  purchase_order_number: string | null
+  status: ProcurementStatus | null
+  order_date: string | null
+  supplier: Array<{ id: string | null; supplier_name: string | null }>
+  items: Array<{
+    id: string
+    quantity: number | null
+    unit_cost: number | null
+    amount: number | null
+    manual_name: string | null
+    manual_description: string | null
+    quote_item_id: string | null
+  }>
 }
 
 export default function ProcurementPendingPage() {
@@ -218,7 +258,19 @@ export default function ProcurementPendingPage() {
 
       if (quoteItemsError) throw quoteItemsError
 
-      const quoteItems: ProcurementItem[] = (quoteItemsData || []).map((item) => {
+      const quoteItemsRaw = (quoteItemsData || []) as QuoteItemRow[]
+
+      const quoteItems: ProcurementItem[] = quoteItemsRaw
+        .map((item) => {
+          const quoteRecord = firstRelation(item.quote)
+          const project = quoteRecord ? firstRelation(quoteRecord.project) : null
+          const customer = project ? firstRelation(project.customer) : null
+          const supplier = firstRelation(item.supplier)
+
+          if (!quoteRecord || !project || !customer) {
+            return null
+          }
+
         const normalizedStatus: ProcurementStatus =
           item.procurement_status === '発注済' || item.procurement_status === '入荷済'
             ? (item.procurement_status as ProcurementStatus)
@@ -229,10 +281,10 @@ export default function ProcurementPendingPage() {
           source: 'quote',
           procurement_status: normalizedStatus,
           quote_id: item.quote_id,
-          project_number: item.quote.project.project_number,
-          project_name: item.quote.project.project_name,
-          customer_name: item.quote.project.customer.customer_name,
-          quote_number: item.quote.quote_number,
+          project_number: project.project_number,
+          project_name: project.project_name,
+          customer_name: customer.customer_name,
+          quote_number: quoteRecord.quote_number,
           purchase_order_id: null,
           purchase_order_number: null,
           line_number: item.line_number ?? null,
@@ -241,13 +293,14 @@ export default function ProcurementPendingPage() {
           quantity: Number(item.quantity || 0),
           cost_price: item.cost_price != null ? Number(item.cost_price) : null,
           cost_amount: item.cost_amount != null ? Number(item.cost_amount) : null,
-          supplier: item.supplier
-            ? { id: item.supplier.id, supplier_name: item.supplier.supplier_name }
+          supplier: supplier
+            ? { id: supplier.id, supplier_name: supplier.supplier_name }
             : null,
           selectable: true,
           order_date: null,
         }
       })
+        .filter((item): item is ProcurementItem => item !== null)
 
       // 単独発注書（見積紐付きでない発注書）
       const { data: standaloneOrders, error: standaloneError } = await supabase
@@ -273,10 +326,13 @@ export default function ProcurementPendingPage() {
 
       if (standaloneError) throw standaloneError
 
-      const standaloneItems: ProcurementItem[] = (standaloneOrders || []).flatMap((order) => {
-        const normalizedStatus: ProcurementStatus = order.status === '発注済' ? '発注済' : '未発注'
+      const standaloneRows = (standaloneOrders || []) as StandaloneOrderRow[]
 
-        return (order.items || [])
+      const standaloneItems: ProcurementItem[] = standaloneRows.flatMap((order) => {
+        const normalizedStatus: ProcurementStatus = order.status === '発注済' ? '発注済' : '未発注'
+        const supplier = firstRelation(order.supplier)
+
+        return ensureArrayRelation(order.items)
           .filter((item) => !item.quote_item_id)
           .map((item) => ({
             id: `${order.id}:${item.id}`,
@@ -295,8 +351,8 @@ export default function ProcurementPendingPage() {
             quantity: Number(item.quantity || 0),
             cost_price: item.unit_cost != null ? Number(item.unit_cost) : null,
             cost_amount: item.amount != null ? Number(item.amount) : null,
-            supplier: order.supplier
-              ? { id: order.supplier.id, supplier_name: order.supplier.supplier_name }
+            supplier: supplier
+              ? { id: supplier.id, supplier_name: supplier.supplier_name }
               : null,
             selectable: false,
             order_date: order.order_date ?? null,
