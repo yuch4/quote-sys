@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { firstRelation } from '@/lib/supabase/relations'
 
 interface Supplier {
   id: string
@@ -55,6 +56,31 @@ interface OrderedItem {
     action_type: string
     action_date: string
   }>
+}
+
+type RawOrderedItem = {
+  id: string
+  line_number: number | null
+  product_name: string
+  description: string | null
+  quantity: number | null
+  cost_price: number | null
+  cost_amount: number | null
+  procurement_status: string | null
+  quote: Array<{
+    quote_number: string
+    project: Array<{
+      project_number: string
+      project_name: string
+      customer: Array<{ customer_name: string }>
+      sales_rep: Array<{ display_name: string; email: string }>
+    }>
+  }>
+  supplier: Array<{ supplier_name: string | null }>
+  procurement_logs: Array<{
+    action_type: string
+    action_date: string
+  }> | null
 }
 
 export default function ReceivingPage() {
@@ -112,11 +138,51 @@ export default function ReceivingPage() {
           procurement_logs(action_type, action_date)
         `)
         .is('requires_procurement', true)
-        .returns<OrderedItem[]>()
+        .returns<RawOrderedItem[]>()
 
       if (error) throw error
 
-      setItems(itemsData || [])
+      const normalizedItems: OrderedItem[] = (itemsData || [])
+        .map((item) => {
+          const quoteRecord = firstRelation(item.quote)
+          const project = quoteRecord ? firstRelation(quoteRecord.project) : null
+          const customer = project ? firstRelation(project.customer) : null
+          const salesRep = project ? firstRelation(project.sales_rep) : null
+          const supplier = firstRelation(item.supplier)
+          if (!quoteRecord || !project || !customer) {
+            return null
+          }
+
+          return {
+            id: item.id,
+            line_number: item.line_number ?? null,
+            product_name: item.product_name,
+            description: item.description,
+            quantity: Number(item.quantity || 0),
+            cost_price: item.cost_price,
+            cost_amount: item.cost_amount,
+            procurement_status: item.procurement_status || '未発注',
+            quote: {
+              quote_number: quoteRecord.quote_number,
+              project: {
+                project_number: project.project_number,
+                project_name: project.project_name,
+                customer: {
+                  customer_name: customer.customer_name,
+                },
+                sales_rep: {
+                  display_name: salesRep?.display_name ?? '',
+                  email: salesRep?.email ?? '',
+                },
+              },
+            },
+            supplier: supplier ? { supplier_name: supplier.supplier_name ?? '' } : null,
+            procurement_logs: item.procurement_logs ?? [],
+          }
+        })
+        .filter((item): item is OrderedItem => item !== null)
+
+      setItems(normalizedItems)
       setLoading(false)
     } catch (error) {
       console.error('データ読込エラー:', error)

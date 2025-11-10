@@ -40,6 +40,16 @@ type RecentQuoteActivity = {
   projects?: ProjectRelation
 }
 
+const normalizeProjectRelation = (relation: ProjectRelation | ProjectRelation[] | null | undefined) => {
+  const project = Array.isArray(relation) ? relation[0] : relation
+  const customers = project?.customers
+  const customer = Array.isArray(customers) ? customers[0] : customers
+  return {
+    projectName: project?.project_name ?? null,
+    customerName: customer?.customer_name ?? null,
+  }
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -145,6 +155,15 @@ export default async function DashboardPage() {
     console.error('承認待ち見積取得エラー:', pendingError)
   }
 
+  const safePendingApprovals = (pendingApprovals || []).map((quote) => {
+    const projectInfo = normalizeProjectRelation(quote.projects)
+    return {
+      ...quote,
+      projectName: projectInfo.projectName,
+      customerName: projectInfo.customerName,
+    }
+  })
+
   // 長期未入荷アラート（14日以上）
   const fourteenDaysAgo = new Date()
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
@@ -198,6 +217,26 @@ export default async function DashboardPage() {
   if (recentError) {
     console.error('最近の活動取得エラー:', recentError)
   }
+
+  const safeLongDelayItems = (longDelayItems || []).map((item) => {
+    const projectInfo = normalizeProjectRelation(item.quotes?.projects)
+    const supplierRecord = Array.isArray(item.suppliers) ? item.suppliers[0] : item.suppliers
+    return {
+      ...item,
+      projectName: projectInfo.projectName,
+      customerName: projectInfo.customerName,
+      supplierName: supplierRecord?.supplier_name ?? null,
+    }
+  })
+
+  const safeRecentActivity = (recentActivity || []).map((quote) => {
+    const projectInfo = normalizeProjectRelation(quote.projects)
+    return {
+      ...quote,
+      projectName: projectInfo.projectName,
+      customerName: projectInfo.customerName,
+    }
+  })
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -263,21 +302,21 @@ export default async function DashboardPage() {
       </div>
 
       {/* アラート */}
-      {(pendingApprovals && pendingApprovals.length > 0) || (longDelayItems && longDelayItems.length > 0) ? (
+      {(safePendingApprovals && safePendingApprovals.length > 0) || (safeLongDelayItems && safeLongDelayItems.length > 0) ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* 承認待ち */}
-          {pendingApprovals && pendingApprovals.length > 0 && (
+          {safePendingApprovals.length > 0 && (
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-yellow-600" />
                   <CardTitle>承認待ち見積</CardTitle>
                 </div>
-                <CardDescription>{pendingApprovals.length}件の見積が承認待ちです</CardDescription>
+                <CardDescription>{safePendingApprovals.length}件の見積が承認待ちです</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {pendingApprovals.map((quote) => (
+                  {safePendingApprovals.map((quote) => (
                     <Link
                       key={quote.id}
                       href={`/dashboard/quotes/${quote.id}`}
@@ -287,7 +326,7 @@ export default async function DashboardPage() {
                         <div>
                           <p className="font-medium text-sm">{quote.quote_number}</p>
                           <p className="text-xs text-gray-600">
-                            {quote.projects?.project_name} - {quote.projects?.customers?.customer_name}
+                            {quote.projectName ?? '-'} - {quote.customerName ?? '-'}
                           </p>
                         </div>
                         <Badge variant="secondary">承認待ち</Badge>
@@ -300,7 +339,7 @@ export default async function DashboardPage() {
           )}
 
           {/* 長期未入荷 */}
-          {longDelayItems && longDelayItems.length > 0 && (
+          {safeLongDelayItems.length > 0 && (
             <Card>
               <CardHeader>
                 <div className="flex items-center gap-2">
@@ -311,11 +350,11 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {longDelayItems.slice(0, 3).map((item) => (
+                  {safeLongDelayItems.slice(0, 3).map((item) => (
                     <div key={item.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
                       <p className="font-medium text-sm">{item.product_name}</p>
                       <p className="text-xs text-gray-600">
-                        {item.quotes?.projects?.project_name} - {item.suppliers?.supplier_name}
+                        {item.projectName ?? '-'} - {item.supplierName ?? '-'}
                       </p>
                       <p className="text-xs text-red-600 mt-1">
                         発注日: {item.ordered_at ? new Date(item.ordered_at).toLocaleDateString('ja-JP') : '-'}
@@ -336,9 +375,9 @@ export default async function DashboardPage() {
           <CardDescription>直近の見積更新</CardDescription>
         </CardHeader>
         <CardContent>
-          {recentActivity && recentActivity.length > 0 ? (
+          {safeRecentActivity.length > 0 ? (
             <div className="space-y-2">
-              {recentActivity.map((quote) => (
+              {safeRecentActivity.map((quote) => (
                 <Link
                   key={quote.id}
                   href={`/dashboard/quotes/${quote.id}`}
@@ -348,7 +387,7 @@ export default async function DashboardPage() {
                     <div>
                       <p className="font-medium text-sm">{quote.quote_number}</p>
                       <p className="text-xs text-gray-600">
-                        {quote.projects?.project_name} - {quote.projects?.customers?.customer_name}
+                        {quote.projectName ?? '-'} - {quote.customerName ?? '-'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         更新: {new Date(quote.updated_at).toLocaleDateString('ja-JP')}
