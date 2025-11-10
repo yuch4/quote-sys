@@ -127,9 +127,20 @@ export default async function PurchaseOrdersPage() {
   const suppliers = suppliersData || []
 
   const normalized: PurchaseOrderListItem[] = (orders || []).map((order) => {
-    const approvalInstance = firstRelation(order.approval_instance)
+    const approvalInstanceRaw = firstRelation(order.approval_instance)
     const supplier = firstRelation(order.supplier)
     const quoteRecord = firstRelation(order.quote)
+
+    const approvalInstance = approvalInstanceRaw
+      ? {
+          ...approvalInstanceRaw,
+          route: firstRelation(approvalInstanceRaw.route),
+          steps: ensureArrayRelation(approvalInstanceRaw.steps).map((step) => ({
+            ...step,
+            approver: firstRelation(step.approver) ?? undefined,
+          })),
+        }
+      : null
 
     const procurementStats = (order.items || []).reduce(
       (acc, item) => {
@@ -166,7 +177,7 @@ export default async function PurchaseOrdersPage() {
       created_by: order.created_by,
       supplier,
       quote: quoteRecord,
-      items: (order.items || []).map((item) => ({
+      items: ensureArrayRelation(order.items).map((item) => ({
         id: item.id,
         quantity: Number(item.quantity || 0),
         unit_cost: Number(item.unit_cost || 0),
