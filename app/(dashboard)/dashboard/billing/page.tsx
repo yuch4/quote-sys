@@ -52,6 +52,31 @@ interface ScheduleRow {
   } | null
 }
 
+type RawScheduleRow = {
+  id: string
+  billing_month: string
+  billing_date: string | null
+  amount: number
+  status: BillingScheduleStatus
+  notes: string | null
+  confirmed_by: string | null
+  confirmed_at: string | null
+  billed_by: string | null
+  billed_at: string | null
+  project: Array<{
+    id: string
+    project_number: string
+    project_name: string
+    sales_rep_id: string
+    sales_rep: Array<{ id: string; display_name: string }>
+    customer: Array<{ customer_name: string }>
+  }>
+  quote?: Array<{
+    id: string
+    quote_number: string
+  }>
+}
+
 const STATUS_BADGE: Record<BillingScheduleStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   予定: { label: '予定', variant: 'outline' },
   確認済: { label: '確認済', variant: 'secondary' },
@@ -141,7 +166,43 @@ export default function BillingPage() {
       const { data, error } = await query
       if (error) throw error
 
-      setSchedules((data as ScheduleRow[]) || [])
+      const normalized = (data as RawScheduleRow[] | null)?.map((raw) => {
+        const projectRaw = Array.isArray(raw.project) ? raw.project[0] : raw.project
+        if (!projectRaw) {
+          return null
+        }
+        const salesRepRaw = Array.isArray(projectRaw.sales_rep) ? projectRaw.sales_rep[0] : projectRaw.sales_rep
+        const customerRaw = Array.isArray(projectRaw.customer) ? projectRaw.customer[0] : projectRaw.customer
+        const quoteRaw = Array.isArray(raw.quote) ? raw.quote[0] : raw.quote
+
+        const normalizedRow: ScheduleRow = {
+          id: raw.id,
+          billing_month: raw.billing_month,
+          billing_date: raw.billing_date,
+          amount: Number(raw.amount || 0),
+          status: raw.status,
+          notes: raw.notes,
+          confirmed_by: raw.confirmed_by,
+          confirmed_at: raw.confirmed_at,
+          billed_by: raw.billed_by,
+          billed_at: raw.billed_at,
+          project: {
+            id: projectRaw.id,
+            project_number: projectRaw.project_number,
+            project_name: projectRaw.project_name,
+            sales_rep_id: projectRaw.sales_rep_id,
+            sales_rep: salesRepRaw
+              ? { id: salesRepRaw.id, display_name: salesRepRaw.display_name }
+              : null,
+            customer: customerRaw ? { customer_name: customerRaw.customer_name } : null,
+          },
+          quote: quoteRaw ? { id: quoteRaw.id, quote_number: quoteRaw.quote_number } : null,
+        }
+
+        return normalizedRow
+      }).filter((row): row is ScheduleRow => row !== null) ?? []
+
+      setSchedules(normalized)
     } catch (error) {
       console.error('計上予定読込エラー:', error)
       toast.error('計上予定の読込に失敗しました')
