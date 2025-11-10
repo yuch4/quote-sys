@@ -238,12 +238,14 @@ export default async function ApprovalsPage() {
                   const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
                   const purchaseOrderRaw = instance?.purchase_order
                   const purchaseOrder = Array.isArray(purchaseOrderRaw) ? purchaseOrderRaw[0] : purchaseOrderRaw
+                  const quote = purchaseOrder?.quote
+                  const quoteRecord = Array.isArray(quote) ? quote[0] : quote
                   if (!instance || !purchaseOrder) return null
 
                   return (
                     <TableRow key={step.id}>
                       <TableCell className="font-medium">{purchaseOrder.purchase_order_number}</TableCell>
-                      <TableCell>{purchaseOrder.quote?.quote_number || '-'}</TableCell>
+                      <TableCell>{quoteRecord?.quote_number || '-'}</TableCell>
                       <TableCell>{purchaseOrder.supplier?.supplier_name || '未設定'}</TableCell>
                       <TableCell>{purchaseOrder.order_date ? formatDate(purchaseOrder.order_date) : '-'}</TableCell>
                       <TableCell>{formatCurrency(Number(purchaseOrder.total_cost || 0))}</TableCell>
@@ -267,8 +269,8 @@ export default async function ApprovalsPage() {
                         <Badge variant="secondary">ステップ{step.step_order}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {purchaseOrder.quote?.id ? (
-                          <Link href={`/dashboard/quotes/${purchaseOrder.quote.id}`}>
+                        {quoteRecord?.id ? (
+                          <Link href={`/dashboard/quotes/${quoteRecord.id}`}>
                             <Button variant="outline" size="sm">
                               詳細へ
                             </Button>
