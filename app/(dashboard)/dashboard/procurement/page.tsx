@@ -138,16 +138,18 @@ export default function ProcurementDashboardPage() {
 
       if (quoteItemsError) throw quoteItemsError
 
-      const quoteItems: DashboardItem[] = (quoteItemsData || [])
-        .map((item) => {
-          const quoteRecord = firstRelation(item.quote)
-          const project = quoteRecord ? firstRelation(quoteRecord.project) : null
-          const customer = project ? firstRelation(project.customer) : null
-          const supplier = firstRelation(item.supplier)
+      const quoteItems: DashboardItem[] = []
 
-          if (!quoteRecord || !project || !customer) {
-            return null
-          }
+      for (const item of quoteItemsData || []) {
+        const quoteRecord = firstRelation(item.quote)
+        const project = quoteRecord ? firstRelation(quoteRecord.project) : null
+        const customer = project ? firstRelation(project.customer) : null
+        const supplier = firstRelation(item.supplier)
+
+        if (!quoteRecord || !project || !customer) {
+          continue
+        }
+
         const normalizedStatus: ProcurementStatus =
           item.procurement_status === '発注済' || item.procurement_status === '入荷済'
             ? item.procurement_status
@@ -155,7 +157,7 @@ export default function ProcurementDashboardPage() {
 
         const orderLogDate = item.procurement_logs?.find((log) => log.action_type === '発注')?.action_date || null
 
-        return {
+        quoteItems.push({
           id: item.id,
           source: 'quote',
           product_name: item.product_name,
@@ -171,9 +173,8 @@ export default function ProcurementDashboardPage() {
           cost_amount: Number(item.cost_amount || 0),
           order_date: orderLogDate || item.ordered_at || null,
           procurement_logs: item.procurement_logs ?? [],
-        }
         })
-        .filter((item): item is DashboardItem => item !== null)
+      }
 
       // 単独発注書（見積と紐づかない発注書）の明細を取得
       const { data: standaloneOrders, error: standaloneError } = await supabase
@@ -199,15 +200,16 @@ export default function ProcurementDashboardPage() {
 
       if (standaloneError) throw standaloneError
 
-      const standaloneItems: DashboardItem[] = (standaloneOrders || []).flatMap((order) => {
+      const standaloneItems: DashboardItem[] = []
+
+      for (const order of standaloneOrders || []) {
         const normalizedStatus: ProcurementStatus = order.status === '発注済' ? '発注済' : '未発注'
         const supplier = firstRelation(order.supplier)
 
-        return ensureArrayRelation(order.items)
-          .filter((item) => !item.quote_item_id)
-          .map((item) => ({
+        for (const item of ensureArrayRelation(order.items).filter((item) => !item.quote_item_id)) {
+          standaloneItems.push({
             id: `${order.id}:${item.id}`,
-            source: 'standalone' as const,
+            source: 'standalone',
             product_name: item.manual_name || 'カスタム明細',
             description: item.manual_description || null,
             quantity: Number(item.quantity || 0),
@@ -221,8 +223,9 @@ export default function ProcurementDashboardPage() {
             cost_amount: item.amount != null ? Number(item.amount) : 0,
             order_date: order.order_date ?? null,
             procurement_logs: [],
-          }))
-      })
+          })
+        }
+      }
 
       const combinedItems = [...quoteItems, ...standaloneItems]
 
