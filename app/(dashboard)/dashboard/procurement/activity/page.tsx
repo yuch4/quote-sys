@@ -153,6 +153,8 @@ export default async function ProcurementActivityPage() {
       })
     }
 
+    const requestedByUser = approvalInstance ? firstRelation(approvalInstance.requested_by_user) : null
+
     if (approvalInstance?.requested_at) {
       events.push({
         id: `${order.id}-requested-${approvalInstance.id}`,
@@ -167,7 +169,7 @@ export default async function ProcurementActivityPage() {
         projectName: project?.project_name ?? null,
         projectNumber: project?.project_number ?? null,
         customerName: customer?.customer_name ?? null,
-        actor: approvalInstance.requested_by_user?.display_name ?? undefined,
+        actor: requestedByUser?.display_name ?? undefined,
       })
     }
 
@@ -183,6 +185,8 @@ export default async function ProcurementActivityPage() {
         else if (step.status === 'rejected') type = '発注書却下'
         else if (step.status === 'skipped') type = '発注書スキップ'
 
+        const approverUser = firstRelation(step.approver)
+
         events.push({
           id: step.id,
           datetime: step.decided_at,
@@ -196,7 +200,7 @@ export default async function ProcurementActivityPage() {
           projectName: project?.project_name ?? null,
           projectNumber: project?.project_number ?? null,
           customerName: customer?.customer_name ?? null,
-          actor: step.approver?.display_name ?? step.approver_role,
+          actor: approverUser?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
       })
