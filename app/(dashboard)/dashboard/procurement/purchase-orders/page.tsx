@@ -134,6 +134,11 @@ export default async function PurchaseOrdersPage() {
     const approvalInstance = approvalInstanceRaw
       ? {
           ...approvalInstanceRaw,
+          purchase_order_id: approvalInstanceRaw.purchase_order_id,
+          route_id: approvalInstanceRaw.route_id,
+          requested_by: approvalInstanceRaw.requested_by,
+          updated_at: approvalInstanceRaw.updated_at,
+          rejection_reason: approvalInstanceRaw.rejection_reason,
           route: firstRelation(approvalInstanceRaw.route),
           steps: ensureArrayRelation(approvalInstanceRaw.steps).map((step) => ({
             ...step,
