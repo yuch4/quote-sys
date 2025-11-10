@@ -214,6 +214,7 @@ export default async function ProcurementActivityPage() {
     const logQuote = quoteItem ? firstRelation(quoteItem.quote) : null
     const logProject = logQuote ? firstRelation(logQuote.project) : null
     const logCustomer = logProject ? firstRelation(logProject.customer) : null
+    const logActor = log.performed_by_user ? firstRelation(log.performed_by_user) : null
 
     if (!purchaseOrder) continue
 
@@ -232,7 +233,7 @@ export default async function ProcurementActivityPage() {
       projectName: logProject?.project_name ?? null,
       projectNumber: logProject?.project_number ?? null,
       customerName: logCustomer?.customer_name ?? null,
-      actor: log.performed_by_user?.display_name ?? null,
+      actor: logActor?.display_name ?? null,
       notes: log.notes ?? undefined,
     })
   }
@@ -241,6 +242,7 @@ export default async function ProcurementActivityPage() {
     const project = quote.project ? firstRelation(quote.project) : null
     const customer = project ? firstRelation(project.customer) : null
     const approvalInstance = firstRelation(quote.approval_instance)
+    const createdByUser = quote.created_by_user ? firstRelation(quote.created_by_user) : null
 
     if (quote.created_at) {
       events.push({
@@ -253,9 +255,11 @@ export default async function ProcurementActivityPage() {
         projectName: project?.project_name ?? null,
         projectNumber: project?.project_number ?? null,
         customerName: customer?.customer_name ?? null,
-        actor: quote.created_by_user?.display_name ?? null,
+        actor: createdByUser?.display_name ?? null,
       })
     }
+
+    const quoteRequestedBy = approvalInstance ? firstRelation(approvalInstance.requested_by_user) : null
 
     if (approvalInstance?.requested_at) {
       events.push({
@@ -268,7 +272,7 @@ export default async function ProcurementActivityPage() {
         projectName: project?.project_name ?? null,
         projectNumber: project?.project_number ?? null,
         customerName: customer?.customer_name ?? null,
-        actor: approvalInstance.requested_by_user?.display_name ?? null,
+        actor: quoteRequestedBy?.display_name ?? null,
       })
     }
 
@@ -284,6 +288,8 @@ export default async function ProcurementActivityPage() {
         else if (step.status === 'rejected') type = '見積差戻し'
         else if (step.status === 'skipped') type = '見積スキップ'
 
+        const stepApprover = firstRelation(step.approver)
+
         events.push({
           id: `${quote.id}-quote-step-${step.id}`,
           datetime: step.decided_at,
@@ -294,7 +300,7 @@ export default async function ProcurementActivityPage() {
           projectName: project?.project_name ?? null,
           projectNumber: project?.project_number ?? null,
           customerName: customer?.customer_name ?? null,
-          actor: step.approver?.display_name ?? step.approver_role,
+          actor: stepApprover?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
       })
@@ -304,6 +310,7 @@ export default async function ProcurementActivityPage() {
   for (const activity of projectActivities ?? []) {
     const project = activity.project ? firstRelation(activity.project) : null
     const customer = project ? firstRelation(project.customer) : null
+    const activityAuthor = activity.created_by_user ? firstRelation(activity.created_by_user) : null
     if (!project) continue
     events.push({
       id: activity.id,
@@ -314,7 +321,7 @@ export default async function ProcurementActivityPage() {
       projectNumber: project.project_number ?? null,
       projectName: project.project_name ?? null,
       customerName: customer?.customer_name ?? null,
-      actor: activity.created_by_user?.display_name ?? null,
+      actor: activityAuthor?.display_name ?? null,
       title: activity.subject,
       notes: [activity.details, activity.next_action ? `次回: ${activity.next_action}${activity.next_action_due_date ? ` (${activity.next_action_due_date})` : ''}` : null]
         .filter(Boolean)
