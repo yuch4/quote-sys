@@ -79,7 +79,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
   const { data: billingSchedulesData, error: billingSchedulesError } = await supabase
     .from('project_billing_schedules')
-    .select('*')
+    .select('*, quote:quotes(id, quote_number)')
     .eq('project_id', id)
     .order('billing_month', { ascending: true })
 
@@ -121,10 +121,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
 
   const getBillingScheduleStatusVariant = (status: string) => {
     switch (status) {
-      case '請求済':
+      case '計上済':
         return 'default'
-      case '確定':
+      case '確認済':
         return 'secondary'
+      case '延期':
+        return 'destructive'
       default:
         return 'outline'
     }
@@ -512,6 +514,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
                       <TableHeader>
                         <TableRow>
                           <TableHead>対象月</TableHead>
+                          <TableHead>見積</TableHead>
                           <TableHead>請求予定日</TableHead>
                           <TableHead>金額</TableHead>
                           <TableHead>ステータス</TableHead>
@@ -522,6 +525,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
                         {billingSchedules.map((schedule) => (
                           <TableRow key={schedule.id}>
                             <TableCell>{formatMonth(schedule.billing_month)}</TableCell>
+                            <TableCell>{schedule.quote?.quote_number ?? '-'}</TableCell>
                             <TableCell>{formatActivityDate(schedule.billing_date)}</TableCell>
                             <TableCell>{formatCurrency(schedule.amount)}</TableCell>
                             <TableCell>

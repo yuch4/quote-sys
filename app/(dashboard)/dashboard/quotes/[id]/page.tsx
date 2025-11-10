@@ -9,6 +9,7 @@ import { VersionHistory } from '@/components/quotes/version-history'
 import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
 import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
+import { QuoteBillingPlanManager } from '@/components/quotes/quote-billing-plan'
 import type {
   QuoteItem,
   PurchaseOrder,
@@ -17,6 +18,7 @@ import type {
   PurchaseOrderApprovalInstance,
   ApprovalStatus,
   PurchaseOrderStatus,
+  ProjectBillingSchedule,
 } from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -111,6 +113,12 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     notFound()
   }
 
+  const { data: billingSchedules } = await supabase
+    .from('project_billing_schedules')
+    .select('*')
+    .eq('quote_id', id)
+    .order('billing_month', { ascending: true })
+
   // バージョン履歴を取得
   const baseNumber = quote.quote_number.split('-v')[0]
   const { data: versions } = await supabase
@@ -203,6 +211,12 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
       })()
     : null
 
+  const quoteDefaultStartMonth =
+    quote.project?.accounting_month?.slice(0, 7) ??
+    quote.project?.order_month?.slice(0, 7) ??
+    quote.issue_date?.slice(0, 7) ??
+    undefined
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -250,6 +264,25 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
           </Link>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>計上予定</CardTitle>
+          <CardDescription>受注確定した見積をもとに月次計上予定を管理します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <QuoteBillingPlanManager
+            quoteId={quote.id}
+            projectId={quote.project_id}
+            quoteNumber={quote.quote_number}
+            projectName={quote.project?.project_name ?? ''}
+            totalAmount={Number(quote.total_amount || 0)}
+            defaultStartMonth={quoteDefaultStartMonth}
+            initialSchedules={(billingSchedules ?? []) as ProjectBillingSchedule[]}
+            isAwarded={quote.is_awarded}
+          />
+        </CardContent>
+      </Card>
 
       {approvalInstance && (
         <Card>

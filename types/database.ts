@@ -120,6 +120,9 @@ export interface Quote {
   created_by: string
   created_at: string
   updated_at: string
+  is_awarded: boolean
+  awarded_at: string | null
+  awarded_by: string | null
   // リレーション
   project?: Project
   items?: QuoteItem[]
@@ -196,18 +199,24 @@ export interface PurchaseOrderItem {
   manual_description?: string | null
 }
 
-export type BillingScheduleStatus = '予定' | '確定' | '請求済'
+export type BillingScheduleStatus = '予定' | '確認済' | '延期' | '計上済'
 
 export interface ProjectBillingSchedule {
   id: string
   project_id: string
+  quote_id: string | null
   billing_month: string
   billing_date: string | null
   amount: number
   status: BillingScheduleStatus
   notes: string | null
+  confirmed_by: string | null
+  confirmed_at: string | null
+  billed_by: string | null
+  billed_at: string | null
   created_at: string
   updated_at: string
+  quote?: Quote
 }
 
 // 発注・入荷履歴型

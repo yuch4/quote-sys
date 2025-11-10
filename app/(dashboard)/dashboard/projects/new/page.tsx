@@ -12,9 +12,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Customer, User } from '@/types/database'
-import { MonthlyBillingPlanner } from '@/components/projects/billing-schedule-planner'
-import type { BillingScheduleDraft } from '@/lib/projects/billing-schedule'
-import { scheduleDraftsToPayload } from '@/lib/projects/billing-schedule'
 
 const CONTRACT_PROBABILITY_OPTIONS = [
   { value: 'S', label: 'S（ほぼ確定）' },
@@ -30,11 +27,6 @@ export default function NewProjectPage() {
   const [error, setError] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [salesReps, setSalesReps] = useState<User[]>([])
-  const [currentUserId, setCurrentUserId] = useState<string>('')
-  const [billingPlan, setBillingPlan] = useState<{ enabled: boolean; rows: BillingScheduleDraft[] }>({
-    enabled: false,
-    rows: [],
-  })
   
   // 顧客登録ダイアログ
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
@@ -67,7 +59,6 @@ export default function NewProjectPage() {
       // 現在のユーザーID取得
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setCurrentUserId(user.id)
         setFormData(prev => ({ ...prev, sales_rep_id: user.id }))
       }
       
@@ -181,7 +172,7 @@ export default function NewProjectPage() {
       const expectedSales = formData.expected_sales ? Number(formData.expected_sales) : null
       const expectedGrossProfit = formData.expected_gross_profit ? Number(formData.expected_gross_profit) : null
       
-      const { data: insertedProject, error } = await supabase
+      const { error } = await supabase
         .from('projects')
         .insert([{
           project_number: projectNumber,
@@ -197,25 +188,10 @@ export default function NewProjectPage() {
           expected_gross_profit: expectedGrossProfit,
           contract_probability: formData.contract_probability,
         }])
-        .select('id')
-        .single()
 
-      if (error || !insertedProject) {
-        toast.error('案件の登録に失敗しました: ' + error?.message)
+      if (error) {
+        toast.error('案件の登録に失敗しました: ' + error.message)
         return
-      }
-
-      if (billingPlan.enabled && billingPlan.rows.length > 0) {
-        const payload = scheduleDraftsToPayload(insertedProject.id, billingPlan.rows)
-        if (payload.length > 0) {
-          const { error: planError } = await supabase
-            .from('project_billing_schedules')
-            .insert(payload)
-          if (planError) {
-            console.error('計上予定登録エラー', planError)
-            toast.error('計上予定の登録に失敗しました。案件詳細から再登録してください。')
-          }
-        }
       }
 
       toast.success('案件を登録しました')
@@ -449,19 +425,6 @@ export default function NewProjectPage() {
                   placeholder="例: 250000"
                 />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-dashed p-4 space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">月次計上予定</h3>
-                <p className="text-sm text-gray-600">受注金額を按分し、登録前に月次の請求・計上予定をプレビューできます。</p>
-              </div>
-              <MonthlyBillingPlanner
-                expectedAmount={Number(formData.expected_sales) || 0}
-                defaultStartMonth={formData.accounting_month || formData.order_month}
-                onChange={setBillingPlan}
-                disabled={loading}
-              />
             </div>
 
             <div className="space-y-2">

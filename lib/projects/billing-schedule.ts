@@ -21,7 +21,7 @@ const MIN_MONTHS = 1
 const MAX_MONTHS = 60
 const DEFAULT_STATUS: BillingScheduleStatus = '予定'
 
-export const BILLING_SCHEDULE_STATUSES: BillingScheduleStatus[] = ['予定', '確定', '請求済']
+export const BILLING_SCHEDULE_STATUSES: BillingScheduleStatus[] = ['予定', '確認済', '延期', '計上済']
 
 const createLocalId = () => `plan-${Math.random().toString(36).slice(2, 9)}-${Date.now().toString(36)}`
 
@@ -101,17 +101,25 @@ export const deserializeSchedules = (rows: ProjectBillingSchedule[]): BillingSch
     notes: row.notes ?? '',
   }))
 
-export const scheduleDraftsToPayload = (projectId: string, drafts: BillingScheduleDraft[]) =>
-  drafts
+interface DraftPayloadOptions {
+  projectId: string
+  quoteId?: string | null
+}
+
+export const scheduleDraftsToPayload = (options: DraftPayloadOptions, drafts: BillingScheduleDraft[]) => {
+  const { projectId, quoteId = null } = options
+  return drafts
     .filter((draft) => draft.billingMonth && !Number.isNaN(draft.amount))
     .map((draft) => ({
       project_id: projectId,
+      quote_id: quoteId,
       billing_month: billingMonthKeyToDate(draft.billingMonth),
       billing_date: draft.billingDate || null,
       amount: draft.amount,
       status: draft.status,
       notes: draft.notes || null,
     }))
+}
 
 export const sumScheduleAmounts = (drafts: BillingScheduleDraft[]) =>
   drafts.reduce((total, draft) => total + (Number.isFinite(draft.amount) ? draft.amount : 0), 0)

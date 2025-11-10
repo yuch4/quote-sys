@@ -9,9 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Customer, User, Project, ProjectStatus } from '@/types/database'
-import { MonthlyBillingPlanner } from '@/components/projects/billing-schedule-planner'
-import type { BillingScheduleDraft } from '@/lib/projects/billing-schedule'
-import { deserializeSchedules, scheduleDraftsToPayload } from '@/lib/projects/billing-schedule'
 
 const STATUS_OPTIONS: { value: ProjectStatus, label: string }[] = [
   { value: 'リード', label: 'リード (自動)' },
@@ -33,11 +30,6 @@ export default function EditProjectPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [salesReps, setSalesReps] = useState<User[]>([])
-  const [plannerSeed, setPlannerSeed] = useState<{ enabled: boolean; rows: BillingScheduleDraft[] } | null>(null)
-  const [billingPlan, setBillingPlan] = useState<{ enabled: boolean; rows: BillingScheduleDraft[] }>({
-    enabled: false,
-    rows: [],
-  })
   
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -86,16 +78,6 @@ export default function EditProjectPage() {
         })
       }
 
-      const { data: scheduleRows } = await supabase
-        .from('project_billing_schedules')
-        .select('*')
-        .eq('project_id', projectId)
-        .order('billing_month', { ascending: true })
-
-      const drafts = scheduleRows ? deserializeSchedules(scheduleRows) : []
-      setPlannerSeed({ enabled: drafts.length > 0, rows: drafts })
-      setBillingPlan({ enabled: drafts.length > 0, rows: drafts })
-      
       // 顧客一覧取得
       const { data: customersData } = await supabase
         .from('customers')
@@ -149,28 +131,6 @@ export default function EditProjectPage() {
       if (updateError) {
         setError('案件の更新に失敗しました: ' + updateError.message)
         return
-      }
-
-      const { error: deleteError } = await supabase
-        .from('project_billing_schedules')
-        .delete()
-        .eq('project_id', projectId)
-      if (deleteError) {
-        setError('月次計上予定の更新に失敗しました: ' + deleteError.message)
-        return
-      }
-
-      if (billingPlan.enabled && billingPlan.rows.length > 0) {
-        const payload = scheduleDraftsToPayload(projectId, billingPlan.rows)
-        if (payload.length > 0) {
-          const { error: insertError } = await supabase
-            .from('project_billing_schedules')
-            .insert(payload)
-          if (insertError) {
-            setError('月次計上予定の登録に失敗しました: ' + insertError.message)
-            return
-          }
-        }
       }
 
       router.push(`/dashboard/projects/${projectId}`)
@@ -317,21 +277,6 @@ export default function EditProjectPage() {
                   disabled={loading}
                 />
               </div>
-            </div>
-
-            <div className="rounded-xl border border-dashed p-4 space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">月次計上予定</h3>
-                <p className="text-sm text-gray-600">受注金額を按分し、登録前に月次の請求・計上予定をプレビューできます。</p>
-              </div>
-              <MonthlyBillingPlanner
-                expectedAmount={Number(formData.expected_sales) || 0}
-                defaultStartMonth={formData.accounting_month || formData.order_month}
-                initialRows={plannerSeed?.rows ?? []}
-                initialEnabled={plannerSeed?.enabled}
-                onChange={setBillingPlan}
-                disabled={loading}
-              />
             </div>
 
             <div className="space-y-2">
