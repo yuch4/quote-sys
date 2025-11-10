@@ -148,7 +148,9 @@ export async function sendBillingRequestEmail(
     customerName: billingRequest.quote?.project?.customer?.customer_name || '',
     quoteNumber: billingRequest.quote?.quote_number || '',
     totalAmount: Number(billingRequest.quote?.total_amount || 0),
-    requestDate: new Date(billingRequest.billing_date).toLocaleDateString('ja-JP'),
+    requestDate: billingRequest.billing_month
+      ? new Date(billingRequest.billing_month).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })
+      : '',
     requesterName: billingRequest.requester?.display_name,
     approverName: billingRequest.approver?.display_name,
     rejectReason: billingRequest.reject_reason,

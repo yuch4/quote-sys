@@ -34,10 +34,10 @@ interface BillableProject {
   sales_rep: string
   billing_request?: {
     id: string
-    billing_date: string
-    notes: string
+    billing_month: string
+    notes: string | null
     status: string
-    created_at: string
+    requested_at: string
   }
 }
 
@@ -52,7 +52,7 @@ export default function BillingPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   
   // 申請フォーム
-  const [billingDate, setBillingDate] = useState('')
+  const [billingMonth, setBillingMonth] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -112,10 +112,10 @@ export default function BillingPage() {
           ),
           billing_requests(
             id,
-            billing_date,
+            billing_month,
             notes,
             status,
-            created_at
+            requested_at
           )
         `)
         .eq('approval_status', '承認済み')
@@ -172,13 +172,16 @@ export default function BillingPage() {
 
   const handleOpenDialog = (project: BillableProject) => {
     setSelectedProject(project)
-    setBillingDate(new Date().toISOString().split('T')[0])
-    setNotes('')
+    const defaultMonth = project.billing_request?.billing_month
+      ? project.billing_request.billing_month.slice(0, 7)
+      : new Date().toISOString().slice(0, 7)
+    setBillingMonth(defaultMonth)
+    setNotes(project.billing_request?.notes || '')
     setDialogOpen(true)
   }
   const handleSubmitRequest = async () => {
-    if (!selectedProject || !billingDate) {
-      alert('計上日を入力してください')
+    if (!selectedProject || !billingMonth) {
+      alert('計上予定月を入力してください')
       return
     }
 
@@ -188,12 +191,14 @@ export default function BillingPage() {
       const { data: { user: authUser } } = await supabase.auth.getUser()
       if (!authUser) throw new Error('認証エラー')
 
+      const billingMonthDate = `${billingMonth}-01`
+
       const { data: newRequest, error } = await supabase
         .from('billing_requests')
         .insert({
           quote_id: selectedProject.quote_id,
           requested_by: authUser.id,
-          billing_date: billingDate,
+          billing_month: billingMonthDate,
           notes: notes || null,
           status: '申請中',
         })
@@ -508,7 +513,7 @@ export default function BillingPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>計上申請</DialogTitle>
-            <DialogDescription>計上日と備考を入力してください</DialogDescription>
+            <DialogDescription>計上予定月と備考を入力してください</DialogDescription>
           </DialogHeader>
 
           {selectedProject && (
@@ -525,12 +530,12 @@ export default function BillingPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="billing_date">計上日 *</Label>
+                <Label htmlFor="billing_month">計上予定月 *</Label>
                 <Input
-                  id="billing_date"
-                  type="date"
-                  value={billingDate}
-                  onChange={(e) => setBillingDate(e.target.value)}
+                  id="billing_month"
+                  type="month"
+                  value={billingMonth}
+                  onChange={(e) => setBillingMonth(e.target.value)}
                   required
                 />
               </div>
