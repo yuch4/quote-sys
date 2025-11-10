@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertTriangle, Package, TrendingUp, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { ProcurementAlertReminder } from '@/components/procurement/alert-reminder'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 
 interface DashboardStats {
   totalPending: number
@@ -58,19 +59,19 @@ type QuoteItemRow = {
   cost_amount: number | null
   procurement_status: ProcurementStatus | null
   ordered_at: string | null
-  quote: {
+  quote: Array<{
     quote_number: string
-    project: {
+    project: Array<{
       project_number: string
       project_name: string
-      customer: {
+      customer: Array<{
         customer_name: string
-      }
-    }
-  }
-  supplier: {
+      }>
+    }>
+  }>
+  supplier: Array<{
     supplier_name: string | null
-  } | null
+  }>
   procurement_logs: ProcurementLog[] | null
 }
 
@@ -79,9 +80,9 @@ type StandaloneOrderRow = {
   purchase_order_number: string | null
   status: ProcurementStatus
   order_date: string | null
-  supplier: {
+  supplier: Array<{
     supplier_name: string | null
-  } | null
+  }>
   items: Array<{
     id: string
     quantity: number | null
@@ -138,6 +139,9 @@ export default function ProcurementDashboardPage() {
       if (quoteItemsError) throw quoteItemsError
 
       const quoteItems: DashboardItem[] = (quoteItemsData || []).map((item) => {
+        const quoteRecord = firstRelation(item.quote)
+        const project = quoteRecord ? firstRelation(project => quoteRecord.project) : null
+*** End Patch
         const normalizedStatus: ProcurementStatus =
           item.procurement_status === '発注済' || item.procurement_status === '入荷済'
             ? item.procurement_status

@@ -260,7 +260,7 @@ export default function ProcurementPendingPage() {
 
       const quoteItemsRaw = (quoteItemsData || []) as QuoteItemRow[]
 
-      const quoteItems: ProcurementItem[] = quoteItemsRaw
+      const quoteItems = quoteItemsRaw
         .map((item) => {
           const quoteRecord = firstRelation(item.quote)
           const project = quoteRecord ? firstRelation(quoteRecord.project) : null
