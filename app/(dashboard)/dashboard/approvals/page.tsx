@@ -238,6 +238,8 @@ export default async function ApprovalsPage() {
                   const instance = Array.isArray(step.instance) ? step.instance[0] : step.instance
                   const purchaseOrderRaw = instance?.purchase_order
                   const purchaseOrder = Array.isArray(purchaseOrderRaw) ? purchaseOrderRaw[0] : purchaseOrderRaw
+                  const supplierRaw = purchaseOrder?.supplier
+                  const supplier = Array.isArray(supplierRaw) ? supplierRaw[0] : supplierRaw
                   const quote = purchaseOrder?.quote
                   const quoteRecord = Array.isArray(quote) ? quote[0] : quote
                   if (!instance || !purchaseOrder) return null
@@ -246,7 +248,7 @@ export default async function ApprovalsPage() {
                     <TableRow key={step.id}>
                       <TableCell className="font-medium">{purchaseOrder.purchase_order_number}</TableCell>
                       <TableCell>{quoteRecord?.quote_number || '-'}</TableCell>
-                      <TableCell>{purchaseOrder.supplier?.supplier_name || '未設定'}</TableCell>
+                      <TableCell>{supplier?.supplier_name || '未設定'}</TableCell>
                       <TableCell>{purchaseOrder.order_date ? formatDate(purchaseOrder.order_date) : '-'}</TableCell>
                       <TableCell>{formatCurrency(Number(purchaseOrder.total_cost || 0))}</TableCell>
                       <TableCell>
