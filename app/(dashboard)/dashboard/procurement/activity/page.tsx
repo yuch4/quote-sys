@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProcurementActivityTimeline } from '@/components/procurement/activity-timeline'
 import type { ProcurementActivityEvent } from '@/types/procurement-activity'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 
 export default async function ProcurementActivityPage() {
   const supabase = await createClient()
@@ -129,6 +130,12 @@ export default async function ProcurementActivityPage() {
   const events: ProcurementActivityEvent[] = []
 
   for (const order of orders ?? []) {
+    const supplier = firstRelation(order.supplier)
+    const quote = firstRelation(order.quote)
+    const project = quote ? firstRelation(quote.project) : null
+    const customer = project ? firstRelation(project.customer) : null
+    const approvalInstance = firstRelation(order.approval_instance)
+
     if (order.created_at) {
       events.push({
         id: `${order.id}-created`,
@@ -137,39 +144,35 @@ export default async function ProcurementActivityPage() {
         entity: 'purchase_order',
         purchaseOrderId: order.id,
         purchaseOrderNumber: order.purchase_order_number,
-        supplierName: order.supplier?.supplier_name ?? null,
-        quoteNumber: order.quote?.quote_number ?? null,
-        quoteId: order.quote?.id ?? undefined,
-        projectName: order.quote?.project?.project_name ?? null,
-        projectNumber: order.quote?.project?.project_number ?? null,
-        customerName: order.quote?.project?.customer?.customer_name ?? null,
+        supplierName: supplier?.supplier_name ?? null,
+        quoteNumber: quote?.quote_number ?? null,
+        quoteId: quote?.id ?? undefined,
+        projectName: project?.project_name ?? null,
+        projectNumber: project?.project_number ?? null,
+        customerName: customer?.customer_name ?? null,
       })
     }
 
-    const instance = order.approval_instance && Array.isArray(order.approval_instance)
-      ? order.approval_instance[0]
-      : order.approval_instance
-
-    if (instance?.requested_at) {
+    if (approvalInstance?.requested_at) {
       events.push({
-        id: `${order.id}-requested-${instance.id}`,
-        datetime: instance.requested_at,
+        id: `${order.id}-requested-${approvalInstance.id}`,
+        datetime: approvalInstance.requested_at,
         type: '発注書承認依頼',
         entity: 'purchase_order',
         purchaseOrderId: order.id,
         purchaseOrderNumber: order.purchase_order_number,
-        supplierName: order.supplier?.supplier_name ?? null,
-        quoteNumber: order.quote?.quote_number ?? null,
-        quoteId: order.quote?.id ?? undefined,
-        projectName: order.quote?.project?.project_name ?? null,
-        projectNumber: order.quote?.project?.project_number ?? null,
-        customerName: order.quote?.project?.customer?.customer_name ?? null,
-        actor: instance.requested_by_user?.display_name ?? undefined,
+        supplierName: supplier?.supplier_name ?? null,
+        quoteNumber: quote?.quote_number ?? null,
+        quoteId: quote?.id ?? undefined,
+        projectName: project?.project_name ?? null,
+        projectNumber: project?.project_number ?? null,
+        customerName: customer?.customer_name ?? null,
+        actor: approvalInstance.requested_by_user?.display_name ?? undefined,
       })
     }
 
-    const steps = instance?.steps
-    if (steps && Array.isArray(steps)) {
+    const steps = ensureArrayRelation(approvalInstance?.steps)
+    if (steps.length > 0) {
       steps.forEach((step) => {
         if (!step.decided_at) {
           return
@@ -187,12 +190,12 @@ export default async function ProcurementActivityPage() {
           entity: 'purchase_order',
           purchaseOrderId: order.id,
           purchaseOrderNumber: order.purchase_order_number,
-          supplierName: order.supplier?.supplier_name ?? null,
-          quoteNumber: order.quote?.quote_number ?? null,
-          quoteId: order.quote?.id ?? undefined,
-          projectName: order.quote?.project?.project_name ?? null,
-          projectNumber: order.quote?.project?.project_number ?? null,
-          customerName: order.quote?.project?.customer?.customer_name ?? null,
+          supplierName: supplier?.supplier_name ?? null,
+          quoteNumber: quote?.quote_number ?? null,
+          quoteId: quote?.id ?? undefined,
+          projectName: project?.project_name ?? null,
+          projectNumber: project?.project_number ?? null,
+          customerName: customer?.customer_name ?? null,
           actor: step.approver?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
@@ -201,7 +204,13 @@ export default async function ProcurementActivityPage() {
   }
 
   for (const log of procurementLogs ?? []) {
-    const purchaseOrder = log.quote_item?.purchase_order_items?.[0]?.purchase_order
+    const quoteItem = firstRelation(log.quote_item)
+    const poItem = quoteItem ? firstRelation(quoteItem.purchase_order_items) : null
+    const purchaseOrder = poItem ? firstRelation(poItem.purchase_order) : null
+    const logQuote = quoteItem ? firstRelation(quoteItem.quote) : null
+    const logProject = logQuote ? firstRelation(logQuote.project) : null
+    const logCustomer = logProject ? firstRelation(logProject.customer) : null
+
     if (!purchaseOrder) continue
 
     const type = log.action_type === '入荷' ? '入荷' : log.action_type === '発注' ? '発注' : 'その他'
@@ -213,18 +222,22 @@ export default async function ProcurementActivityPage() {
       entity: 'purchase_order',
       purchaseOrderId: purchaseOrder.id,
       purchaseOrderNumber: purchaseOrder.purchase_order_number,
-      supplierName: purchaseOrder.supplier?.supplier_name ?? null,
-      quoteId: log.quote_item?.quote?.id ?? undefined,
-      quoteNumber: log.quote_item?.quote?.quote_number ?? null,
-      projectName: log.quote_item?.quote?.project?.project_name ?? null,
-      projectNumber: log.quote_item?.quote?.project?.project_number ?? null,
-      customerName: log.quote_item?.quote?.project?.customer?.customer_name ?? null,
+      supplierName: firstRelation(purchaseOrder.supplier)?.supplier_name ?? null,
+      quoteId: logQuote?.id ?? undefined,
+      quoteNumber: logQuote?.quote_number ?? null,
+      projectName: logProject?.project_name ?? null,
+      projectNumber: logProject?.project_number ?? null,
+      customerName: logCustomer?.customer_name ?? null,
       actor: log.performed_by_user?.display_name ?? null,
       notes: log.notes ?? undefined,
     })
   }
 
   for (const quote of quotes ?? []) {
+    const project = quote.project ? firstRelation(quote.project) : null
+    const customer = project ? firstRelation(project.customer) : null
+    const approvalInstance = firstRelation(quote.approval_instance)
+
     if (quote.created_at) {
       events.push({
         id: `${quote.id}-quote-created`,
@@ -233,34 +246,30 @@ export default async function ProcurementActivityPage() {
         entity: 'quote',
         quoteId: quote.id,
         quoteNumber: quote.quote_number,
-        projectName: quote.project?.project_name ?? null,
-        projectNumber: quote.project?.project_number ?? null,
-        customerName: quote.project?.customer?.customer_name ?? null,
+        projectName: project?.project_name ?? null,
+        projectNumber: project?.project_number ?? null,
+        customerName: customer?.customer_name ?? null,
         actor: quote.created_by_user?.display_name ?? null,
       })
     }
 
-    const instance = quote.approval_instance && Array.isArray(quote.approval_instance)
-      ? quote.approval_instance[0]
-      : quote.approval_instance
-
-    if (instance?.requested_at) {
+    if (approvalInstance?.requested_at) {
       events.push({
-        id: `${quote.id}-quote-requested-${instance.id}`,
-        datetime: instance.requested_at,
+        id: `${quote.id}-quote-requested-${approvalInstance.id}`,
+        datetime: approvalInstance.requested_at,
         type: '見積承認依頼',
         entity: 'quote',
         quoteId: quote.id,
         quoteNumber: quote.quote_number,
-        projectName: quote.project?.project_name ?? null,
-        projectNumber: quote.project?.project_number ?? null,
-        customerName: quote.project?.customer?.customer_name ?? null,
-        actor: instance.requested_by_user?.display_name ?? null,
+        projectName: project?.project_name ?? null,
+        projectNumber: project?.project_number ?? null,
+        customerName: customer?.customer_name ?? null,
+        actor: approvalInstance.requested_by_user?.display_name ?? null,
       })
     }
 
-    const steps = instance?.steps
-    if (steps && Array.isArray(steps)) {
+    const steps = ensureArrayRelation(approvalInstance?.steps)
+    if (steps.length > 0) {
       steps.forEach((step) => {
         if (!step.decided_at) {
           return
@@ -278,9 +287,9 @@ export default async function ProcurementActivityPage() {
           entity: 'quote',
           quoteId: quote.id,
           quoteNumber: quote.quote_number,
-          projectName: quote.project?.project_name ?? null,
-          projectNumber: quote.project?.project_number ?? null,
-          customerName: quote.project?.customer?.customer_name ?? null,
+          projectName: project?.project_name ?? null,
+          projectNumber: project?.project_number ?? null,
+          customerName: customer?.customer_name ?? null,
           actor: step.approver?.display_name ?? step.approver_role,
           notes: step.notes ?? undefined,
         })
@@ -289,16 +298,18 @@ export default async function ProcurementActivityPage() {
   }
 
   for (const activity of projectActivities ?? []) {
-    if (!activity.project) continue
+    const project = activity.project ? firstRelation(activity.project) : null
+    const customer = project ? firstRelation(project.customer) : null
+    if (!project) continue
     events.push({
       id: activity.id,
       datetime: activity.activity_date ?? activity.created_at,
       type: '案件活動',
       entity: 'project',
-      projectId: activity.project.id,
-      projectNumber: activity.project.project_number ?? null,
-      projectName: activity.project.project_name ?? null,
-      customerName: activity.project.customer?.customer_name ?? null,
+      projectId: project.id,
+      projectNumber: project.project_number ?? null,
+      projectName: project.project_name ?? null,
+      customerName: customer?.customer_name ?? null,
       actor: activity.created_by_user?.display_name ?? null,
       title: activity.subject,
       notes: [activity.details, activity.next_action ? `次回: ${activity.next_action}${activity.next_action_due_date ? ` (${activity.next_action_due_date})` : ''}` : null]
