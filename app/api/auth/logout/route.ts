@@ -13,5 +13,5 @@ const resolveRedirectUrl = (request: Request) => {
 export async function POST(request: Request) {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  return NextResponse.redirect(resolveRedirectUrl(request))
+  return NextResponse.redirect(resolveRedirectUrl(request), { status: 303 })
 }
