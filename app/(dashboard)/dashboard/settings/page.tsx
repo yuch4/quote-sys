@@ -440,7 +440,8 @@ export default function SettingsPage() {
   ) => {
     const numericValues = items
       .map((item) => item[field])
-      .filter((code): code is string => typeof code === 'string' && code.startsWith(prefix))
+      .filter((code): code is string => typeof code === 'string')
+      .filter((code) => code.startsWith(prefix))
       .map((code) => parseInt(code.replace(prefix, ''), 10))
       .filter((num) => !Number.isNaN(num))
 
