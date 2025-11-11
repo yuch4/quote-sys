@@ -161,13 +161,15 @@ export default async function PurchaseOrdersPage() {
         }
       : null
 
-    const procurementStats = (order.items || []).reduce(
+    const orderItems = ensureArrayRelation(order.items)
+    const procurementStats = orderItems.reduce(
       (acc, item) => {
+        const quoteItem = firstRelation(item.quote_item)
         let status: '未発注' | '発注済' | '入荷済' = '未発注'
 
-        if (item.quote_item?.procurement_status === '発注済' || item.quote_item?.procurement_status === '入荷済') {
-          status = item.quote_item.procurement_status as '発注済' | '入荷済'
-        } else if (!item.quote_item?.procurement_status && order.status === '発注済') {
+        if (quoteItem?.procurement_status === '発注済' || quoteItem?.procurement_status === '入荷済') {
+          status = quoteItem.procurement_status as '発注済' | '入荷済'
+        } else if (!quoteItem?.procurement_status && order.status === '発注済') {
           status = '発注済'
         }
 
@@ -196,7 +198,7 @@ export default async function PurchaseOrdersPage() {
       created_by: order.created_by,
       supplier,
       quote: quoteRecord,
-      items: ensureArrayRelation(order.items).map((item) => ({
+      items: orderItems.map((item) => ({
         id: item.id,
         quantity: Number(item.quantity || 0),
         unit_cost: Number(item.unit_cost || 0),
