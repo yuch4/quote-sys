@@ -21,6 +21,7 @@ import type {
   DocumentLayoutConfig,
   DocumentLayoutSectionConfig,
   DocumentLayoutTableColumnConfig,
+  DocumentSectionKey,
   DocumentTargetEntity,
 } from '@/types/document-layout'
 import {
