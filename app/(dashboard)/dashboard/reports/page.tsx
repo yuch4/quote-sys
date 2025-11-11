@@ -10,11 +10,10 @@ import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/components/ui/date-picker'
 import { BarChart3, TrendingUp, DollarSign, Target, Award, Download, Calendar as CalendarIcon, Users, Package } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { toast } from 'sonner'
-import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 
 interface User {
   id: string
@@ -63,6 +62,10 @@ interface CategoryReport {
   total_sales: number
   total_profit: number
   average_profit_rate: number
+}
+
+type CategoryChartDatum = CategoryReport & {
+  [key: string]: string | number
 }
 
 type PeriodType = 'month' | 'quarter' | 'year' | 'custom'
@@ -134,6 +137,13 @@ export default function ReportsPage() {
   const [periodType, setPeriodType] = useState<PeriodType>('month')
   const [startDate, setStartDate] = useState<Date | undefined>(startOfMonth(new Date()))
   const [endDate, setEndDate] = useState<Date | undefined>(endOfMonth(new Date()))
+
+  const categoryChartData: CategoryChartDatum[] = categoryReports.map((report) => {
+    const datum: CategoryChartDatum = {
+      ...report,
+    }
+    return datum
+  })
 
   useEffect(() => {
     loadCurrentUser()
@@ -771,15 +781,20 @@ export default function ReportsPage() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={categoryReports}
+                  data={categoryChartData}
                   dataKey="total_sales"
                   nameKey="category"
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={(entry) => `${entry.category} (${((entry.total_sales / totalStats.totalSales) * 100).toFixed(1)}%)`}
+                  label={(entry: CategoryChartDatum) => {
+                    const ratio = totalStats.totalSales > 0
+                      ? ((entry.total_sales / totalStats.totalSales) * 100).toFixed(1)
+                      : '0.0'
+                    return `${entry.category} (${ratio}%)`
+                  }}
                 >
-                  {categoryReports.map((entry, index) => (
+                  {categoryChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
