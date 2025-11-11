@@ -97,6 +97,7 @@ export default async function PurchaseOrdersPage() {
         ),
         steps:purchase_order_approval_instance_steps(
           id,
+          instance_id,
           step_order,
           approver_role,
           approver_user_id,

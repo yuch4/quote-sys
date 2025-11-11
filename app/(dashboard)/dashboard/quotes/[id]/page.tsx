@@ -131,16 +131,21 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         ),
         approval_instance:purchase_order_approval_instances(
           id,
+          purchase_order_id,
+          route_id,
           status,
           current_step,
           requested_by,
           requested_at,
+          updated_at,
+          rejection_reason,
           route:approval_routes(
             id,
             name
           ),
           steps:purchase_order_approval_instance_steps(
             id,
+            instance_id,
             step_order,
             approver_role,
             status,
@@ -153,10 +158,14 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
       ),
       approval_instance:quote_approval_instances(
         id,
+        quote_id,
+        route_id,
         status,
         current_step,
         requested_by,
         requested_at,
+        updated_at,
+        rejection_reason,
         route:approval_routes(
           id,
           name,
@@ -166,6 +175,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
         ),
         steps:quote_approval_instance_steps(
           id,
+          instance_id,
           step_order,
           approver_role,
           status,

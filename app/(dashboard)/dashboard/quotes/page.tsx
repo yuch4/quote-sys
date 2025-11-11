@@ -98,14 +98,30 @@ export default async function QuotesPage(props: {
         created_by_user:users!quotes_created_by_fkey(display_name),
         approval_instance:quote_approval_instances(
           id,
+          quote_id,
+          route_id,
           status,
           current_step,
-          route:approval_routes(name),
+          requested_by,
+          requested_at,
+          updated_at,
+          rejection_reason,
+          route:approval_routes(
+            id,
+            name,
+            requester_role,
+            min_total_amount,
+            max_total_amount
+          ),
           steps:quote_approval_instance_steps(
             id,
+            instance_id,
             step_order,
             approver_role,
             status,
+            approver_user_id,
+            decided_at,
+            notes,
             approver:users(id, display_name)
           )
         )
