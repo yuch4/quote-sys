@@ -27,9 +27,9 @@ type ProjectSearchParams = Promise<{
   view?: string
 }>
 
-type FilterableQuery<T> = {
-  eq: (column: string, value: unknown) => T
-  ilike: (column: string, pattern: string) => T
+type FilterableQuery = {
+  eq: (column: string, value: unknown) => FilterableQuery
+  ilike: (column: string, pattern: string) => FilterableQuery
 }
 
 const ITEMS_PER_PAGE = 20
@@ -87,8 +87,8 @@ export default async function ProjectsPage(props: {
   const viewMode = searchParams.view === 'list' ? 'list' : 'kanban'
   const resetHref = viewMode === 'kanban' ? '/dashboard/projects' : '/dashboard/projects?view=list'
 
-  const applyFilters = <T extends FilterableQuery<T>>(query: T): T => {
-    let nextQuery = query
+  const applyFilters = <T,>(query: T): T => {
+    let nextQuery: FilterableQuery = query as unknown as FilterableQuery
     if (statusFilter !== 'all') {
       nextQuery = nextQuery.eq('status', statusFilter)
     }
@@ -98,7 +98,7 @@ export default async function ProjectsPage(props: {
     if (keyword) {
       nextQuery = nextQuery.ilike('project_name', `%${keyword}%`)
     }
-    return nextQuery
+    return nextQuery as unknown as T
   }
 
   // ログインユーザー情報取得

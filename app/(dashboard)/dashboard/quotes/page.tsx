@@ -25,10 +25,10 @@ type QuoteSearchParams = Promise<{
   q?: string
 }>
 
-type FilterableQuery<T> = {
-  eq: (column: string, value: unknown) => T
-  ilike: (column: string, pattern: string) => T
-  or: (filters: string, options?: { foreignTable?: string }) => T
+type FilterableQuery = {
+  eq: (column: string, value: unknown) => FilterableQuery
+  ilike: (column: string, pattern: string) => FilterableQuery
+  or: (filters: string, options?: { foreignTable?: string }) => FilterableQuery
 }
 
 export default async function QuotesPage(props: {
@@ -53,8 +53,8 @@ export default async function QuotesPage(props: {
     return value.replace(/[%]/g, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
   }
 
-  const applyFilters = <T extends FilterableQuery<T>>(query: T): T => {
-    let nextQuery = query
+  const applyFilters = <T,>(query: T): T => {
+    let nextQuery: FilterableQuery = query as unknown as FilterableQuery
     if (statusFilter !== 'all') {
       nextQuery = nextQuery.eq('approval_status', statusFilter)
     }
@@ -74,7 +74,7 @@ export default async function QuotesPage(props: {
         ].join(','))
       }
     }
-    return nextQuery
+    return nextQuery as unknown as T
   }
 
   // 総件数を取得
