@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { PurchaseOrderTable } from '@/components/purchase-orders/purchase-order-table'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
-import type { PurchaseOrderListItem } from '@/components/purchase-orders/purchase-order-table'
-import type { PurchaseOrderStatus } from '@/types/database'
-import { firstRelation } from '@/lib/supabase/relations'
+import type { ApprovalRoute, ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderApprovalInstanceStep, PurchaseOrderListItem, PurchaseOrderStatus } from '@/types/database'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 
 type QuoteOption = {
   id: string
