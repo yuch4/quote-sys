@@ -136,7 +136,21 @@ export async function previewDocumentLayout(target: DocumentTargetEntity): Promi
   const layout = mergeDocumentLayoutConfig('purchase_order', layoutData ?? undefined)
 
   const supplier = firstRelation(order.supplier)
-  const quoteRecord = firstRelation(order.quote)
+  const quoteRecordRaw = firstRelation(order.quote)
+  const quoteProject = quoteRecordRaw ? firstRelation(quoteRecordRaw.project) : null
+  const quoteCustomer = quoteProject ? firstRelation(quoteProject.customer) : null
+  const quoteRecord = quoteRecordRaw
+    ? {
+        quote_number: quoteRecordRaw.quote_number ?? null,
+        project: quoteProject
+          ? {
+              project_name: quoteProject.project_name ?? null,
+              project_number: quoteProject.project_number ?? null,
+              customer: quoteCustomer ? { customer_name: quoteCustomer.customer_name ?? null } : undefined,
+            }
+          : null,
+      }
+    : null
   const orderItems = ensureArrayRelation(order.items)
   const items = orderItems.map((item, index) => {
     const quoteItem = firstRelation(item.quote_item)
