@@ -12,6 +12,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type ProjectDetailParams = { id: string }
 
+type QuoteSummary = {
+  id: string
+  quote_number: string
+  approval_status: string
+  total_amount: number | null
+  issue_date: string | null
+  created_at: string
+  purchase_orders?: Array<{
+    id: string
+    purchase_order_number: string
+    status: string
+    approval_status: string | null
+    total_cost: number | null
+    created_at: string
+    supplier?: { supplier_name: string | null } | null
+  }> | null
+}
+
 export default async function ProjectDetailPage({ params }: { params: Promise<ProjectDetailParams> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -133,7 +151,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
   }
 
   const derivedStatus = deriveProjectStatus(project)
-  const quotes = project.quotes ?? []
+  const quotes = (project.quotes ?? []) as QuoteSummary[]
   const suppliers = suppliersData ?? []
   const purchaseOrderQuoteOptions = quotes
     .filter((quote) => quote.approval_status === '承認済み')
