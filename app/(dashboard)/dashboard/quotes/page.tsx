@@ -13,7 +13,6 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import Link from 'next/link'
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js'
 import type { ApprovalStatus, QuoteApprovalInstance } from '@/types/database'
 
 const ITEMS_PER_PAGE = 20
@@ -26,15 +25,11 @@ type QuoteSearchParams = Promise<{
   q?: string
 }>
 
-type QuotesQuery = PostgrestFilterBuilder<
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-  unknown,
-  unknown,
-  unknown,
-  unknown
->
+type FilterableQuery<T> = {
+  eq: (column: string, value: unknown) => T
+  ilike: (column: string, pattern: string) => T
+  or: (filters: string, options?: { foreignTable?: string }) => T
+}
 
 export default async function QuotesPage(props: {
   searchParams: QuoteSearchParams
@@ -58,7 +53,7 @@ export default async function QuotesPage(props: {
     return value.replace(/[%]/g, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
   }
 
-  const applyFilters = (query: QuotesQuery) => {
+  const applyFilters = <T extends FilterableQuery<T>>(query: T): T => {
     let nextQuery = query
     if (statusFilter !== 'all') {
       nextQuery = nextQuery.eq('approval_status', statusFilter)

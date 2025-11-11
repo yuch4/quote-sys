@@ -17,7 +17,6 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import Link from 'next/link'
-import type { PostgrestFilterBuilder } from '@supabase/postgrest-js'
 
 type ProjectSearchParams = Promise<{
   page?: string
@@ -28,15 +27,10 @@ type ProjectSearchParams = Promise<{
   view?: string
 }>
 
-type ProjectsQuery = PostgrestFilterBuilder<
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-  unknown,
-  unknown,
-  unknown,
-  unknown
->
+type FilterableQuery<T> = {
+  eq: (column: string, value: unknown) => T
+  ilike: (column: string, pattern: string) => T
+}
 
 const ITEMS_PER_PAGE = 20
 const DEFAULT_SORT = { column: 'created_at', direction: 'desc' as 'asc' | 'desc' }
@@ -93,7 +87,7 @@ export default async function ProjectsPage(props: {
   const viewMode = searchParams.view === 'list' ? 'list' : 'kanban'
   const resetHref = viewMode === 'kanban' ? '/dashboard/projects' : '/dashboard/projects?view=list'
 
-  const applyFilters = (query: ProjectsQuery) => {
+  const applyFilters = <T extends FilterableQuery<T>>(query: T): T => {
     let nextQuery = query
     if (statusFilter !== 'all') {
       nextQuery = nextQuery.eq('status', statusFilter)
