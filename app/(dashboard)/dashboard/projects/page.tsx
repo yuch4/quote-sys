@@ -8,6 +8,7 @@ import { ProjectKanbanBoard } from '@/components/projects/project-kanban'
 import { ProjectActivityEntryButton } from '@/components/projects/project-activity-entry'
 import { ProjectFilters } from '@/components/projects/project-filters'
 import { cn } from '@/lib/utils'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 import {
   Pagination,
   PaginationContent,
@@ -65,6 +66,8 @@ type ProjectWithActivityInfo = {
   project_activities?: ProjectActivityRecord[] | null
   updated_at?: string | null
   created_at?: string | null
+  customer?: { customer_name: string | null } | { customer_name: string | null }[] | null
+  sales_rep?: { display_name: string | null } | { display_name: string | null }[] | null
 }
 
 export default async function ProjectsPage(props: {
@@ -292,7 +295,29 @@ export default async function ProjectsPage(props: {
     }
     return { backgroundColor: activitySettings.safe_color, borderColor: activitySettings.safe_color, state: 'safe' as const }
   }
-  const projectList = (projects || []).map((project) => {
+  const normalizeProjectRelations = <T extends ProjectWithActivityInfo & {
+    customer?: unknown
+    sales_rep?: unknown
+    quotes?: unknown
+    project_activities?: unknown
+  }>(project: T) => {
+    const customer = firstRelation(project.customer)
+    const salesRep = firstRelation(project.sales_rep)
+    const quotes = ensureArrayRelation(project.quotes)
+    const projectActivities = ensureArrayRelation(project.project_activities)
+    return {
+      ...project,
+      customer: customer ? { customer_name: customer.customer_name ?? null } : null,
+      sales_rep: salesRep ? { display_name: salesRep.display_name ?? null } : null,
+      quotes,
+      project_activities: projectActivities as ProjectActivityRecord[],
+    }
+  }
+
+  const normalizedProjects = (projects || []).map(normalizeProjectRelations)
+  const normalizedKanbanProjects = (kanbanProjects || []).map(normalizeProjectRelations)
+
+  const projectList = normalizedProjects.map((project) => {
     const lastActivityDate = getLatestActivityDate(project)
     const daysSinceActivity = calcDaysSince(lastActivityDate)
     const aging = getAgingColors(daysSinceActivity)
@@ -306,7 +331,7 @@ export default async function ProjectsPage(props: {
       agingState: aging.state,
     }
   })
-  const kanbanProjectList = (kanbanProjects || []).map((project) => {
+  const kanbanProjectList = normalizedKanbanProjects.map((project) => {
     const lastActivityDate = getLatestActivityDate(project)
     const daysSinceActivity = calcDaysSince(lastActivityDate)
     const aging = getAgingColors(daysSinceActivity)
