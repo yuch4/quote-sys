@@ -135,6 +135,8 @@ export async function previewDocumentLayout(target: DocumentTargetEntity): Promi
 
   const layout = mergeDocumentLayoutConfig('purchase_order', layoutData ?? undefined)
 
+  const supplier = firstRelation(order.supplier)
+  const quoteRecord = firstRelation(order.quote)
   const orderItems = ensureArrayRelation(order.items)
   const items = orderItems.map((item, index) => {
     const quoteItem = firstRelation(item.quote_item)
@@ -156,8 +158,15 @@ export async function previewDocumentLayout(target: DocumentTargetEntity): Promi
         status: order.status,
         total_cost: Number(order.total_cost || 0),
         notes: order.notes,
-        supplier: order.supplier || null,
-        quote: order.quote || null,
+        supplier: supplier
+          ? {
+              supplier_name: supplier.supplier_name ?? null,
+              address: supplier.address ?? null,
+              phone: supplier.phone ?? null,
+              email: supplier.email ?? null,
+            }
+          : null,
+        quote: quoteRecord || null,
       },
       companyInfo,
       items,
