@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { MonthlyBillingPlanner } from '@/components/projects/billing-schedule-planner'
-import type { BillingScheduleDraft, ProjectBillingSchedule } from '@/types/database'
-import { deserializeSchedules, scheduleDraftsToPayload } from '@/lib/projects/billing-schedule'
+import type { ProjectBillingSchedule } from '@/types/database'
+import {
+  deserializeSchedules,
+  scheduleDraftsToPayload,
+  type BillingScheduleDraft,
+} from '@/lib/projects/billing-schedule'
 import { toast } from 'sonner'
 
 interface QuoteBillingPlanProps {

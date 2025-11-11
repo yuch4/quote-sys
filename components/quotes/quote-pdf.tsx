@@ -220,8 +220,9 @@ const getColumnValue = (key: DocumentTableColumnKey, item: QuoteItem, formatCurr
 }
 
 export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
-  const formatCurrency = (amount: string) => {
-    return `¥${Number(amount).toLocaleString()}`
+  const formatCurrency = (amount: string | number) => {
+    const numericAmount = typeof amount === 'number' ? amount : Number(amount)
+    return `¥${numericAmount.toLocaleString()}`
   }
 
   const formatDate = (dateString: string) => {

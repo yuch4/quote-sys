@@ -4,6 +4,14 @@ import { pdf } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { PurchaseOrderPDF } from '@/components/purchase-orders/purchase-order-pdf'
 import { mergeDocumentLayoutConfig } from '@/lib/document-layout'
+import type { PurchaseOrderItem, QuoteItem } from '@/types/database'
+
+const toSingle = <T>(value: T | T[] | null | undefined): T | null => {
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+  return value ?? null
+}
 
 export async function generatePurchaseOrderPDF(purchaseOrderId: string) {
   const supabase = await createClient()
@@ -79,14 +87,53 @@ export async function generatePurchaseOrderPDF(purchaseOrderId: string) {
 
     const layoutConfig = mergeDocumentLayoutConfig('purchase_order', layoutData ?? undefined)
 
-    const items = (order.items || []).map((item, index) => ({
-      line_number: item.quote_item?.line_number ?? index + 1,
-      name: item.manual_name || item.quote_item?.product_name || `明細${index + 1}`,
-      description: item.manual_description || item.quote_item?.description || null,
-      quantity: Number(item.quantity || 0),
-      unit_cost: Number(item.unit_cost || 0),
-      amount: Number(item.amount || 0),
-    }))
+    type SupplierRaw = {
+      supplier_name: string | null
+      address: string | null
+      phone: string | null
+      email: string | null
+    }
+
+    type ProjectRaw = {
+      project_name: string | null
+      project_number: string | null
+      customer?: { customer_name: string | null } | { customer_name: string | null }[] | null
+    }
+
+    type QuoteRaw = {
+      quote_number: string | null
+      project?: ProjectRaw | ProjectRaw[] | null
+    }
+
+    const items = ((order.items || []) as Array<PurchaseOrderItem & { quote_item?: QuoteItem | QuoteItem[] | null }>).
+      map((item, index) => {
+        const relatedQuoteItem = toSingle(item.quote_item)
+
+        return {
+          line_number: relatedQuoteItem?.line_number ?? index + 1,
+          name: item.manual_name || relatedQuoteItem?.product_name || `明細${index + 1}`,
+          description: item.manual_description || relatedQuoteItem?.description || null,
+          quantity: Number(item.quantity || 0),
+          unit_cost: Number(item.unit_cost || 0),
+          amount: Number(item.amount || 0),
+        }
+      })
+
+    const supplier = toSingle(order.supplier) as SupplierRaw | null
+    const quoteRaw = toSingle(order.quote) as QuoteRaw | null
+    const projectRaw = quoteRaw?.project ? toSingle(quoteRaw.project) as ProjectRaw | null : null
+    const customerRaw = projectRaw?.customer ? toSingle(projectRaw.customer) as { customer_name: string | null } | null : null
+    const normalizedQuote = quoteRaw
+      ? {
+          ...quoteRaw,
+          project: projectRaw
+            ? {
+                ...projectRaw,
+                customer: customerRaw ?? undefined,
+              }
+            : null,
+        }
+      : null
 
     const pdfDoc = PurchaseOrderPDF({
       order: {
@@ -95,8 +142,8 @@ export async function generatePurchaseOrderPDF(purchaseOrderId: string) {
         status: order.status,
         total_cost: Number(order.total_cost || 0),
         notes: order.notes,
-        supplier: order.supplier || null,
-        quote: order.quote || null,
+        supplier,
+        quote: normalizedQuote,
       },
       companyInfo,
       items,
