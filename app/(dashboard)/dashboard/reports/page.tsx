@@ -787,11 +787,12 @@ export default function ReportsPage() {
                   cx="50%"
                   cy="50%"
                   outerRadius={100}
-                  label={(entry: CategoryChartDatum) => {
+                  labelLine={false}
+                  label={({ payload }) => {
                     const ratio = totalStats.totalSales > 0
-                      ? ((entry.total_sales / totalStats.totalSales) * 100).toFixed(1)
+                      ? (((payload?.total_sales as number) / totalStats.totalSales) * 100).toFixed(1)
                       : '0.0'
-                    return `${entry.category} (${ratio}%)`
+                    return `${payload?.category ?? '-'} (${ratio}%)`
                   }}
                 >
                   {categoryChartData.map((entry, index) => (
