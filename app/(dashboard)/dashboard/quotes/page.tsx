@@ -26,7 +26,15 @@ type QuoteSearchParams = Promise<{
   q?: string
 }>
 
-type QuotesQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>
+type QuotesQuery = PostgrestFilterBuilder<
+  Record<string, unknown>,
+  Record<string, unknown>,
+  Record<string, unknown>,
+  unknown,
+  unknown,
+  unknown,
+  unknown
+>
 
 export default async function QuotesPage(props: {
   searchParams: QuoteSearchParams

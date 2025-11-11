@@ -28,7 +28,15 @@ type ProjectSearchParams = Promise<{
   view?: string
 }>
 
-type ProjectsQuery = PostgrestFilterBuilder<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>
+type ProjectsQuery = PostgrestFilterBuilder<
+  Record<string, unknown>,
+  Record<string, unknown>,
+  Record<string, unknown>,
+  unknown,
+  unknown,
+  unknown,
+  unknown
+>
 
 const ITEMS_PER_PAGE = 20
 const DEFAULT_SORT = { column: 'created_at', direction: 'desc' as 'asc' | 'desc' }
