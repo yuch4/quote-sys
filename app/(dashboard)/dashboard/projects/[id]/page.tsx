@@ -9,6 +9,7 @@ import { deriveProjectStatus } from '@/lib/projects/status'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
 import { ProjectActivityForm } from '@/components/procurement/project-activity-form'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { firstRelation } from '@/lib/supabase/relations'
 
 type ProjectDetailParams = { id: string }
 
@@ -166,7 +167,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
       quote_number: quote.quote_number,
     }))
   )
-  const projectActivityRecords = projectActivities ?? []
+  const projectActivityRecords = (projectActivities ?? []).map((activity) => ({
+    ...activity,
+    created_by_user: firstRelation(activity.created_by_user),
+  }))
   const projectActivityFormOptions = [
     {
       id: project.id,
