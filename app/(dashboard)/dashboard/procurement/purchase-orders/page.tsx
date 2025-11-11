@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { PurchaseOrderTable } from '@/components/purchase-orders/purchase-order-table'
 import { PurchaseOrderCreateDialog } from '@/components/purchase-orders/purchase-order-create-dialog'
-import type { ApprovalRoute, ApprovalRouteStep, PurchaseOrderApprovalInstance, PurchaseOrderApprovalInstanceStep, PurchaseOrderListItem, PurchaseOrderStatus } from '@/types/database'
+import type { PurchaseOrderListItem } from '@/components/purchase-orders/purchase-order-table'
+import type { PurchaseOrderStatus } from '@/types/database'
 import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 
 type QuoteOption = {
@@ -73,14 +74,32 @@ export default async function PurchaseOrdersPage() {
       ),
       approval_instance:purchase_order_approval_instances(
         id,
+        purchase_order_id,
+        route_id,
         status,
         current_step,
+        requested_by,
         requested_at,
-        route:approval_routes(name),
+        updated_at,
+        rejection_reason,
+        route:approval_routes(
+          id,
+          name,
+          description,
+          requester_role,
+          target_entity,
+          min_total_amount,
+          max_total_amount,
+          is_active,
+          created_by,
+          created_at,
+          updated_at
+        ),
         steps:purchase_order_approval_instance_steps(
           id,
           step_order,
           approver_role,
+          approver_user_id,
           status,
           decided_at,
           notes,
@@ -130,15 +149,10 @@ export default async function PurchaseOrdersPage() {
     const supplier = firstRelation(order.supplier)
     const quoteRecord = firstRelation(order.quote)
 
-    const approvalInstance = approvalInstanceRaw
+    const approvalInstance: PurchaseOrderListItem['approval_instance'] = approvalInstanceRaw
       ? {
           ...approvalInstanceRaw,
-          purchase_order_id: approvalInstanceRaw.purchase_order_id,
-          route_id: approvalInstanceRaw.route_id,
-          requested_by: approvalInstanceRaw.requested_by,
-          updated_at: approvalInstanceRaw.updated_at,
-          rejection_reason: approvalInstanceRaw.rejection_reason,
-          route: firstRelation(approvalInstanceRaw.route),
+          route: firstRelation(approvalInstanceRaw.route) ?? undefined,
           steps: ensureArrayRelation(approvalInstanceRaw.steps).map((step) => ({
             ...step,
             approver: firstRelation(step.approver) ?? undefined,
