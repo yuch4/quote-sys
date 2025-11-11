@@ -1,6 +1,7 @@
 'use server'
 
 import { pdf } from '@react-pdf/renderer'
+import type { DocumentProps } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
 import { QuotePDF } from '@/components/quotes/quote-pdf'
 import { PurchaseOrderPDF } from '@/components/purchase-orders/purchase-order-pdf'
@@ -13,7 +14,7 @@ type PreviewResponse = {
   base64?: string
 }
 
-const buildPdfBase64 = async (doc: React.ReactElement) => {
+const buildPdfBase64 = async (doc: React.ReactElement<DocumentProps>) => {
   const blob = await pdf(doc).toBlob()
   const arrayBuffer = await blob.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
