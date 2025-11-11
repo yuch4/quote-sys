@@ -207,7 +207,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
 
   // バージョン履歴を取得
   const baseNumber = quote.quote_number.split('-v')[0]
-  const { data: versions } = await supabase
+  const { data: versionsRaw } = await supabase
     .from('quotes')
     .select(`
       id,
@@ -220,6 +220,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     `)
     .like('quote_number', `${baseNumber}%`)
     .order('version', { ascending: false })
+
+  const versions = ensureArrayRelation(versionsRaw).map((quoteVersion) => ({
+    ...quoteVersion,
+    created_by_user: firstRelation(quoteVersion.created_by_user) ?? undefined,
+  }))
 
   const getApprovalStatusBadgeVariant = (status: string) => {
     switch (status) {
