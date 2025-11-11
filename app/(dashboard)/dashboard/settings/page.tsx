@@ -546,7 +546,8 @@ export default function SettingsPage() {
 
         for (const layoutRow of documentLayoutRes.data) {
           if (layoutRow.target_entity === 'quote' || layoutRow.target_entity === 'purchase_order') {
-            nextLayouts[layoutRow.target_entity] = mergeDocumentLayoutConfig(layoutRow.target_entity, {
+            const entity: DocumentTargetEntity = layoutRow.target_entity
+            nextLayouts[entity] = mergeDocumentLayoutConfig(entity, {
               sections: layoutRow.sections,
               table_columns: layoutRow.table_columns,
             })
