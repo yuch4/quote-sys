@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { QuotePDF } from '@/components/quotes/quote-pdf'
 import { PurchaseOrderPDF } from '@/components/purchase-orders/purchase-order-pdf'
 import { mergeDocumentLayoutConfig } from '@/lib/document-layout'
+import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 import type { DocumentTargetEntity } from '@/types/document-layout'
 
 type PreviewResponse = {
@@ -134,14 +135,18 @@ export async function previewDocumentLayout(target: DocumentTargetEntity): Promi
 
   const layout = mergeDocumentLayoutConfig('purchase_order', layoutData ?? undefined)
 
-  const items = (order.items || []).map((item, index) => ({
-    line_number: item.quote_item?.line_number ?? index + 1,
-    name: item.manual_name || item.quote_item?.product_name || `明細${index + 1}`,
-    description: item.manual_description || item.quote_item?.description || null,
-    quantity: Number(item.quantity || 0),
-    unit_cost: Number(item.unit_cost || 0),
-    amount: Number(item.amount || 0),
-  }))
+  const orderItems = ensureArrayRelation(order.items)
+  const items = orderItems.map((item, index) => {
+    const quoteItem = firstRelation(item.quote_item)
+    return {
+      line_number: quoteItem?.line_number ?? index + 1,
+      name: item.manual_name || quoteItem?.product_name || `明細${index + 1}`,
+      description: item.manual_description || quoteItem?.description || null,
+      quantity: Number(item.quantity || 0),
+      unit_cost: Number(item.unit_cost || 0),
+      amount: Number(item.amount || 0),
+    }
+  })
 
   const base64 = await buildPdfBase64(
     PurchaseOrderPDF({
