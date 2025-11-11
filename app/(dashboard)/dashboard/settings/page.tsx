@@ -433,13 +433,8 @@ export default function SettingsPage() {
     )
   }
 
-  const generateNextCode = <T extends Record<string, unknown>>(
-    items: T[],
-    field: keyof T,
-    prefix: string,
-  ) => {
-    const numericValues = items.reduce<number[]>((acc, item) => {
-      const value = item[field]
+  const generateNextCode = (values: (string | null | undefined)[], prefix: string) => {
+    const numericValues = values.reduce<number[]>((acc, value) => {
       if (typeof value === 'string' && value.startsWith(prefix)) {
         const parsed = parseInt(value.replace(prefix, ''), 10)
         if (!Number.isNaN(parsed)) {
@@ -1015,11 +1010,11 @@ export default function SettingsPage() {
     } else {
       if (type === 'customer') {
         setFormData({
-          customer_code: generateNextCode(customers, 'customer_code', 'C'),
+          customer_code: generateNextCode(customers.map((customer) => customer.customer_code), 'C'),
         })
       } else if (type === 'supplier') {
         setFormData({
-          supplier_code: generateNextCode(suppliers, 'supplier_code', 'S'),
+          supplier_code: generateNextCode(suppliers.map((supplier) => supplier.supplier_code), 'S'),
         })
       } else {
         setFormData({})
@@ -1101,7 +1096,7 @@ export default function SettingsPage() {
 
     const customerCode =
       dialogMode === 'create'
-        ? formData.customer_code || generateNextCode(customers, 'customer_code', 'C')
+        ? formData.customer_code || generateNextCode(customers.map((customer) => customer.customer_code), 'C')
         : formData.customer_code
 
     if (!customerCode) {
@@ -1133,7 +1128,7 @@ export default function SettingsPage() {
 
     const supplierCode =
       dialogMode === 'create'
-        ? formData.supplier_code || generateNextCode(suppliers, 'supplier_code', 'S')
+        ? formData.supplier_code || generateNextCode(suppliers.map((supplier) => supplier.supplier_code), 'S')
         : formData.supplier_code
 
     if (!supplierCode) {
