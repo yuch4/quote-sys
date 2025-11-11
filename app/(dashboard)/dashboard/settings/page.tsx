@@ -438,12 +438,16 @@ export default function SettingsPage() {
     field: keyof T,
     prefix: string,
   ) => {
-    const numericValues = items
-      .map((item) => item[field])
-      .filter((code): code is string => typeof code === 'string')
-      .filter((code) => code.startsWith(prefix))
-      .map((code) => parseInt(code.replace(prefix, ''), 10))
-      .filter((num) => !Number.isNaN(num))
+    const numericValues = items.reduce<number[]>((acc, item) => {
+      const value = item[field]
+      if (typeof value === 'string' && value.startsWith(prefix)) {
+        const parsed = parseInt(value.replace(prefix, ''), 10)
+        if (!Number.isNaN(parsed)) {
+          acc.push(parsed)
+        }
+      }
+      return acc
+    }, [])
 
     const nextValue = numericValues.length > 0 ? Math.max(...numericValues) + 1 : 1
     return `${prefix}${String(nextValue).padStart(3, '0')}`
