@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Eye, Loader2, Pencil, Plus, Search, SortAsc, SortDesc, Trash2 } from 'lucide-react'
+import { Loader2, Pencil, Plus, Search, SortAsc, SortDesc, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   CompanySecurityControl,
@@ -40,6 +41,8 @@ import { VendorConsolidationSimulator } from '@/components/settings/vendor-conso
 interface GroupCompanySummary extends GroupCompany {
   system_usage_count: number
   security_control_count: number
+  system_names: string[]
+  security_products: string[]
 }
 
 interface GroupCompanyDetail extends GroupCompany {
@@ -52,13 +55,13 @@ interface GroupCompanyManagerProps {
   showSimulator?: boolean
 }
 
-type DialogMode = 'create' | 'edit'
 type UsageDialogMode = 'create' | 'edit'
 type SecurityDialogMode = 'create' | 'edit'
 type SortKey = 'company_code' | 'company_name' | 'system_usage_count' | 'security_control_count'
 type SortDirection = 'asc' | 'desc'
 type StatusFilter = 'all' | keyof typeof statusLabels
 type IndustryFilter = 'all' | string
+type DetailTab = 'profile' | 'usage' | 'security'
 
 type ContractType = 'subscription' | 'perpetual'
 
@@ -304,17 +307,67 @@ const normalize = (value: string) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+const companyInputId = (prefix: string, name: string) => `${prefix ? `${prefix}-` : ''}${name}`
+
+const mapCompanyToFormState = (company?: GroupCompanySummary | GroupCompanyDetail | null): GroupCompanyFormState => ({
+  id: company?.id,
+  company_code: company?.company_code ?? '',
+  company_name: company?.company_name ?? '',
+  company_name_kana: company?.company_name_kana ?? '',
+  region: company?.region ?? '',
+  country: company?.country ?? '日本',
+  industry: company?.industry ?? '',
+  employee_count_range: company?.employee_count_range ?? '',
+  revenue_range: company?.revenue_range ?? '',
+  it_maturity: company?.it_maturity ?? '',
+  relationship_status: company?.relationship_status ?? 'active',
+  primary_contact_name: company?.primary_contact_name ?? '',
+  primary_contact_email: company?.primary_contact_email ?? '',
+  primary_contact_phone: company?.primary_contact_phone ?? '',
+  notes: company?.notes ?? '',
+})
+
+const getCompanyFormError = (state: GroupCompanyFormState) => {
+  if (!state.company_name.trim()) {
+    return '会社名を入力してください'
+  }
+  if (!state.company_code.trim()) {
+    return '会社コードを入力してください'
+  }
+  return null
+}
+
+const buildCompanyPayload = (state: GroupCompanyFormState) => ({
+  id: state.id,
+  company_code: state.company_code.trim(),
+  company_name: state.company_name.trim(),
+  company_name_kana: normalize(state.company_name_kana),
+  region: normalize(state.region),
+  country: normalize(state.country),
+  industry: normalize(state.industry),
+  employee_count_range: normalize(state.employee_count_range),
+  revenue_range: normalize(state.revenue_range),
+  it_maturity: normalize(state.it_maturity),
+  relationship_status: state.relationship_status.trim() || 'active',
+  primary_contact_name: normalize(state.primary_contact_name),
+  primary_contact_email: normalize(state.primary_contact_email),
+  primary_contact_phone: normalize(state.primary_contact_phone),
+  notes: normalize(state.notes),
+})
+
 export function GroupCompanyManager({ showInsights = true, showSimulator = true }: GroupCompanyManagerProps = {}) {
   const [companies, setCompanies] = useState<GroupCompanySummary[]>([])
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogMode, setDialogMode] = useState<DialogMode>('create')
   const [formState, setFormState] = useState<GroupCompanyFormState>(emptyFormState)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailTarget, setDetailTarget] = useState<GroupCompanySummary | null>(null)
   const [detailData, setDetailData] = useState<GroupCompanyDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [detailTab, setDetailTab] = useState<'usage' | 'security'>('usage')
+  const [detailTab, setDetailTab] = useState<DetailTab>('usage')
+  const [detailFormState, setDetailFormState] = useState<GroupCompanyFormState>(emptyFormState)
+  const [detailSaving, setDetailSaving] = useState(false)
+  const detailFormSyncRef = useRef(false)
   const [usageDialogOpen, setUsageDialogOpen] = useState(false)
   const [usageDialogMode, setUsageDialogMode] = useState<UsageDialogMode>('create')
   const [usageForm, setUsageForm] = useState<SystemUsageFormState>(emptyUsageFormState)
@@ -327,6 +380,8 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [industryFilter, setIndustryFilter] = useState<IndustryFilter>('all')
+  const [systemFilter, setSystemFilter] = useState('all')
+  const [securityFilter, setSecurityFilter] = useState('all')
   const [sortKey, setSortKey] = useState<SortKey>('company_code')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const isPerpetualContract = usageForm.contract_type === 'perpetual'
@@ -349,6 +404,43 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
   }, [companies])
 
+  const systemFilterOptions = useMemo(() => {
+    const values = companies
+      .flatMap((company) => company.system_names ?? [])
+      .map((value) => value.trim())
+      .filter((value): value is string => Boolean(value))
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
+  }, [companies])
+
+  const securityFilterOptions = useMemo(() => {
+    const values = companies
+      .flatMap((company) => company.security_products ?? [])
+      .map((value) => value.trim())
+      .filter((value): value is string => Boolean(value))
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
+  }, [companies])
+
+  useEffect(() => {
+    if (systemFilter !== 'all' && !systemFilterOptions.includes(systemFilter)) {
+      setSystemFilter('all')
+    }
+  }, [systemFilter, systemFilterOptions])
+
+  useEffect(() => {
+    if (securityFilter !== 'all' && !securityFilterOptions.includes(securityFilter)) {
+      setSecurityFilter('all')
+    }
+  }, [securityFilter, securityFilterOptions])
+
+  useEffect(() => {
+    const source = detailData ?? detailTarget
+    if (!source) {
+      setDetailFormState(emptyFormState)
+      return
+    }
+    setDetailFormState((prev) => (prev.id === source.id ? prev : mapCompanyToFormState(source)))
+  }, [detailData, detailTarget])
+
   const displayedCompanies = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     const filtered = companies.filter((company) => {
@@ -359,7 +451,11 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
         : true
       const matchesStatus = statusFilter === 'all' ? true : company.relationship_status === statusFilter
       const matchesIndustry = industryFilter === 'all' ? true : (company.industry ?? '') === industryFilter
-      return matchesSearch && matchesStatus && matchesIndustry
+      const matchesSystem =
+        systemFilter === 'all' ? true : (company.system_names ?? []).some((name) => name === systemFilter)
+      const matchesSecurity =
+        securityFilter === 'all' ? true : (company.security_products ?? []).some((name) => name === securityFilter)
+      return matchesSearch && matchesStatus && matchesIndustry && matchesSystem && matchesSecurity
     })
 
     const sorted = [...filtered].sort((a, b) => {
@@ -396,7 +492,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     })
 
     return sorted
-  }, [companies, industryFilter, searchTerm, sortDirection, sortKey, statusFilter])
+  }, [companies, industryFilter, searchTerm, securityFilter, sortDirection, sortKey, statusFilter, systemFilter])
 
   const loadCompanies = async () => {
     setLoading(true)
@@ -420,26 +516,37 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     if (!result.success) {
       toast.error(result.message)
       setDetailData(null)
+      setDetailLoading(false)
+      return null
     } else {
       setDetailData(result.data)
+      if (detailFormSyncRef.current) {
+        setDetailFormState(mapCompanyToFormState(result.data))
+        detailFormSyncRef.current = false
+      }
     }
     setDetailLoading(false)
+    return result.data
   }
 
-  const openDetailSheet = (company: GroupCompanySummary) => {
+  const openDetailSheet = (company: GroupCompanySummary, initialTab: DetailTab = 'usage') => {
+    detailFormSyncRef.current = true
     setDetailTarget(company)
     setDetailOpen(true)
     setDetailData(null)
-    setDetailTab('usage')
+    setDetailTab(initialTab)
+    setDetailFormState(mapCompanyToFormState(company))
     loadDetail(company.id)
   }
 
   const handleDetailSheetChange = (open: boolean) => {
     setDetailOpen(open)
     if (!open) {
+      detailFormSyncRef.current = false
       setDetailTarget(null)
       setDetailData(null)
       setDetailTab('usage')
+      setDetailFormState(emptyFormState)
     }
   }
 
@@ -593,59 +700,18 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
       ...emptyFormState,
       company_code: nextCompanyCode,
     })
-    setDialogMode('create')
-    setDialogOpen(true)
-  }
-
-  const openEditDialog = (company: GroupCompanySummary) => {
-    setFormState({
-      id: company.id,
-      company_code: company.company_code,
-      company_name: company.company_name,
-      company_name_kana: company.company_name_kana ?? '',
-      region: company.region ?? '',
-      country: company.country ?? '',
-      industry: company.industry ?? '',
-      employee_count_range: company.employee_count_range ?? '',
-      revenue_range: company.revenue_range ?? '',
-      it_maturity: company.it_maturity ?? '',
-      relationship_status: company.relationship_status ?? 'active',
-      primary_contact_name: company.primary_contact_name ?? '',
-      primary_contact_email: company.primary_contact_email ?? '',
-      primary_contact_phone: company.primary_contact_phone ?? '',
-      notes: company.notes ?? '',
-    })
-    setDialogMode('edit')
     setDialogOpen(true)
   }
 
   const handleSubmit = () => {
-    if (!formState.company_name.trim()) {
-      toast.error('会社名を入力してください')
-      return
-    }
-    if (!formState.company_code.trim()) {
-      toast.error('会社コードを入力してください')
+    const error = getCompanyFormError(formState)
+    if (error) {
+      toast.error(error)
       return
     }
 
-    const payload = {
-      id: formState.id,
-      company_code: formState.company_code.trim(),
-      company_name: formState.company_name.trim(),
-      company_name_kana: normalize(formState.company_name_kana),
-      region: normalize(formState.region),
-      country: normalize(formState.country),
-      industry: normalize(formState.industry),
-      employee_count_range: normalize(formState.employee_count_range),
-      revenue_range: normalize(formState.revenue_range),
-      it_maturity: normalize(formState.it_maturity),
-      relationship_status: formState.relationship_status.trim() || 'active',
-      primary_contact_name: normalize(formState.primary_contact_name),
-      primary_contact_email: normalize(formState.primary_contact_email),
-      primary_contact_phone: normalize(formState.primary_contact_phone),
-      notes: normalize(formState.notes),
-    }
+    const payload = buildCompanyPayload(formState)
+    const successMessage = formState.id ? 'グループ会社を更新しました' : 'グループ会社を登録しました'
 
     startTransition(async () => {
       const result = await upsertGroupCompany(payload)
@@ -653,10 +719,47 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
         toast.error(result.message)
         return
       }
-      toast.success(dialogMode === 'create' ? 'グループ会社を登録しました' : 'グループ会社を更新しました')
+      toast.success(successMessage)
       setDialogOpen(false)
       loadCompanies()
     })
+  }
+
+  const handleDetailFormReset = () => {
+    if (!currentCompany) {
+      toast.error('対象のグループ会社が選択されていません')
+      return
+    }
+    detailFormSyncRef.current = false
+    setDetailFormState(mapCompanyToFormState(currentCompany))
+  }
+
+  const handleDetailCompanySave = async () => {
+    if (!currentCompany) {
+      toast.error('対象のグループ会社が選択されていません')
+      return
+    }
+    const error = getCompanyFormError(detailFormState)
+    if (error) {
+      toast.error(error)
+      return
+    }
+    setDetailSaving(true)
+    const payload = buildCompanyPayload({ ...detailFormState, id: currentCompany.id })
+    const result = await upsertGroupCompany(payload)
+    if (!result.success) {
+      setDetailSaving(false)
+      toast.error(result.message)
+      return
+    }
+    toast.success('基本情報を更新しました')
+    detailFormSyncRef.current = true
+    const latestDetail = await loadDetail(currentCompany.id)
+    if (latestDetail) {
+      setDetailFormState(mapCompanyToFormState(latestDetail))
+    }
+    loadCompanies()
+    setDetailSaving(false)
   }
 
   const handleDelete = (company: GroupCompanySummary) => {
@@ -767,6 +870,36 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </SelectContent>
               </Select>
             </div>
+            <div className="min-w-[200px]">
+              <Select value={systemFilter} onValueChange={(value) => setSystemFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="システム" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">システム: すべて</SelectItem>
+                  {systemFilterOptions.map((system) => (
+                    <SelectItem key={system} value={system}>
+                      {system}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[200px]">
+              <Select value={securityFilter} onValueChange={(value) => setSecurityFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="セキュリティ製品" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">セキュリティ: すべて</SelectItem>
+                  {securityFilterOptions.map((product) => (
+                    <SelectItem key={product} value={product}>
+                      {product}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -831,10 +964,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => openDetailSheet(company)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => openEditDialog(company)}>
+                        <Button size="sm" variant="outline" onClick={() => openDetailSheet(company, 'profile')}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleDelete(company)}>
@@ -885,8 +1015,11 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </div>
               </div>
 
-              <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as 'usage' | 'security')} className="space-y-4">
+              <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as DetailTab)} className="space-y-4">
                 <TabsList className="w-full">
+                  <TabsTrigger className="flex-1" value="profile">
+                    基本情報
+                  </TabsTrigger>
                   <TabsTrigger className="flex-1" value="usage">
                     システム利用状況
                   </TabsTrigger>
@@ -894,6 +1027,27 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                     セキュリティ統制
                   </TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="profile" className="space-y-4">
+                  <div className="space-y-4 rounded-md border p-4">
+                    <CompanyFormFields
+                      formState={detailFormState}
+                      setFormState={setDetailFormState}
+                      idPrefix="detail"
+                      onEdit={() => {
+                        detailFormSyncRef.current = false
+                      }}
+                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="outline" onClick={handleDetailFormReset} disabled={detailSaving}>
+                        リセット
+                      </Button>
+                      <Button onClick={handleDetailCompanySave} disabled={detailSaving}>
+                        {detailSaving ? '保存中...' : '保存'}
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="usage" className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1293,148 +1447,10 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{dialogMode === 'create' ? 'グループ会社登録' : 'グループ会社編集'}</DialogTitle>
+            <DialogTitle>グループ会社登録</DialogTitle>
             <DialogDescription>基本情報と担当者情報を入力してください。</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="company_code">会社コード *</Label>
-              <Input
-                id="company_code"
-                value={formState.company_code}
-                onChange={(event) => setFormState((prev) => ({ ...prev, company_code: event.target.value }))}
-                placeholder="GC-001"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="company_name">会社名 *</Label>
-              <Input
-                id="company_name"
-                value={formState.company_name}
-                onChange={(event) => setFormState((prev) => ({ ...prev, company_name: event.target.value }))}
-                placeholder="〇〇株式会社"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="company_name_kana">会社名（カナ）</Label>
-              <Input
-                id="company_name_kana"
-                value={formState.company_name_kana}
-                onChange={(event) => setFormState((prev) => ({ ...prev, company_name_kana: event.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="industry">業種</Label>
-              <Input
-                id="industry"
-                value={formState.industry}
-                onChange={(event) => setFormState((prev) => ({ ...prev, industry: event.target.value }))}
-                placeholder="ITサービス"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">地域</Label>
-              <Input
-                id="region"
-                value={formState.region}
-                onChange={(event) => setFormState((prev) => ({ ...prev, region: event.target.value }))}
-                placeholder="関東"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="country">国</Label>
-              <Input
-                id="country"
-                value={formState.country}
-                onChange={(event) => setFormState((prev) => ({ ...prev, country: event.target.value }))}
-                placeholder="日本"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="employee_count_range">従業員規模</Label>
-              <Input
-                id="employee_count_range"
-                value={formState.employee_count_range}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, employee_count_range: event.target.value }))
-                }
-                placeholder="100-300名"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="revenue_range">売上規模</Label>
-              <Input
-                id="revenue_range"
-                value={formState.revenue_range}
-                onChange={(event) => setFormState((prev) => ({ ...prev, revenue_range: event.target.value }))}
-                placeholder="50-80億円"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="it_maturity">IT成熟度</Label>
-              <Input
-                id="it_maturity"
-                value={formState.it_maturity}
-                onChange={(event) => setFormState((prev) => ({ ...prev, it_maturity: event.target.value }))}
-                placeholder="中"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>関係ステータス</Label>
-              <Select
-                value={formState.relationship_status}
-                onValueChange={(value) => setFormState((prev) => ({ ...prev, relationship_status: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="選択してください" />
-                </SelectTrigger>
-                <SelectContent>
-                  {relationshipStatusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="primary_contact_name">主要担当者</Label>
-              <Input
-                id="primary_contact_name"
-                value={formState.primary_contact_name}
-                onChange={(event) => setFormState((prev) => ({ ...prev, primary_contact_name: event.target.value }))}
-                placeholder="山田 太郎"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="primary_contact_email">担当者メール</Label>
-              <Input
-                id="primary_contact_email"
-                value={formState.primary_contact_email}
-                onChange={(event) => setFormState((prev) => ({ ...prev, primary_contact_email: event.target.value }))}
-                placeholder="taro@example.com"
-                type="email"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="primary_contact_phone">担当者電話</Label>
-              <Input
-                id="primary_contact_phone"
-                value={formState.primary_contact_phone}
-                onChange={(event) => setFormState((prev) => ({ ...prev, primary_contact_phone: event.target.value }))}
-                placeholder="03-1234-5678"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="notes">備考</Label>
-              <Textarea
-                id="notes"
-                value={formState.notes}
-                onChange={(event) => setFormState((prev) => ({ ...prev, notes: event.target.value }))}
-                rows={4}
-              />
-            </div>
-          </div>
+          <CompanyFormFields formState={formState} setFormState={setFormState} idPrefix="dialog" />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isPending}>
               キャンセル
@@ -1445,6 +1461,161 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+interface CompanyFormFieldsProps {
+  formState: GroupCompanyFormState
+  setFormState: Dispatch<SetStateAction<GroupCompanyFormState>>
+  idPrefix?: string
+  onEdit?: () => void
+}
+
+function CompanyFormFields({ formState, setFormState, idPrefix = 'company-form', onEdit }: CompanyFormFieldsProps) {
+  const inputId = (name: string) => companyInputId(idPrefix, name)
+  const handleChange = (field: keyof GroupCompanyFormState) => (value: string) => {
+    onEdit?.()
+    setFormState((prev) => ({ ...prev, [field]: value }))
+  }
+
+  return (
+    <div className="grid gap-4 py-2 md:grid-cols-2">
+      <div className="space-y-2">
+        <Label htmlFor={inputId('code')}>会社コード *</Label>
+        <Input
+          id={inputId('code')}
+          value={formState.company_code}
+          onChange={(event) => handleChange('company_code')(event.target.value)}
+          placeholder="GC-001"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('name')}>会社名 *</Label>
+        <Input
+          id={inputId('name')}
+          value={formState.company_name}
+          onChange={(event) => handleChange('company_name')(event.target.value)}
+          placeholder="〇〇株式会社"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('name_kana')}>会社名（カナ）</Label>
+        <Input
+          id={inputId('name_kana')}
+          value={formState.company_name_kana}
+          onChange={(event) => handleChange('company_name_kana')(event.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('industry')}>業種</Label>
+        <Input
+          id={inputId('industry')}
+          value={formState.industry}
+          onChange={(event) => handleChange('industry')(event.target.value)}
+          placeholder="ITサービス"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('region')}>地域</Label>
+        <Input
+          id={inputId('region')}
+          value={formState.region}
+          onChange={(event) => handleChange('region')(event.target.value)}
+          placeholder="関東"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('country')}>国</Label>
+        <Input
+          id={inputId('country')}
+          value={formState.country}
+          onChange={(event) => handleChange('country')(event.target.value)}
+          placeholder="日本"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('employee_range')}>従業員規模</Label>
+        <Input
+          id={inputId('employee_range')}
+          value={formState.employee_count_range}
+          onChange={(event) => handleChange('employee_count_range')(event.target.value)}
+          placeholder="100-300名"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('revenue_range')}>売上規模</Label>
+        <Input
+          id={inputId('revenue_range')}
+          value={formState.revenue_range}
+          onChange={(event) => handleChange('revenue_range')(event.target.value)}
+          placeholder="50-80億円"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('it_maturity')}>IT成熟度</Label>
+        <Input
+          id={inputId('it_maturity')}
+          value={formState.it_maturity}
+          onChange={(event) => handleChange('it_maturity')(event.target.value)}
+          placeholder="中"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>関係ステータス</Label>
+        <Select
+          value={formState.relationship_status}
+          onValueChange={(value) => handleChange('relationship_status')(value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="選択してください" />
+          </SelectTrigger>
+          <SelectContent>
+            {relationshipStatusOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('contact_name')}>主要担当者</Label>
+        <Input
+          id={inputId('contact_name')}
+          value={formState.primary_contact_name}
+          onChange={(event) => handleChange('primary_contact_name')(event.target.value)}
+          placeholder="山田 太郎"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('contact_email')}>担当者メール</Label>
+        <Input
+          id={inputId('contact_email')}
+          value={formState.primary_contact_email}
+          onChange={(event) => handleChange('primary_contact_email')(event.target.value)}
+          placeholder="taro@example.com"
+          type="email"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={inputId('contact_phone')}>担当者電話</Label>
+        <Input
+          id={inputId('contact_phone')}
+          value={formState.primary_contact_phone}
+          onChange={(event) => handleChange('primary_contact_phone')(event.target.value)}
+          placeholder="03-1234-5678"
+        />
+      </div>
+      <div className="space-y-2 md:col-span-2">
+        <Label htmlFor={inputId('notes')}>備考</Label>
+        <Textarea
+          id={inputId('notes')}
+          value={formState.notes}
+          onChange={(event) => handleChange('notes')(event.target.value)}
+          rows={4}
+        />
+      </div>
     </div>
   )
 }

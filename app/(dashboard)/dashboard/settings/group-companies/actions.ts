@@ -146,8 +146,8 @@ const normalizeJsonArray = (value?: Record<string, unknown>[]) => {
 const buildError = (message: string): ActionResult<never> => ({ success: false, message })
 
 type GroupCompanySummaryRow = GroupCompany & {
-  company_system_usage?: Array<{ count: number }>
-  company_security_controls?: Array<{ count: number }>
+  company_system_usage?: CompanySystemUsage[]
+  company_security_controls?: CompanySecurityControl[]
 }
 
 type GroupCompanyDetailRow = GroupCompany & {
@@ -230,15 +230,24 @@ export interface VendorConsolidationInput {
 }
 
 export async function fetchGroupCompanySummaries(): Promise<
-  ActionResult<Array<GroupCompany & { system_usage_count: number; security_control_count: number }>>
+  ActionResult<
+    Array<
+      GroupCompany & {
+        system_usage_count: number
+        security_control_count: number
+        system_names: string[]
+        security_products: string[]
+      }
+    >
+  >
 > {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('group_companies')
     .select(
       `*,
-      company_system_usage(count),
-      company_security_controls(count)`
+      company_system_usage(system_name, vendor),
+      company_security_controls(control_type, vendor)`
     )
     .order('company_name', { ascending: true })
 
@@ -249,12 +258,33 @@ export async function fetchGroupCompanySummaries(): Promise<
   const records = ensureArrayRelation(data).map((rowRaw) => {
     const row = rowRaw as GroupCompanySummaryRow
     const { company_system_usage: companySystemUsage, company_security_controls: companySecurityControls, ...company } = row
-    const systemUsageCount = companySystemUsage?.[0]?.count ? Number(companySystemUsage[0].count) : 0
-    const securityControlCount = companySecurityControls?.[0]?.count ? Number(companySecurityControls[0].count) : 0
+    const systemUsageRecords = ensureArrayRelation<CompanySystemUsage>(companySystemUsage)
+    const securityControlRecords = ensureArrayRelation<CompanySecurityControl>(companySecurityControls)
+
+    const systemNames = Array.from(
+      new Set(
+        systemUsageRecords
+          .map((usage) => usage.system_name?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort((a, b) => a.localeCompare(b, 'ja'))
+
+    const securityProducts = Array.from(
+      new Set(
+        securityControlRecords
+          .map((control) => control.control_type?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ).sort((a, b) => a.localeCompare(b, 'ja'))
+
+    const systemUsageCount = systemUsageRecords.length
+    const securityControlCount = securityControlRecords.length
     return {
       ...(company as GroupCompany),
       system_usage_count: systemUsageCount,
       security_control_count: securityControlCount,
+      system_names: systemNames,
+      security_products: securityProducts,
     }
   })
 
