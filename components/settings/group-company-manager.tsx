@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Eye, Loader2, Pencil, Plus, Search, SortAsc, SortDesc, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Eye, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import type {
   CompanySecurityControl,
   CompanySystemUsage,
@@ -55,6 +55,10 @@ interface GroupCompanyManagerProps {
 type DialogMode = 'create' | 'edit'
 type UsageDialogMode = 'create' | 'edit'
 type SecurityDialogMode = 'create' | 'edit'
+type SortKey = 'company_code' | 'company_name' | 'system_usage_count' | 'security_control_count'
+type SortDirection = 'asc' | 'desc'
+type StatusFilter = 'all' | keyof typeof statusLabels
+type IndustryFilter = 'all' | string
 
 type ContractType = 'subscription' | 'perpetual'
 
@@ -314,6 +318,11 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
   const [securityForm, setSecurityForm] = useState<SecurityControlFormState>(emptySecurityFormState)
   const [securitySubmitting, setSecuritySubmitting] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [industryFilter, setIndustryFilter] = useState<IndustryFilter>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('company_code')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const isPerpetualContract = usageForm.contract_type === 'perpetual'
 
   const nextCompanyCode = useMemo(() => {
@@ -326,6 +335,62 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     const next = numbers.length > 0 ? Math.max(...numbers) + 1 : 1
     return `GC-${String(next).padStart(3, '0')}`
   }, [companies])
+
+  const industryOptions = useMemo(() => {
+    const values = companies
+      .map((company) => company.industry?.trim())
+      .filter((value): value is string => Boolean(value))
+    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ja'))
+  }, [companies])
+
+  const displayedCompanies = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    const filtered = companies.filter((company) => {
+      const matchesSearch = term
+        ? [company.company_name, company.company_code, company.region, company.primary_contact_name]
+            .map((field) => field?.toLowerCase() ?? '')
+            .some((value) => value.includes(term))
+        : true
+      const matchesStatus = statusFilter === 'all' ? true : company.relationship_status === statusFilter
+      const matchesIndustry = industryFilter === 'all' ? true : (company.industry ?? '') === industryFilter
+      return matchesSearch && matchesStatus && matchesIndustry
+    })
+
+    const sorted = [...filtered].sort((a, b) => {
+      let aValue: string | number | undefined
+      let bValue: string | number | undefined
+
+      switch (sortKey) {
+        case 'company_name':
+          aValue = a.company_name ?? ''
+          bValue = b.company_name ?? ''
+          break
+        case 'system_usage_count':
+          aValue = a.system_usage_count ?? 0
+          bValue = b.system_usage_count ?? 0
+          break
+        case 'security_control_count':
+          aValue = a.security_control_count ?? 0
+          bValue = b.security_control_count ?? 0
+          break
+        case 'company_code':
+        default:
+          aValue = a.company_code ?? ''
+          bValue = b.company_code ?? ''
+          break
+      }
+
+      let comparison = 0
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        comparison = aValue - bValue
+      } else {
+        comparison = String(aValue).localeCompare(String(bValue), 'ja')
+      }
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+
+    return sorted
+  }, [companies, industryFilter, searchTerm, sortDirection, sortKey, statusFilter])
 
   const loadCompanies = async () => {
     setLoading(true)
@@ -601,6 +666,34 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     return statusLabels[key] ?? key
   }
 
+  const handleSortChange = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDirection('asc')
+    }
+  }
+
+  const renderSortableHeader = (label: string, key: SortKey, className?: string) => (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => handleSortChange(key)}
+        className="flex w-full items-center gap-1 text-left font-medium"
+      >
+        <span>{label}</span>
+        {sortKey === key && (
+          sortDirection === 'asc' ? (
+            <SortAsc className="h-4 w-4" aria-label="昇順" />
+          ) : (
+            <SortDesc className="h-4 w-4" aria-label="降順" />
+          )
+        )}
+      </button>
+    </TableHead>
+  )
+
   const currentCompany = detailData ?? detailTarget
   const systemUsageList = detailData?.system_usage ?? []
   const securityControlList = detailData?.security_controls ?? []
@@ -610,7 +703,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
       {showInsights && <GroupSystemInsights />}
       {showSimulator && <VendorConsolidationSimulator />}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <CardTitle>グループ会社一覧</CardTitle>
@@ -621,6 +714,47 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
               新規登録
             </Button>
           </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-xs flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="会社名・コードで検索"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="min-w-[180px]">
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="ステータス" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ステータス: すべて</SelectItem>
+                  {relationshipStatusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[180px]">
+              <Select value={industryFilter} onValueChange={(value) => setIndustryFilter(value as IndustryFilter)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="業種" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">業種: すべて</SelectItem>
+                  {industryOptions.map((industry) => (
+                    <SelectItem key={industry} value={industry}>
+                      {industry}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -630,23 +764,25 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
             </div>
           ) : companies.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">登録されているグループ会社がありません</p>
+          ) : displayedCompanies.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">条件に一致するグループ会社がありません</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-32">会社コード</TableHead>
-                    <TableHead>会社名</TableHead>
+                    {renderSortableHeader('会社コード', 'company_code', 'w-32')}
+                    {renderSortableHeader('会社名', 'company_name')}
                     <TableHead>業種</TableHead>
                     <TableHead>担当者</TableHead>
-                    <TableHead>システム棚卸</TableHead>
-                    <TableHead>セキュリティ統制</TableHead>
+                    {renderSortableHeader('システム棚卸', 'system_usage_count')}
+                    {renderSortableHeader('セキュリティ統制', 'security_control_count')}
                     <TableHead>ステータス</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companies.map((company) => (
+                  {displayedCompanies.map((company) => (
                     <TableRow key={company.id}>
                       <TableCell className="font-medium">{company.company_code}</TableCell>
                       <TableCell>
