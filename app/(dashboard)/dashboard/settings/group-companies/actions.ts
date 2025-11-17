@@ -12,7 +12,6 @@ import type {
   SystemAdoptionStatus,
   SystemIntegrationLevel,
   SystemSecurityRisk,
-  SecurityControlType,
 } from '@/types/database'
 
 export type ActionResult<T> =
@@ -44,17 +43,7 @@ const integrationLevelSchema = z.enum(['none', 'manual', 'partial', 'full'] as c
 
 const securityRiskSchema = z.enum(['low', 'normal', 'high', 'critical'] as const satisfies SystemSecurityRisk[])
 
-const securityControlTypeSchema = z.enum([
-  'edr',
-  'mdm',
-  'siem',
-  'iam',
-  'email_security',
-  'network',
-  'backup',
-  'zero_trust',
-  'other',
-] as const satisfies SecurityControlType[])
+const securityControlTypeSchema = z.string().min(1, '統制種別を入力してください')
 
 const uuidSchema = z.string().uuid()
 
@@ -699,10 +688,14 @@ export async function upsertCompanySecurityControlRecord(
   }
 
   const supabase = await createClient()
+  const normalizedControlType = normalizeString(parsed.data.control_type)
+  if (!normalizedControlType) {
+    return buildError('統制種別を入力してください')
+  }
   const payload = {
     id: parsed.data.id,
     group_company_id: parsed.data.group_company_id,
-    control_type: parsed.data.control_type,
+    control_type: normalizedControlType,
     vendor: normalizeString(parsed.data.vendor),
     adoption_status: parsed.data.adoption_status ?? 'in_use',
     coverage: normalizeString(parsed.data.coverage),

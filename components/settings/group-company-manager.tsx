@@ -139,7 +139,7 @@ const emptyUsageFormState: SystemUsageFormState = {
 }
 
 const emptySecurityFormState: SecurityControlFormState = {
-  control_type: 'other',
+  control_type: '',
   vendor: '',
   adoption_status: 'in_use',
   coverage: '',
@@ -215,10 +215,15 @@ const securityRiskLabels: Record<SystemSecurityRisk, string> = securityRiskOptio
   {} as Record<SystemSecurityRisk, string>,
 )
 
-const controlTypeLabels: Record<SecurityControlType, string> = securityControlTypeOptions.reduce(
-  (acc, option) => ({ ...acc, [option.value]: option.label }),
-  {} as Record<SecurityControlType, string>,
+const controlTypeLabels: Record<string, string> = securityControlTypeOptions.reduce(
+  (acc, option) => ({ ...acc, [option.value]: option.label, [option.label]: option.label }),
+  {} as Record<string, string>,
 )
+
+const formatControlType = (value?: string | null) => {
+  if (!value) return '-'
+  return controlTypeLabels[value] ?? value
+}
 
 const systemCategoryLabels: Record<SystemCategory, string> = systemCategoryOptions.reduce(
   (acc, option) => ({ ...acc, [option.value]: option.label }),
@@ -309,6 +314,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
   const [detailTarget, setDetailTarget] = useState<GroupCompanySummary | null>(null)
   const [detailData, setDetailData] = useState<GroupCompanyDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailTab, setDetailTab] = useState<'usage' | 'security'>('usage')
   const [usageDialogOpen, setUsageDialogOpen] = useState(false)
   const [usageDialogMode, setUsageDialogMode] = useState<UsageDialogMode>('create')
   const [usageForm, setUsageForm] = useState<SystemUsageFormState>(emptyUsageFormState)
@@ -424,6 +430,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     setDetailTarget(company)
     setDetailOpen(true)
     setDetailData(null)
+    setDetailTab('usage')
     loadDetail(company.id)
   }
 
@@ -432,6 +439,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     if (!open) {
       setDetailTarget(null)
       setDetailData(null)
+      setDetailTab('usage')
     }
   }
 
@@ -462,7 +470,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     const preset = record
       ? {
           id: record.id,
-          control_type: record.control_type,
+          control_type: record.control_type ?? '',
           vendor: record.vendor ?? '',
           adoption_status: record.adoption_status,
           coverage: record.coverage ?? '',
@@ -536,11 +544,16 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
       toast.error('対象のグループ会社が選択されていません')
       return
     }
+    const normalizedControlType = securityForm.control_type.trim()
+    if (!normalizedControlType) {
+      toast.error('統制種別を入力してください')
+      return
+    }
     setSecuritySubmitting(true)
     const payload = {
       id: securityForm.id,
       group_company_id: detailTarget.id,
-      control_type: securityForm.control_type,
+      control_type: normalizedControlType,
       vendor: securityForm.vendor,
       adoption_status: securityForm.adoption_status,
       coverage: securityForm.coverage,
@@ -560,7 +573,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
   }
 
   const handleSecurityDelete = async (record: CompanySecurityControl) => {
-    if (!confirm(`「${controlTypeLabels[record.control_type]}」の統制情報を削除しますか？`)) {
+    if (!confirm(`「${formatControlType(record.control_type)}」の統制情報を削除しますか？`)) {
       return
     }
     const result = await deleteCompanySecurityControlRecord(record.id)
@@ -872,7 +885,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </div>
               </div>
 
-              <Tabs defaultValue="usage" className="space-y-4">
+              <Tabs value={detailTab} onValueChange={(value) => setDetailTab(value as 'usage' | 'security')} className="space-y-4">
                 <TabsList className="w-full">
                   <TabsTrigger className="flex-1" value="usage">
                     システム利用状況
@@ -974,7 +987,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                         <TableBody>
                           {securityControlList.map((control) => (
                             <TableRow key={control.id}>
-                              <TableCell>{controlTypeLabels[control.control_type]}</TableCell>
+                              <TableCell>{formatControlType(control.control_type)}</TableCell>
                               <TableCell>{control.vendor || '-'}</TableCell>
                               <TableCell>
                                 <Badge variant="outline">{adoptionStatusLabels[control.adoption_status]}</Badge>
@@ -1196,21 +1209,26 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
           <div className="grid gap-4 py-2 md:grid-cols-2">
             <div className="space-y-2">
               <Label>統制種別 *</Label>
-              <Select
+              <Input
                 value={securityForm.control_type}
-                onValueChange={(value) => setSecurityForm((prev) => ({ ...prev, control_type: value as SecurityControlType }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="選択してください" />
-                </SelectTrigger>
-                <SelectContent>
-                  {securityControlTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(event) => setSecurityForm((prev) => ({ ...prev, control_type: event.target.value }))}
+                placeholder="例: EDR / CASB / SASE"
+              />
+              <p className="text-xs text-muted-foreground">クリックで入力に反映できる推奨カテゴリ</p>
+              <div className="flex flex-wrap gap-2">
+                {securityControlTypeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setSecurityForm((prev) => ({ ...prev, control_type: option.label }))
+                    }
+                    className="rounded-full border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>採用状況 *</Label>

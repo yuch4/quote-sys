@@ -51,16 +51,7 @@ export type SystemIntegrationLevel = 'none' | 'manual' | 'partial' | 'full'
 
 export type SystemSecurityRisk = 'low' | 'normal' | 'high' | 'critical'
 
-export type SecurityControlType =
-  | 'edr'
-  | 'mdm'
-  | 'siem'
-  | 'iam'
-  | 'email_security'
-  | 'network'
-  | 'backup'
-  | 'zero_trust'
-  | 'other'
+export type SecurityControlType = string
 
 export interface GroupCompany {
   id: string
