@@ -868,12 +868,12 @@ export function GroupCompanyManager() {
       </Sheet>
 
       <Dialog open={usageDialogOpen} onOpenChange={setUsageDialogOpen}>
-        <DialogContent className="max-h-[90vh] w-full max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{usageDialogMode === 'create' ? 'システム利用情報の追加' : 'システム利用情報の編集'}</DialogTitle>
             <DialogDescription>カテゴリやコスト情報を入力し、棚卸データを最新化します。</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 py-2 md:grid-cols-2">
             <div className="space-y-2">
               <Label>カテゴリ *</Label>
               <Select
@@ -941,48 +941,52 @@ export function GroupCompanyManager() {
                 placeholder="1200000"
               />
             </div>
-            <div className="md:col-span-2 lg:col-span-4 grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>契約形態 *</Label>
-                <Select
-                  value={usageForm.contract_type}
-                  onValueChange={(value) =>
-                    setUsageForm((prev) => ({
-                      ...prev,
-                      contract_type: value as ContractType,
-                      renewal_date: value === 'perpetual' ? '' : prev.renewal_date,
-                    }))
-                  }
-                >
-                  <SelectTrigger className="w-full text-left whitespace-normal">
-                    <SelectValue placeholder="選択してください" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contractTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">買い切りを選択すると更新月の入力は不要です。</p>
-              </div>
-              <div className="space-y-2">
-                <Label>更新月</Label>
-                <Input
-                  type="month"
-                  disabled={isPerpetualContract}
-                  value={usageForm.renewal_date}
-                  onChange={(event) => setUsageForm((prev) => ({ ...prev, renewal_date: event.target.value }))}
-                />
-                {isPerpetualContract && (
-                  <p className="text-xs text-muted-foreground">買い切りの場合は自動的に未設定として保存されます。</p>
-                )}
+            <div className="space-y-4 md:col-span-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>契約形態 *</Label>
+                  <Select
+                    value={usageForm.contract_type}
+                    onValueChange={(value) =>
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        contract_type: value as ContractType,
+                        renewal_date: value === 'perpetual' ? '' : prev.renewal_date,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="whitespace-normal text-left">
+                      <SelectValue placeholder="選択してください" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {contractTypeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">買い切りを選択すると更新月の入力は不要です。</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>更新月</Label>
+                  <Input
+                    type="month"
+                    disabled={isPerpetualContract}
+                    value={usageForm.renewal_date}
+                    onChange={(event) => setUsageForm((prev) => ({ ...prev, renewal_date: event.target.value }))}
+                  />
+                  <p className="min-h-[1.25rem] text-xs text-muted-foreground">
+                    {isPerpetualContract ? '買い切りの場合は自動的に未設定として保存されます。' : ''}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>連携度 *</Label>
-              <p className="text-xs text-muted-foreground">社内システムとのデータ連携レベル</p>
+              <Label className="flex items-center justify-between">
+                <span>連携度 *</span>
+                <span className="text-xs text-muted-foreground">社内システムとのデータ連携レベル</span>
+              </Label>
               <Select
                 value={usageForm.integration_level}
                 onValueChange={(value) => setUsageForm((prev) => ({ ...prev, integration_level: value as SystemIntegrationLevel }))}
@@ -1025,7 +1029,7 @@ export function GroupCompanyManager() {
                 onChange={(event) => setUsageForm((prev) => ({ ...prev, point_of_contact: event.target.value }))}
               />
             </div>
-            <div className="md:col-span-2 lg:col-span-4 space-y-2">
+            <div className="md:col-span-2 space-y-2">
               <Label>備考</Label>
               <Textarea
                 value={usageForm.notes}
