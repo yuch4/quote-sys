@@ -30,6 +30,114 @@ export interface CompanyProfile {
   updated_at: string
 }
 
+export type SystemCategory =
+  | 'sales_management'
+  | 'accounting'
+  | 'human_resources'
+  | 'endpoint_security'
+  | 'collaboration'
+  | 'infrastructure'
+  | 'erp'
+  | 'other'
+
+export type SystemAdoptionStatus =
+  | 'in_use'
+  | 'pilot'
+  | 'planned'
+  | 'decommissioned'
+  | 'unknown'
+
+export type SystemIntegrationLevel = 'none' | 'manual' | 'partial' | 'full'
+
+export type SystemSecurityRisk = 'low' | 'normal' | 'high' | 'critical'
+
+export type SecurityControlType =
+  | 'edr'
+  | 'mdm'
+  | 'siem'
+  | 'iam'
+  | 'email_security'
+  | 'network'
+  | 'backup'
+  | 'zero_trust'
+  | 'other'
+
+export interface GroupCompany {
+  id: string
+  company_code: string
+  company_name: string
+  company_name_kana: string | null
+  region: string | null
+  country: string | null
+  industry: string | null
+  employee_count_range: string | null
+  revenue_range: string | null
+  it_maturity: string | null
+  relationship_status: string
+  primary_contact_name: string | null
+  primary_contact_email: string | null
+  primary_contact_phone: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SystemCatalogEntry {
+  id: string
+  category: SystemCategory
+  system_name: string
+  vendor: string | null
+  product_url: string | null
+  description: string | null
+  recommended: boolean
+  default_license_cost: number | null
+  cost_unit: string | null
+  lifecycle_status: string
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanySystemUsage {
+  id: string
+  group_company_id: string
+  system_catalog_id: string | null
+  category: SystemCategory
+  system_name: string
+  vendor: string | null
+  adoption_status: SystemAdoptionStatus
+  deployment_model: string | null
+  contract_type: string | null
+  license_count: number | null
+  annual_cost: number | null
+  renewal_date: string | null
+  satisfaction_score: number | null
+  integration_level: SystemIntegrationLevel
+  security_risk_level: SystemSecurityRisk
+  point_of_contact: string | null
+  attachments: Record<string, unknown>[]
+  notes: string | null
+  last_verified_at: string | null
+  created_at: string
+  updated_at: string
+  group_company?: GroupCompany
+  system_catalog?: SystemCatalogEntry
+}
+
+export interface CompanySecurityControl {
+  id: string
+  group_company_id: string
+  control_type: SecurityControlType
+  vendor: string | null
+  adoption_status: SystemAdoptionStatus
+  coverage: string | null
+  notes: string | null
+  last_verified_at: string | null
+  created_at: string
+  updated_at: string
+  group_company?: GroupCompany
+}
+
 // 顧客型
 export interface Customer {
   id: string
