@@ -703,7 +703,10 @@ export function GroupCompanyManager() {
       </Card>
 
       <Sheet open={detailOpen} onOpenChange={handleDetailSheetChange}>
-        <SheetContent side="right" className="w-full space-y-4 overflow-y-auto p-6 sm:w-[60vw]">
+        <SheetContent
+          side="right"
+          className="w-full space-y-4 overflow-y-auto p-6 sm:w-[70vw] sm:max-w-none lg:w-[960px] lg:max-w-[960px] xl:w-[1100px] xl:max-w-[1100px]"
+        >
           <SheetHeader>
             <SheetTitle>{currentCompany ? currentCompany.company_name : '会社詳細'}</SheetTitle>
             <SheetDescription>システム棚卸とセキュリティ統制の状況を確認・更新します。</SheetDescription>
