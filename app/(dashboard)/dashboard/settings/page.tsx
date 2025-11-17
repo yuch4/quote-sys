@@ -16,7 +16,6 @@ import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
-import { GroupCompanyManager } from '@/components/settings/group-company-manager'
 import { previewDocumentLayout } from './actions'
 import type {
   DocumentLayoutConfig,
@@ -1199,7 +1198,6 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="company">会社情報</TabsTrigger>
-          <TabsTrigger value="group-companies">グループ会社</TabsTrigger>
           <TabsTrigger value="documents">帳票レイアウト</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
@@ -1317,10 +1315,6 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="group-companies">
-          <GroupCompanyManager />
         </TabsContent>
 
         <TabsContent value="documents">

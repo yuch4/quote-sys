@@ -1,5 +1,6 @@
 'use client'
 
+import type { ComponentType } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   Clock,
+  Building2,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -84,6 +86,33 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
     }
   }
 
+  const renderNavLink = (
+    href: string,
+    label: string,
+    icon: ComponentType<{ className?: string }>,
+    isActive: boolean,
+    title?: string,
+  ) => {
+    const Icon = icon
+    return (
+      <Link
+        key={href}
+        href={href}
+        onClick={handleClick}
+        title={title}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
+          isActive
+            ? 'bg-white/10 text-white border-teal-300 shadow-inner'
+            : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
+        )}
+      >
+        <Icon className="h-5 w-5" />
+        {label}
+      </Link>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col bg-[#1E2938] text-white">
       <div className="p-6 border-b border-white/10">
@@ -92,26 +121,9 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
 
       <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-6">
         <div className="space-y-1 px-3">
-          {navigationItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleClick}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
-                  isActive
-                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            )
-          })}
+          {navigationItems.map((item) =>
+            renderNavLink(item.href, item.name, item.icon, pathname === item.href)
+          )}
         </div>
 
         <div className="px-3">
@@ -119,74 +131,31 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
             調達・発注
           </p>
           <div className="space-y-1">
-            {procurementItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={handleClick}
-                  className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
-                  isActive
-                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
-                )}
-                title={item.description}
-              >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              )
-            })}
+            {procurementItems.map((item) =>
+              renderNavLink(item.href, item.name, item.icon, pathname === item.href, item.description)
+            )}
           </div>
         </div>
 
-        <div className="px-3 pb-4">
-          <div className="space-y-1">
-            <Link
-              href="/dashboard/billing"
-              onClick={handleClick}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
-                pathname === '/dashboard/billing'
-                  ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-                  : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
+        <div className="px-3 pb-4 space-y-1">
+          {renderNavLink('/dashboard/billing', '計上管理', CreditCard, pathname === '/dashboard/billing')}
+          {renderNavLink('/dashboard/reports', 'レポート', TrendingUp, pathname === '/dashboard/reports')}
+          {(userRole === '営業事務' || userRole === '管理者') && (
+            <>
+              {renderNavLink(
+                '/dashboard/group-companies',
+                'グループ会社CRM',
+                Building2,
+                pathname.startsWith('/dashboard/group-companies'),
               )}
-            >
-              <CreditCard className="h-5 w-5" />
-              計上管理
-            </Link>
-            <Link
-              href="/dashboard/reports"
-              onClick={handleClick}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
-                pathname === '/dashboard/reports'
-                  ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-                  : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
+              {renderNavLink(
+                '/dashboard/settings',
+                '設定',
+                Settings,
+                pathname.startsWith('/dashboard/settings'),
               )}
-            >
-              <TrendingUp className="h-5 w-5" />
-              レポート
-            </Link>
-            {(userRole === '営業事務' || userRole === '管理者') && (
-              <Link
-                href="/dashboard/settings"
-                onClick={handleClick}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
-                  pathname.startsWith('/dashboard/settings')
-                    ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
-                )}
-              >
-                <Settings className="h-5 w-5" />
-                設定
-              </Link>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </nav>
     </div>
