@@ -16,7 +16,6 @@ import {
   Settings,
   ClipboardList,
   ClipboardCheck,
-  Clock,
   Building2,
   ListChecks,
   ChevronDown,
@@ -60,7 +59,6 @@ const procurementItems = [
     name: '発注候補',
     href: '/dashboard/procurement/pending',
     icon: ShoppingCart,
-    description: '承認済み見積から発注が必要な明細を確認できます。',
   },
   {
     name: '発注書一覧',
@@ -72,16 +70,11 @@ const procurementItems = [
     href: '/dashboard/procurement/receiving',
     icon: Package,
   },
-  {
-    name: 'アクティビティ管理',
-    href: '/dashboard/procurement/activity',
-    icon: Clock,
-    description: '見積・発注・入荷・案件活動のログを参照できます。',
-  },
 ]
 
 export function Sidebar({ userRole, onNavigate }: SidebarProps) {
   const pathname = usePathname()
+  const [procurementMenuOpen, setProcurementMenuOpen] = useState(() => pathname.startsWith('/dashboard/procurement'))
   const [groupMenuOpen, setGroupMenuOpen] = useState(() => pathname.startsWith('/dashboard/group-companies'))
 
   const groupMenuItems = useMemo(
@@ -147,12 +140,33 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
         </div>
 
         <div className="px-3">
-          <p className="px-3 mb-2 text-xs font-semibold text-gray-300 uppercase tracking-wider">
-            調達・発注
-          </p>
-          <div className="space-y-1">
-            {procurementItems.map((item) =>
-              renderNavLink(item.href, item.name, item.icon, pathname === item.href, item.description)
+          <div className="rounded-lg bg-white/5">
+            <button
+              type="button"
+              onClick={() => setProcurementMenuOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
+            >
+              <span className="flex items-center gap-3">
+                <ShoppingCart className="h-5 w-5" />
+                調達・発注
+              </span>
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', procurementMenuOpen ? 'rotate-180' : 'rotate-0')}
+              />
+            </button>
+            {procurementMenuOpen && (
+              <div className="border-t border-white/10 py-2">
+                {procurementItems.map((item) => (
+                  <div key={item.href} className="px-4">
+                    {renderNavLink(
+                      item.href,
+                      item.name,
+                      item.icon,
+                      pathname === item.href,
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

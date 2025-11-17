@@ -139,6 +139,7 @@
   - lucide-reactアイコン統合
   - Sidebarコンポーネント化（/components/layout/sidebar.tsx）
   - MobileSidebarコンポーネント作成（/components/layout/mobile-sidebar.tsx）
+  - 調達・発注セクションをグループ管理と同様の折りたたみUIへ統一
 - テーブルのレスポンシブ対応
   - 見積一覧: デスクトップ=テーブル、モバイル=カード表示
   - 案件一覧: デスクトップ=テーブル、モバイル=カード表示
