@@ -47,6 +47,11 @@ interface GroupCompanyDetail extends GroupCompany {
   security_controls: CompanySecurityControl[]
 }
 
+interface GroupCompanyManagerProps {
+  showInsights?: boolean
+  showSimulator?: boolean
+}
+
 type DialogMode = 'create' | 'edit'
 type UsageDialogMode = 'create' | 'edit'
 type SecurityDialogMode = 'create' | 'edit'
@@ -290,7 +295,7 @@ const normalize = (value: string) => {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-export function GroupCompanyManager() {
+export function GroupCompanyManager({ showInsights = true, showSimulator = true }: GroupCompanyManagerProps = {}) {
   const [companies, setCompanies] = useState<GroupCompanySummary[]>([])
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -602,8 +607,8 @@ export function GroupCompanyManager() {
 
   return (
     <div className="space-y-4">
-      <GroupSystemInsights />
-      <VendorConsolidationSimulator />
+      {showInsights && <GroupSystemInsights />}
+      {showSimulator && <VendorConsolidationSimulator />}
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -611,16 +616,10 @@ export function GroupCompanyManager() {
               <CardTitle>グループ会社一覧</CardTitle>
               <CardDescription>グループ各社の基本情報と棚卸件数を管理します。</CardDescription>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={loadCompanies} disabled={loading || isPending}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                再読込
-              </Button>
-              <Button onClick={openCreateDialog} disabled={loading}>
-                <Plus className="mr-2 h-4 w-4" />
-                新規登録
-              </Button>
-            </div>
+            <Button onClick={openCreateDialog} disabled={loading}>
+              <Plus className="mr-2 h-4 w-4" />
+              新規登録
+            </Button>
           </div>
         </CardHeader>
         <CardContent>

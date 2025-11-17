@@ -1,6 +1,7 @@
 'use client'
 
 import type { ComponentType } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,8 @@ import {
   ClipboardCheck,
   Clock,
   Building2,
+  ListChecks,
+  ChevronDown,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -79,6 +82,23 @@ const procurementItems = [
 
 export function Sidebar({ userRole, onNavigate }: SidebarProps) {
   const pathname = usePathname()
+  const [groupMenuOpen, setGroupMenuOpen] = useState(() => pathname.startsWith('/dashboard/group-companies'))
+
+  const groupMenuItems = useMemo(
+    () => [
+      {
+        name: 'ダッシュボード',
+        href: '/dashboard/group-companies',
+        icon: Building2,
+      },
+      {
+        name: 'グループ会社一覧',
+        href: '/dashboard/group-companies/list',
+        icon: ListChecks,
+      },
+    ],
+    [],
+  )
 
   const handleClick = () => {
     if (onNavigate) {
@@ -142,12 +162,35 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
           {renderNavLink('/dashboard/reports', 'レポート', TrendingUp, pathname === '/dashboard/reports')}
           {(userRole === '営業事務' || userRole === '管理者') && (
             <>
-              {renderNavLink(
-                '/dashboard/group-companies',
-                'グループ会社CRM',
-                Building2,
-                pathname.startsWith('/dashboard/group-companies'),
-              )}
+              <div className="mt-4 rounded-lg bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => setGroupMenuOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
+                >
+                  <span className="flex items-center gap-3">
+                    <Building2 className="h-5 w-5" />
+                    グループ管理
+                  </span>
+                  <ChevronDown
+                    className={cn('h-4 w-4 transition-transform', groupMenuOpen ? 'rotate-180' : 'rotate-0')}
+                  />
+                </button>
+                {groupMenuOpen && (
+                  <div className="border-t border-white/10 py-2">
+                    {groupMenuItems.map((item) => (
+                      <div key={item.href} className="px-4">
+                        {renderNavLink(
+                          item.href,
+                          item.name,
+                          item.icon,
+                          pathname === item.href,
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {renderNavLink(
                 '/dashboard/settings',
                 '設定',
