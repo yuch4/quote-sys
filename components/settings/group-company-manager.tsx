@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import type { Dispatch, SetStateAction } from 'react'
+import type { ChangeEvent, Dispatch, SetStateAction } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Loader2, Pencil, Plus, Search, SortAsc, SortDesc, Trash2 } from 'lucide-react'
+import { Download, Loader2, Pencil, Plus, Search, SortAsc, SortDesc, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   CompanySecurityControl,
@@ -157,6 +157,23 @@ const statusLabels: Record<string, string> = {
 }
 
 const relationshipStatusOptions = Object.entries(statusLabels).map(([value, label]) => ({ value, label }))
+
+const companyCsvFields: Array<{ key: keyof GroupCompanyFormState; label: string }> = [
+  { key: 'company_code', label: '会社コード' },
+  { key: 'company_name', label: '会社名' },
+  { key: 'company_name_kana', label: '会社名（カナ）' },
+  { key: 'industry', label: '業種' },
+  { key: 'region', label: '地域' },
+  { key: 'country', label: '国' },
+  { key: 'employee_count_range', label: '従業員規模' },
+  { key: 'revenue_range', label: '売上規模' },
+  { key: 'it_maturity', label: 'IT成熟度' },
+  { key: 'relationship_status', label: '関係ステータス' },
+  { key: 'primary_contact_name', label: '主要担当者' },
+  { key: 'primary_contact_email', label: '担当者メール' },
+  { key: 'primary_contact_phone', label: '担当者電話' },
+  { key: 'notes', label: '備考' },
+]
 
 const systemCategoryOptions: Array<{ value: SystemCategory; label: string }> = [
   { value: 'sales_management', label: '販売管理' },
@@ -358,6 +375,8 @@ const buildCompanyPayload = (state: GroupCompanyFormState) => ({
 export function GroupCompanyManager({ showInsights = true, showSimulator = true }: GroupCompanyManagerProps = {}) {
   const [companies, setCompanies] = useState<GroupCompanySummary[]>([])
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [formState, setFormState] = useState<GroupCompanyFormState>(emptyFormState)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -368,6 +387,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
   const [detailFormState, setDetailFormState] = useState<GroupCompanyFormState>(emptyFormState)
   const [detailSaving, setDetailSaving] = useState(false)
   const detailFormSyncRef = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [usageDialogOpen, setUsageDialogOpen] = useState(false)
   const [usageDialogMode, setUsageDialogMode] = useState<UsageDialogMode>('create')
   const [usageForm, setUsageForm] = useState<SystemUsageFormState>(emptyUsageFormState)
@@ -810,6 +830,165 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     </TableHead>
   )
 
+  const normalizeStatusValue = (value?: string) => {
+    if (!value) return 'active'
+    const trimmed = value.trim()
+    if (!trimmed) return 'active'
+    const lower = trimmed.toLowerCase()
+    for (const [key, label] of Object.entries(statusLabels)) {
+      if (key.toLowerCase() === lower || label.toLowerCase() === lower) {
+        return key
+      }
+    }
+    return trimmed
+  }
+
+  const handleExportCsv = async () => {
+    if (companies.length === 0) {
+      toast.info('エクスポート対象のグループ会社がありません')
+      return
+    }
+
+    setExporting(true)
+    try {
+      const XLSX = await import('xlsx')
+      const rows = companies.map((company) => {
+        const row: Record<string, string> = {}
+        for (const field of companyCsvFields) {
+          if (field.key === 'relationship_status') {
+            row[field.label] = renderStatus(company.relationship_status ?? 'active')
+          } else {
+            const rawValue = (company as Record<string, unknown>)[field.key]
+            row[field.label] = rawValue === undefined || rawValue === null ? '' : String(rawValue)
+          }
+        }
+        return row
+      })
+
+      const worksheet = XLSX.utils.json_to_sheet(rows)
+      const csv = XLSX.utils.sheet_to_csv(worksheet)
+      const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const timestamp = new Date().toISOString().split('T')[0]
+      link.download = `group_companies_${timestamp}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      toast.success('CSVをエクスポートしました')
+    } catch (error) {
+      console.error('CSV export error:', error)
+      toast.error('CSVエクスポートに失敗しました')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleImportButtonClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleImportCsv = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+
+    setImporting(true)
+    try {
+      const text = await file.text()
+      if (!text.trim()) {
+        toast.error('CSVファイルが空です')
+        return
+      }
+
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.read(text, { type: 'string' })
+      if (workbook.SheetNames.length === 0) {
+        toast.error('CSVのシートを解析できませんでした')
+        return
+      }
+
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      if (!sheet) {
+        toast.error('CSVのシートを解析できませんでした')
+        return
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+      if (rows.length === 0) {
+        toast.info('取り込むデータがありません')
+        return
+      }
+
+      const companyMap = new Map(
+        companies
+          .filter((company) => company.company_code)
+          .map((company) => [company.company_code.toLowerCase(), company.id]),
+      )
+
+      let successCount = 0
+      let skipCount = 0
+      const errorMessages: string[] = []
+
+      for (let index = 0; index < rows.length; index += 1) {
+        const row = rows[index]
+        const rowNumber = index + 2
+        const rowState: GroupCompanyFormState = { ...emptyFormState }
+
+        for (const field of companyCsvFields) {
+          const raw = row[field.label] ?? row[field.key]
+          const value = raw === undefined || raw === null ? '' : String(raw)
+          if (field.key === 'relationship_status') {
+            rowState.relationship_status = normalizeStatusValue(value)
+          } else {
+            rowState[field.key] = value
+          }
+        }
+
+        const code = rowState.company_code.trim()
+        const name = rowState.company_name.trim()
+        if (!code || !name) {
+          skipCount += 1
+          continue
+        }
+
+        const codeLower = code.toLowerCase()
+        const existingId = companyMap.get(codeLower)
+        const payload = buildCompanyPayload({ ...rowState, id: existingId })
+        const result = await upsertGroupCompany(payload)
+        if (!result.success) {
+          errorMessages.push(`行${rowNumber}: ${result.message}`)
+          continue
+        }
+        if (!existingId && result.data?.id) {
+          companyMap.set(codeLower, result.data.id)
+        }
+        successCount += 1
+      }
+
+      if (successCount > 0) {
+        toast.success(`CSVインポートが完了しました（${successCount}件）`)
+        loadCompanies()
+      }
+      if (skipCount > 0) {
+        toast.info(`必須項目不足により${skipCount}件をスキップしました`)
+      }
+      if (errorMessages.length > 0) {
+        console.error('CSV import errors:', errorMessages)
+        toast.error(`${errorMessages.length}件の行でエラーが発生しました。コンソールログを確認してください。`)
+      }
+    } catch (error) {
+      console.error('CSV import failed:', error)
+      toast.error('CSVインポートに失敗しました')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const currentCompany = detailData ?? detailTarget
   const systemUsageList = detailData?.system_usage ?? []
   const securityControlList = detailData?.security_controls ?? []
@@ -820,15 +999,32 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
       {showSimulator && <VendorConsolidationSimulator />}
       <Card>
         <CardHeader className="space-y-4">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportCsv}
+          />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <CardTitle>グループ会社一覧</CardTitle>
               <CardDescription>グループ各社の基本情報と棚卸件数を管理します。</CardDescription>
             </div>
-            <Button onClick={openCreateDialog} disabled={loading}>
-              <Plus className="mr-2 h-4 w-4" />
-              新規登録
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={handleImportButtonClick} disabled={loading || importing}>
+                <Upload className="mr-2 h-4 w-4" />
+                {importing ? 'インポート中...' : 'CSVインポート'}
+              </Button>
+              <Button variant="outline" onClick={handleExportCsv} disabled={loading || exporting}>
+                <Download className="mr-2 h-4 w-4" />
+                {exporting ? 'エクスポート中...' : 'CSVエクスポート'}
+              </Button>
+              <Button onClick={openCreateDialog} disabled={loading}>
+                <Plus className="mr-2 h-4 w-4" />
+                新規登録
+              </Button>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-full max-w-xs flex-1 min-w-[200px]">
