@@ -164,14 +164,6 @@ type UsageAnalyticsRow = Pick<
   | 'annual_cost'
 >
 
-const buildAdoptionBreakdown = () => {
-  const breakdown = {} as Record<SystemAdoptionStatus, number>
-  for (const status of adoptionStatusSchema.options) {
-    breakdown[status] = 0
-  }
-  return breakdown
-}
-
 const vendorConsolidationSchema = z.object({
   vendor: z.string().min(1, 'ベンダー名を入力してください'),
   discount_rate: z
@@ -200,12 +192,24 @@ export interface SystemUsageAnalytics {
     company_count: number
     estimated_annual_cost: number
   }>
-  consolidation_candidates: Array<{
-    system_name: string
-    vendor: string | null
+  standardization_candidates: Array<{
+    category: SystemCategory
     company_count: number
-    adoption_breakdown: Record<SystemAdoptionStatus, number>
+    distinct_system_count: number
+    fragmentation_index: number
     estimated_annual_cost: number
+    leading_system: {
+      system_name: string
+      vendor: string | null
+      company_count: number
+      estimated_annual_cost: number
+    } | null
+    alternate_systems: Array<{
+      system_name: string
+      vendor: string | null
+      company_count: number
+      estimated_annual_cost: number
+    }>
   }>
 }
 
@@ -359,14 +363,19 @@ export async function fetchSystemUsageAnalytics(): Promise<ActionResult<SystemUs
     { system_count: number; company_ids: Set<string>; in_use_count: number }
   >()
   const vendorMap = new Map<string, { system_count: number; company_ids: Set<string>; annual_cost: number }>()
-  const systemMap = new Map<
-    string,
+  const categoryDetailMap = new Map<
+    SystemCategory,
     {
-      system_name: string
-      vendor: string | null
       company_ids: Set<string>
-      adoption_breakdown: Record<SystemAdoptionStatus, number>
-      annual_cost: number
+      systems: Map<
+        string,
+        {
+          system_name: string
+          vendor: string | null
+          company_ids: Set<string>
+          annual_cost: number
+        }
+      >
     }
   >()
 
@@ -399,18 +408,31 @@ export async function fetchSystemUsageAnalytics(): Promise<ActionResult<SystemUs
     vendorMap.set(vendorKey, vendorEntry)
 
     // System consolidation candidates
-    const systemKey = `${record.system_name.toLowerCase()}::${record.vendor ?? ''}`
-    const systemEntry = systemMap.get(systemKey) ?? {
+    // Category level detail for統一化候補
+    const categoryDetailEntry = categoryDetailMap.get(record.category) ?? {
+      company_ids: new Set<string>(),
+      systems: new Map<
+        string,
+        {
+          system_name: string
+          vendor: string | null
+          company_ids: Set<string>
+          annual_cost: number
+        }
+      >(),
+    }
+    categoryDetailEntry.company_ids.add(companyId)
+    const categorySystemKey = `${record.system_name.toLowerCase()}::${record.vendor ?? ''}`
+    const categorySystemEntry = categoryDetailEntry.systems.get(categorySystemKey) ?? {
       system_name: record.system_name,
       vendor: record.vendor ?? null,
       company_ids: new Set<string>(),
-      adoption_breakdown: buildAdoptionBreakdown(),
       annual_cost: 0,
     }
-    systemEntry.company_ids.add(companyId)
-    systemEntry.adoption_breakdown[record.adoption_status] += 1
-    systemEntry.annual_cost += record.annual_cost ?? 0
-    systemMap.set(systemKey, systemEntry)
+    categorySystemEntry.company_ids.add(companyId)
+    categorySystemEntry.annual_cost += record.annual_cost ?? 0
+    categoryDetailEntry.systems.set(categorySystemKey, categorySystemEntry)
+    categoryDetailMap.set(record.category, categoryDetailEntry)
   }
 
   const adoptionByCategory = Array.from(categoryMap.entries())
@@ -432,17 +454,40 @@ export async function fetchSystemUsageAnalytics(): Promise<ActionResult<SystemUs
     .sort((a, b) => b.company_count - a.company_count || b.system_count - a.system_count)
     .slice(0, 8)
 
-  const consolidationCandidates = Array.from(systemMap.values())
-    .filter((entry) => entry.company_ids.size >= 2)
-    .sort((a, b) => b.company_ids.size - a.company_ids.size || b.annual_cost - a.annual_cost)
+  const standardizationCandidates = Array.from(categoryDetailMap.entries())
+    .map(([category, detail]) => {
+      const systemStats = Array.from(detail.systems.values())
+        .map((system) => ({
+          system_name: system.system_name,
+          vendor: system.vendor,
+          company_count: system.company_ids.size,
+          estimated_annual_cost: system.annual_cost,
+        }))
+        .sort((a, b) => b.company_count - a.company_count || b.estimated_annual_cost - a.estimated_annual_cost)
+
+      if (systemStats.length === 0) {
+        return null
+      }
+
+      const companyCount = detail.company_ids.size
+      const leadingSystem = systemStats[0] ?? null
+      const fragmentationIndex = leadingSystem && companyCount > 0 ? 1 - leadingSystem.company_count / companyCount : 0
+      const distinctSystemCount = systemStats.length
+
+      return {
+        category,
+        company_count: companyCount,
+        distinct_system_count: distinctSystemCount,
+        fragmentation_index: fragmentationIndex,
+        estimated_annual_cost: systemStats.reduce((sum, system) => sum + system.estimated_annual_cost, 0),
+        leading_system: leadingSystem,
+        alternate_systems: systemStats.slice(1),
+      }
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    .filter((entry) => entry.distinct_system_count > 1 && entry.company_count > 0)
+    .sort((a, b) => b.fragmentation_index - a.fragmentation_index || b.company_count - a.company_count)
     .slice(0, 10)
-    .map((entry) => ({
-      system_name: entry.system_name,
-      vendor: entry.vendor,
-      company_count: entry.company_ids.size,
-      adoption_breakdown: entry.adoption_breakdown,
-      estimated_annual_cost: entry.annual_cost,
-    }))
 
   return {
     success: true,
@@ -453,7 +498,7 @@ export async function fetchSystemUsageAnalytics(): Promise<ActionResult<SystemUs
       estimated_annual_cost: estimatedAnnualCost,
       adoption_by_category: adoptionByCategory,
       vendor_adoption: vendorAdoption,
-      consolidation_candidates: consolidationCandidates,
+      standardization_candidates: standardizationCandidates,
     },
   }
 }

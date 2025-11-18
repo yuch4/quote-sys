@@ -9,7 +9,6 @@ import { Layers, RefreshCw, TrendingDown, TrendingUp, Users, Wallet } from 'luci
 import type { SystemUsageAnalytics } from '@/app/(dashboard)/dashboard/settings/group-companies/actions'
 import { fetchSystemUsageAnalytics } from '@/app/(dashboard)/dashboard/settings/group-companies/actions'
 import { Button } from '@/components/ui/button'
-import type { SystemAdoptionStatus } from '@/types/database'
 
 const formatCurrency = (value: number) => `¥${value.toLocaleString('ja-JP')}`
 const formatPercent = (value: number) => `${Math.round(value * 100)}%`
@@ -81,7 +80,7 @@ export function GroupSystemInsights() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold">共通化候補ダッシュボード</h3>
-          <p className="text-sm text-muted-foreground">カテゴリ別の重複状況とベンダー採用率を把握して標準化を検討します。</p>
+          <p className="text-sm text-muted-foreground">同一カテゴリでバラバラに使われているシステムを洗い出し、統一によるコスト削減インパクトを把握します。</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadAnalytics} disabled={loading}>
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -180,53 +179,79 @@ export function GroupSystemInsights() {
             <CardHeader>
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <CardTitle>共通化候補システム</CardTitle>
-                  <CardDescription>複数社で採用されているシステムを抽出しました。</CardDescription>
+                  <CardTitle>統一化優先カテゴリ</CardTitle>
+                  <CardDescription>同一カテゴリで異なるシステムが並行稼働している領域を抽出しました。</CardDescription>
                 </div>
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <TrendingDown className="h-4 w-4" />
-                  コスト集約対象
+                  コスト統一余地
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {analytics && analytics.consolidation_candidates.length > 0 ? (
+              {(analytics?.standardization_candidates?.length ?? 0) > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>システム名</TableHead>
-                        <TableHead>ベンダー</TableHead>
-                        <TableHead>利用社数</TableHead>
-                        <TableHead>概算コスト</TableHead>
-                        <TableHead>採用ステータス</TableHead>
+                        <TableHead>カテゴリ</TableHead>
+                        <TableHead>現状</TableHead>
+                        <TableHead>推奨統一候補</TableHead>
+                        <TableHead>その他の採用システム</TableHead>
+                        <TableHead>年間コスト</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {analytics.consolidation_candidates.map((row) => (
-                        <TableRow key={`${row.system_name}-${row.vendor ?? 'unknown'}`}>
-                          <TableCell className="font-medium">{row.system_name}</TableCell>
-                          <TableCell>{row.vendor ?? '未登録'}</TableCell>
-                          <TableCell>{row.company_count}</TableCell>
-                          <TableCell>{formatCurrency(row.estimated_annual_cost)}</TableCell>
+                      {(analytics?.standardization_candidates ?? []).map((row) => (
+                        <TableRow key={row.category}>
+                          <TableCell className="font-medium">
+                            <div>{translateCategory(row.category)}</div>
+                            <FragmentationBadge value={row.fragmentation_index} />
+                          </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-2 text-xs">
-                              {Object.entries(row.adoption_breakdown)
-                                .filter(([, count]) => count > 0)
-                                .map(([status, count]) => (
-                                  <Badge key={status} variant="outline">
-                                    {translateAdoptionStatus(status as keyof typeof row.adoption_breakdown)} {count}
-                                  </Badge>
-                                ))}
+                            <div className="text-sm font-medium">{row.company_count}社 / {row.distinct_system_count}システム</div>
+                            <p className="text-xs text-muted-foreground">
+                              統一で最大 {formatPercent(row.fragmentation_index)} の重複解消余地
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            {row.leading_system ? (
+                              <div>
+                                <div className="font-medium">{row.leading_system.system_name}</div>
+                                <p className="text-xs text-muted-foreground">
+                                  {row.leading_system.vendor ?? 'ベンダー未登録'} ・ {formatPercent(row.leading_system.company_count / row.company_count)} 採用
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">未計測</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {row.alternate_systems.length === 0 ? (
+                                <span className="text-xs text-muted-foreground">代替システム情報なし</span>
+                              ) : (
+                                <>
+                                  {row.alternate_systems.slice(0, 3).map((system) => (
+                                    <Badge key={`${row.category}-${system.system_name}-${system.vendor ?? 'unknown'}`} variant="outline">
+                                      {system.system_name} ({system.company_count}社)
+                                    </Badge>
+                                  ))}
+                                  {row.alternate_systems.length > 3 && (
+                                    <Badge variant="secondary">+{row.alternate_systems.length - 3}</Badge>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </TableCell>
+                          <TableCell>{formatCurrency(row.estimated_annual_cost)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
               ) : (
-                <EmptyState message="複数社で採用されているシステムはまだありません" />
+                <EmptyState message="統一化対象となるカテゴリはまだありません" />
               )}
             </CardContent>
           </Card>
@@ -248,17 +273,6 @@ function translateCategory(category: string) {
     other: 'その他',
   }
   return map[category] ?? category
-}
-
-function translateAdoptionStatus(status: SystemAdoptionStatus) {
-  const map: Record<string, string> = {
-    in_use: '稼働中',
-    pilot: 'PoC',
-    planned: '導入予定',
-    decommissioned: '廃止済み',
-    unknown: '不明',
-  }
-  return map[status] ?? status
 }
 
 function SkeletonCard({ label }: { label: string }) {
@@ -304,5 +318,23 @@ function EmptyState({ message }: { message: string }) {
     <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
       {message}
     </div>
+  )
+}
+
+function FragmentationBadge({ value }: { value: number }) {
+  let variant: 'secondary' | 'default' | 'destructive' = 'secondary'
+  let label = '低'
+  if (value >= 0.6) {
+    variant = 'destructive'
+    label = '高'
+  } else if (value >= 0.3) {
+    variant = 'default'
+    label = '中'
+  }
+
+  return (
+    <Badge variant={variant} className="mt-1 text-xs">
+      ばらつき {label} ({formatPercent(value)})
+    </Badge>
   )
 }
