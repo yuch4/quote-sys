@@ -218,10 +218,20 @@ export interface VendorConsolidationScenario {
   company_count: number
   system_count: number
   current_cost: number
+  other_vendors_cost: number
   negotiated_cost: number
+  additional_license_count: number
+  seat_cost_basis: number | null
+  migration_cost: number
+  projected_total_cost: number
   estimated_savings: number
   eligible_records: Array<
     Pick<CompanySystemUsage, 'id' | 'group_company_id' | 'system_name' | 'annual_cost'> & {
+      group_company_name: string
+    }
+  >
+  migration_records: Array<
+    Pick<CompanySystemUsage, 'id' | 'group_company_id' | 'system_name' | 'vendor' | 'category' | 'license_count' | 'annual_cost'> & {
       group_company_name: string
     }
   >
@@ -519,76 +529,117 @@ export async function simulateVendorConsolidation(input: VendorConsolidationInpu
   const targetVendor = vendor.trim()
 
   const supabase = await createClient()
-  const baseSelect = 'id, group_company_id, system_name, vendor, annual_cost, group_companies ( company_name )'
-  const queries = [supabase.from('company_system_usage').select(baseSelect).eq('vendor', targetVendor)]
+  const baseSelect =
+    'id, group_company_id, system_name, vendor, category, license_count, annual_cost, group_companies ( company_name )'
 
-  if (includeUnassigned) {
-    queries.push(
-      supabase.from('company_system_usage').select(baseSelect).is('vendor', null),
-    )
+  const targetResult = await supabase
+    .from('company_system_usage')
+    .select(baseSelect)
+    .eq('vendor', targetVendor)
+
+  if (targetResult.error) {
+    return buildError('ベンダー情報の取得に失敗しました')
   }
 
-  const results = await Promise.all(queries)
-  for (const result of results) {
-    if (result.error) {
-      return buildError('ベンダー情報の取得に失敗しました')
-    }
-  }
-
-  type VendorEligibleRecordRaw = Pick<CompanySystemUsage, 'id' | 'group_company_id' | 'system_name' | 'annual_cost'> & {
+  type VendorUsageRecordRaw = Pick<
+    CompanySystemUsage,
+    'id' | 'group_company_id' | 'system_name' | 'vendor' | 'category' | 'license_count' | 'annual_cost'
+  > & {
     group_companies?: Array<Pick<GroupCompany, 'company_name'>>
   }
-  type VendorEligibleRecord = Pick<CompanySystemUsage, 'id' | 'group_company_id' | 'system_name' | 'annual_cost'> & {
-    group_company_name?: string | null
-  }
+  type VendorUsageRecord = VendorUsageRecordRaw & { group_company_name?: string | null }
 
-  const recordMap = new Map<string, VendorEligibleRecord>()
-  for (const result of results) {
-    const rows = ensureArrayRelation(result.data) as VendorEligibleRecordRaw[]
-    for (const row of rows) {
-      if (!recordMap.has(row.id)) {
-        recordMap.set(row.id, {
-          id: row.id,
-          group_company_id: row.group_company_id,
-          system_name: row.system_name,
-          annual_cost: row.annual_cost,
-          group_company_name: row.group_companies?.[0]?.company_name ?? null,
-        })
-      }
-    }
-  }
-
-  const eligible = Array.from(recordMap.values())
-  if (eligible.length === 0) {
+  const targetRecords = ensureArrayRelation(targetResult.data) as VendorUsageRecord[]
+  if (targetRecords.length === 0) {
     return buildError('該当するシステムが見つかりませんでした')
+  }
+
+  const targetCategories = Array.from(
+    new Set(
+      targetRecords
+        .map((record) => record.category)
+        .filter((category): category is SystemCategory => Boolean(category)),
+    ),
+  )
+
+  let migrationRecords: VendorUsageRecord[] = []
+  if (targetCategories.length > 0) {
+    let migrationQuery = supabase
+      .from('company_system_usage')
+      .select(baseSelect)
+      .in('category', targetCategories)
+
+    const conditions = [`vendor.neq.${targetVendor}`]
+    if (includeUnassigned) {
+      conditions.push('vendor.is.null')
+    }
+    migrationQuery = migrationQuery.or(conditions.join(','))
+
+    const migrationResult = await migrationQuery
+    if (migrationResult.error) {
+      return buildError('統一対象外システムの取得に失敗しました')
+    }
+    migrationRecords = ensureArrayRelation(migrationResult.data) as VendorUsageRecord[]
   }
 
   const companySet = new Set<string>()
   let currentCost = 0
-  for (const record of eligible) {
+  let seatCountWithCost = 0
+  let seatCostTotal = 0
+  for (const record of targetRecords) {
     if (record.group_company_id) {
       companySet.add(record.group_company_id)
     }
     currentCost += record.annual_cost ?? 0
+    if ((record.license_count ?? 0) > 0 && (record.annual_cost ?? 0) > 0) {
+      seatCountWithCost += record.license_count ?? 0
+      seatCostTotal += record.annual_cost ?? 0
+    }
   }
 
+  const seatCostBasis = seatCountWithCost > 0 ? seatCostTotal / seatCountWithCost : null
   const negotiatedCost = currentCost * (1 - discountRate)
-  const estimatedSavings = currentCost - negotiatedCost
+
+  const additionalLicenseCount = migrationRecords.reduce(
+    (sum, record) => sum + (record.license_count ?? 0),
+    0,
+  )
+  const otherVendorsCost = migrationRecords.reduce((sum, record) => sum + (record.annual_cost ?? 0), 0)
+  const discountedSeatCost = seatCostBasis !== null ? seatCostBasis * (1 - discountRate) : 0
+  const migrationCost = additionalLicenseCount * discountedSeatCost
+  const projectedTotalCost = negotiatedCost + migrationCost
+  const currentTotalCost = currentCost + otherVendorsCost
+  const estimatedSavings = currentTotalCost - projectedTotalCost
 
   return {
     success: true,
     data: {
       target_vendor: targetVendor,
       company_count: companySet.size,
-      system_count: eligible.length,
+      system_count: targetRecords.length,
       current_cost: currentCost,
+      other_vendors_cost: otherVendorsCost,
       negotiated_cost: negotiatedCost,
+      additional_license_count: additionalLicenseCount,
+      seat_cost_basis: seatCostBasis,
+      migration_cost: migrationCost,
+      projected_total_cost: projectedTotalCost,
       estimated_savings: estimatedSavings,
-      eligible_records: eligible.map((record) => ({
+      eligible_records: targetRecords.map((record) => ({
         id: record.id,
         group_company_id: record.group_company_id,
-        group_company_name: record.group_company_name ?? '未登録',
+        group_company_name: record.group_companies?.[0]?.company_name ?? '未登録',
         system_name: record.system_name,
+        annual_cost: record.annual_cost,
+      })),
+      migration_records: migrationRecords.map((record) => ({
+        id: record.id,
+        group_company_id: record.group_company_id,
+        group_company_name: record.group_companies?.[0]?.company_name ?? '未登録',
+        system_name: record.system_name,
+        vendor: record.vendor ?? '未登録',
+        category: record.category,
+        license_count: record.license_count ?? null,
         annual_cost: record.annual_cost,
       })),
     },
