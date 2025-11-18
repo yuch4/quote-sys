@@ -31,6 +31,7 @@ import {
   deleteGroupCompany,
   fetchGroupCompanyDetail,
   fetchGroupCompanySummaries,
+  fetchGroupCompanyExportData,
   upsertCompanySecurityControlRecord,
   upsertCompanySystemUsageRecord,
   upsertGroupCompany,
@@ -175,6 +176,10 @@ const companyCsvFields: Array<{ key: keyof GroupCompanyFormState; label: string 
   { key: 'notes', label: '備考' },
 ]
 
+const COMPANY_SHEET_NAME = 'Companies'
+const SYSTEM_USAGE_SHEET_NAME = 'System Usage'
+const SECURITY_SHEET_NAME = 'Security Controls'
+
 const systemCategoryOptions: Array<{ value: SystemCategory; label: string }> = [
   { value: 'sales_management', label: '販売管理' },
   { value: 'accounting', label: '会計・経理' },
@@ -255,6 +260,11 @@ const contractTypeOptions: Array<{ value: ContractType; label: string }> = [
   { value: 'perpetual', label: '買い切り / 更新なし' },
 ]
 
+const contractTypeLabels: Record<ContractType, string> = contractTypeOptions.reduce(
+  (acc, option) => ({ ...acc, [option.value]: option.label }),
+  {} as Record<ContractType, string>,
+)
+
 const formatCurrency = (value?: number | null) => {
   if (value === null || value === undefined) return '-'
   return `¥${value.toLocaleString('ja-JP')}`
@@ -325,6 +335,32 @@ const normalize = (value: string) => {
 }
 
 const companyInputId = (prefix: string, name: string) => `${prefix ? `${prefix}-` : ''}${name}`
+
+const resolveOptionValue = <T extends string>(value: string, options: Array<{ value: T; label: string }>, fallback: T) => {
+  const trimmed = value?.trim()
+  if (!trimmed) return fallback
+  const lower = trimmed.toLowerCase()
+  const match = options.find((option) => option.value.toLowerCase() === lower || option.label.toLowerCase() === lower)
+  return match ? match.value : fallback
+}
+
+const resolveSecurityControlTypeValue = (value: string): SecurityControlType => {
+  const trimmed = value.trim()
+  if (!trimmed) return 'other'
+  const lower = trimmed.toLowerCase()
+  const match = securityControlTypeOptions.find(
+    (option) => option.value.toLowerCase() === lower || option.label.toLowerCase() === lower,
+  )
+  return match ? match.value : (trimmed as SecurityControlType)
+}
+
+const parseNumberLike = (value: string) => {
+  const trimmed = value?.trim()
+  if (!trimmed) return undefined
+  const normalized = trimmed.replace(/,/g, '')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
 
 const mapCompanyToFormState = (company?: GroupCompanySummary | GroupCompanyDetail | null): GroupCompanyFormState => ({
   id: company?.id,
@@ -843,44 +879,108 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     return trimmed
   }
 
-  const handleExportCsv = async () => {
-    if (companies.length === 0) {
-      toast.info('エクスポート対象のグループ会社がありません')
-      return
-    }
-
+  const handleExportWorkbook = async () => {
     setExporting(true)
     try {
-      const XLSX = await import('xlsx')
-      const rows = companies.map((company) => {
-        const row: Record<string, string> = {}
-        for (const field of companyCsvFields) {
-          if (field.key === 'relationship_status') {
-            row[field.label] = renderStatus(company.relationship_status ?? 'active')
-          } else {
-            const rawValue = (company as Record<string, unknown>)[field.key]
-            row[field.label] = rawValue === undefined || rawValue === null ? '' : String(rawValue)
-          }
-        }
-        return row
-      })
+      const result = await fetchGroupCompanyExportData()
+      if (!result.success) {
+        toast.error(result.message ?? 'エクスポートデータの取得に失敗しました')
+        return
+      }
 
-      const worksheet = XLSX.utils.json_to_sheet(rows)
-      const csv = XLSX.utils.sheet_to_csv(worksheet)
-      const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' })
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.utils.book_new()
+
+      if (result.data.companies.length > 0) {
+        const companyHeader = companyCsvFields.map((field) => field.label)
+        const companyRows = result.data.companies.map((company) =>
+          companyCsvFields.map((field) => {
+            if (field.key === 'relationship_status') {
+              return renderStatus(company.relationship_status ?? 'active')
+            }
+            const value = (company as Record<string, unknown>)[field.key]
+            return value === undefined || value === null ? '' : String(value)
+          }),
+        )
+        const companySheet = XLSX.utils.aoa_to_sheet([companyHeader, ...companyRows])
+        XLSX.utils.book_append_sheet(workbook, companySheet, COMPANY_SHEET_NAME)
+      }
+
+      if (result.data.system_usage.length > 0) {
+        const systemHeader = [
+          '会社コード',
+          '会社名',
+          'カテゴリー',
+          'システム名',
+          'ベンダー',
+          '採用状況',
+          '契約種別',
+          'ライセンス数',
+          '年間コスト',
+          '更新月',
+          '連携レベル',
+          'セキュリティリスク',
+          '担当者',
+          '備考',
+        ]
+        const systemRows = result.data.system_usage.map((usage) => [
+          usage.group_company_code,
+          usage.group_company_name,
+          systemCategoryLabels[usage.category as SystemCategory] ?? usage.category ?? '',
+          usage.system_name ?? '',
+          usage.vendor ?? '',
+          adoptionStatusLabels[(usage.adoption_status ?? 'in_use') as SystemAdoptionStatus] ?? usage.adoption_status ?? '',
+          usage.contract_type ? contractTypeLabels[(usage.contract_type as ContractType) ?? 'subscription'] ?? usage.contract_type : '',
+          usage.license_count ?? '',
+          usage.annual_cost ?? '',
+          usage.renewal_date ? formatMonth(usage.renewal_date) : '',
+          integrationLevelLabels[(usage.integration_level ?? 'manual') as SystemIntegrationLevel] ?? usage.integration_level ?? '',
+          securityRiskLabels[(usage.security_risk_level ?? 'normal') as SystemSecurityRisk] ?? usage.security_risk_level ?? '',
+          usage.point_of_contact ?? '',
+          usage.notes ?? '',
+        ])
+        const systemSheet = XLSX.utils.aoa_to_sheet([systemHeader, ...systemRows])
+        XLSX.utils.book_append_sheet(workbook, systemSheet, SYSTEM_USAGE_SHEET_NAME)
+      }
+
+      if (result.data.security_controls.length > 0) {
+        const securityHeader = ['会社コード', '会社名', '統制種別', 'ベンダー', '採用状況', 'カバレッジ', '備考', '最終確認日']
+        const securityRows = result.data.security_controls.map((control) => [
+          control.group_company_code,
+          control.group_company_name,
+          control.control_type ? formatControlType(control.control_type) : '',
+          control.vendor ?? '',
+          adoptionStatusLabels[(control.adoption_status ?? 'in_use') as SystemAdoptionStatus] ?? control.adoption_status ?? '',
+          control.coverage ?? '',
+          control.notes ?? '',
+          control.last_verified_at ? formatDate(control.last_verified_at) : '',
+        ])
+        const securitySheet = XLSX.utils.aoa_to_sheet([securityHeader, ...securityRows])
+        XLSX.utils.book_append_sheet(workbook, securitySheet, SECURITY_SHEET_NAME)
+      }
+
+      if (workbook.SheetNames.length === 0) {
+        toast.info('エクスポート対象のデータがありません')
+        return
+      }
+
+      const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array', compression: true })
+      const blob = new Blob([arrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       const timestamp = new Date().toISOString().split('T')[0]
-      link.download = `group_companies_${timestamp}.csv`
+      link.download = `group_companies_${timestamp}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-      toast.success('CSVをエクスポートしました')
+      toast.success('Excelファイルをエクスポートしました')
     } catch (error) {
-      console.error('CSV export error:', error)
-      toast.error('CSVエクスポートに失敗しました')
+      console.error('Workbook export error:', error)
+      toast.error('Excelエクスポートに失敗しました')
     } finally {
       setExporting(false)
     }
@@ -890,7 +990,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     fileInputRef.current?.click()
   }
 
-  const handleImportCsv = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImportWorkbook = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) {
@@ -899,28 +999,31 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
 
     setImporting(true)
     try {
-      const text = await file.text()
-      if (!text.trim()) {
-        toast.error('CSVファイルが空です')
-        return
-      }
-
       const XLSX = await import('xlsx')
-      const workbook = XLSX.read(text, { type: 'string' })
+      const isCsv = file.name.toLowerCase().endsWith('.csv')
+      const workbook = isCsv
+        ? XLSX.read(await file.text(), { type: 'string' })
+        : XLSX.read(await file.arrayBuffer(), { type: 'array' })
+
       if (workbook.SheetNames.length === 0) {
-        toast.error('CSVのシートを解析できませんでした')
+        toast.error('ファイルからシートを読み取れませんでした')
         return
       }
 
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      if (!sheet) {
-        toast.error('CSVのシートを解析できませんでした')
-        return
+      const resolveSheetRows = (name: string) => {
+        const sheet = workbook.Sheets[name]
+        if (!sheet) return []
+        return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
       }
 
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
-      if (rows.length === 0) {
-        toast.info('取り込むデータがありません')
+      const firstSheetName = workbook.SheetNames[0]
+      const companyRows = resolveSheetRows(COMPANY_SHEET_NAME)
+      const systemRows = resolveSheetRows(SYSTEM_USAGE_SHEET_NAME)
+      const securityRows = resolveSheetRows(SECURITY_SHEET_NAME)
+
+      const resolvedCompanyRows = companyRows.length > 0 ? companyRows : resolveSheetRows(firstSheetName)
+      if (resolvedCompanyRows.length === 0) {
+        toast.error('会社情報シートに行がありません')
         return
       }
 
@@ -930,12 +1033,12 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
           .map((company) => [company.company_code.toLowerCase(), company.id]),
       )
 
-      let successCount = 0
-      let skipCount = 0
-      const errorMessages: string[] = []
+      let companySuccess = 0
+      let companySkip = 0
+      const companyErrors: string[] = []
 
-      for (let index = 0; index < rows.length; index += 1) {
-        const row = rows[index]
+      for (let index = 0; index < resolvedCompanyRows.length; index += 1) {
+        const row = resolvedCompanyRows[index]
         const rowNumber = index + 2
         const rowState: GroupCompanyFormState = { ...emptyFormState }
 
@@ -952,38 +1055,141 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
         const code = rowState.company_code.trim()
         const name = rowState.company_name.trim()
         if (!code || !name) {
-          skipCount += 1
+          companySkip += 1
           continue
         }
 
-        const codeLower = code.toLowerCase()
-        const existingId = companyMap.get(codeLower)
+        const existingId = companyMap.get(code.toLowerCase())
         const payload = buildCompanyPayload({ ...rowState, id: existingId })
         const result = await upsertGroupCompany(payload)
         if (!result.success) {
-          errorMessages.push(`行${rowNumber}: ${result.message}`)
+          companyErrors.push(`会社シート 行${rowNumber}: ${result.message}`)
           continue
         }
-        if (!existingId && result.data?.id) {
-          companyMap.set(codeLower, result.data.id)
+        const nextId = result.data?.id ?? existingId
+        if (nextId) {
+          companyMap.set(code.toLowerCase(), nextId)
         }
-        successCount += 1
+        companySuccess += 1
       }
 
-      if (successCount > 0) {
-        toast.success(`CSVインポートが完了しました（${successCount}件）`)
+      let systemSuccess = 0
+      const systemErrors: string[] = []
+      if (systemRows.length > 0) {
+        for (let index = 0; index < systemRows.length; index += 1) {
+          const row = systemRows[index]
+          const rowNumber = index + 2
+          const companyCodeRaw = row['会社コード'] ?? row.group_company_code
+          const systemNameRaw = row['システム名'] ?? row.system_name
+          const companyCode = typeof companyCodeRaw === 'string' ? companyCodeRaw.trim() : String(companyCodeRaw ?? '').trim()
+          const systemName = typeof systemNameRaw === 'string' ? systemNameRaw.trim() : String(systemNameRaw ?? '').trim()
+          if (!companyCode || !systemName) {
+            continue
+          }
+          const groupCompanyId = companyMap.get(companyCode.toLowerCase())
+          if (!groupCompanyId) {
+            systemErrors.push(`システムシート 行${rowNumber}: 会社コード「${companyCode}」が見つかりません`)
+            continue
+          }
+
+          const rawCategory = row['カテゴリー'] ?? row.category
+          const rawAdoption = row['採用状況'] ?? row.adoption_status
+          const rawIntegration = row['連携レベル'] ?? row.integration_level
+          const rawRisk = row['セキュリティリスク'] ?? row.security_risk_level
+          const rawContract = row['契約種別'] ?? row.contract_type
+          const rawLicense = row['ライセンス数'] ?? row.license_count
+          const rawAnnualCost = row['年間コスト'] ?? row.annual_cost
+          const rawRenewal = row['更新月'] ?? row.renewal_date
+
+          const licenseCount = rawLicense === undefined ? undefined : parseNumberLike(String(rawLicense))
+          const annualCost = rawAnnualCost === undefined ? undefined : parseNumberLike(String(rawAnnualCost))
+          const renewalDate = rawRenewal === undefined ? undefined : toDateColumnValue(String(rawRenewal))
+
+          const payload = {
+            group_company_id: groupCompanyId,
+            category: resolveOptionValue(String(rawCategory ?? ''), systemCategoryOptions, 'other'),
+            system_name: systemName,
+            vendor: normalize(String((row['ベンダー'] ?? row.vendor ?? '') as string)),
+            adoption_status: resolveOptionValue(String(rawAdoption ?? ''), adoptionStatusOptions, 'in_use'),
+            contract_type: resolveOptionValue(String(rawContract ?? ''), contractTypeOptions, 'subscription'),
+            license_count: licenseCount,
+            annual_cost: annualCost,
+            renewal_date: renewalDate,
+            integration_level: resolveOptionValue(String(rawIntegration ?? ''), integrationLevelOptions, 'manual'),
+            security_risk_level: resolveOptionValue(String(rawRisk ?? ''), securityRiskOptions, 'normal'),
+            point_of_contact: normalize(String((row['担当者'] ?? row.point_of_contact ?? '') as string)),
+            notes: normalize(String((row['備考'] ?? row.notes ?? '') as string)),
+          }
+
+          const result = await upsertCompanySystemUsageRecord(payload)
+          if (!result.success) {
+            systemErrors.push(`システムシート 行${rowNumber}: ${result.message}`)
+            continue
+          }
+          systemSuccess += 1
+        }
+      }
+
+      let securitySuccess = 0
+      const securityErrors: string[] = []
+      if (securityRows.length > 0) {
+        for (let index = 0; index < securityRows.length; index += 1) {
+          const row = securityRows[index]
+          const rowNumber = index + 2
+          const companyCodeRaw = row['会社コード'] ?? row.group_company_code
+          const controlTypeRaw = row['統制種別'] ?? row.control_type
+          const companyCode = typeof companyCodeRaw === 'string' ? companyCodeRaw.trim() : String(companyCodeRaw ?? '').trim()
+          const controlTypeInput =
+            typeof controlTypeRaw === 'string' ? controlTypeRaw.trim() : String(controlTypeRaw ?? '').trim()
+          if (!companyCode || !controlTypeInput) {
+            continue
+          }
+          const controlType = resolveSecurityControlTypeValue(controlTypeInput)
+          const groupCompanyId = companyMap.get(companyCode.toLowerCase())
+          if (!groupCompanyId) {
+            securityErrors.push(`セキュリティシート 行${rowNumber}: 会社コード「${companyCode}」が見つかりません`)
+            continue
+          }
+
+          const rawAdoption = row['採用状況'] ?? row.adoption_status
+          const rawVerified = row['最終確認日'] ?? row.last_verified_at
+
+          const payload = {
+            group_company_id: groupCompanyId,
+            control_type: controlType,
+            vendor: normalize(String((row['ベンダー'] ?? row.vendor ?? '') as string)),
+            adoption_status: resolveOptionValue(String(rawAdoption ?? ''), adoptionStatusOptions, 'in_use'),
+            coverage: normalize(String((row['カバレッジ'] ?? row.coverage ?? '') as string)),
+            notes: normalize(String((row['備考'] ?? row.notes ?? '') as string)),
+            last_verified_at: rawVerified ? toDateColumnValue(String(rawVerified)) : undefined,
+          }
+
+          const result = await upsertCompanySecurityControlRecord(payload)
+          if (!result.success) {
+            securityErrors.push(`セキュリティシート 行${rowNumber}: ${result.message}`)
+            continue
+          }
+          securitySuccess += 1
+        }
+      }
+
+      if (companySuccess > 0 || systemSuccess > 0 || securitySuccess > 0) {
+        toast.success(
+          `Excelインポートが完了しました（会社${companySuccess}件 / システム${systemSuccess}件 / セキュリティ${securitySuccess}件）`,
+        )
         loadCompanies()
       }
-      if (skipCount > 0) {
-        toast.info(`必須項目不足により${skipCount}件をスキップしました`)
+      if (companySkip > 0) {
+        toast.info(`会社シートで必須項目不足により${companySkip}件をスキップしました`)
       }
-      if (errorMessages.length > 0) {
-        console.error('CSV import errors:', errorMessages)
-        toast.error(`${errorMessages.length}件の行でエラーが発生しました。コンソールログを確認してください。`)
+      const allErrors = [...companyErrors, ...systemErrors, ...securityErrors]
+      if (allErrors.length > 0) {
+        console.error('Workbook import errors:', allErrors)
+        toast.error(`${allErrors.length}件の行でエラーが発生しました。コンソールログを確認してください。`)
       }
     } catch (error) {
-      console.error('CSV import failed:', error)
-      toast.error('CSVインポートに失敗しました')
+      console.error('Workbook import failed:', error)
+      toast.error('Excelインポートに失敗しました')
     } finally {
       setImporting(false)
     }
@@ -1002,9 +1208,9 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".xlsx,.xls,.csv,text/csv"
             className="hidden"
-            onChange={handleImportCsv}
+            onChange={handleImportWorkbook}
           />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -1014,11 +1220,11 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" onClick={handleImportButtonClick} disabled={loading || importing}>
                 <Upload className="mr-2 h-4 w-4" />
-                {importing ? 'インポート中...' : 'CSVインポート'}
+                {importing ? 'インポート中...' : 'Excelインポート'}
               </Button>
-              <Button variant="outline" onClick={handleExportCsv} disabled={loading || exporting}>
+              <Button variant="outline" onClick={handleExportWorkbook} disabled={loading || exporting}>
                 <Download className="mr-2 h-4 w-4" />
-                {exporting ? 'エクスポート中...' : 'CSVエクスポート'}
+                {exporting ? 'エクスポート中...' : 'Excelエクスポート'}
               </Button>
               <Button onClick={openCreateDialog} disabled={loading}>
                 <Plus className="mr-2 h-4 w-4" />

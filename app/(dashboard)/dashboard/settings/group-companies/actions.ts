@@ -154,6 +154,14 @@ type GroupCompanyDetailRow = GroupCompany & {
   system_usage?: CompanySystemUsage[]
   security_controls?: CompanySecurityControl[]
 }
+
+type SystemUsageExportRow = CompanySystemUsage & {
+  group_companies?: Pick<GroupCompany, 'company_code' | 'company_name'> | Pick<GroupCompany, 'company_code' | 'company_name'>[]
+}
+
+type SecurityControlExportRow = CompanySecurityControl & {
+  group_companies?: Pick<GroupCompany, 'company_code' | 'company_name'> | Pick<GroupCompany, 'company_code' | 'company_name'>[]
+}
 type UsageAnalyticsRow = Pick<
   CompanySystemUsage,
   | 'group_company_id'
@@ -241,6 +249,80 @@ export interface VendorConsolidationInput {
   vendor: string
   discount_rate?: number
   include_unassigned?: boolean
+}
+
+export interface GroupCompanyExportData {
+  companies: GroupCompany[]
+  system_usage: Array<CompanySystemUsage & { group_company_code: string; group_company_name: string }>
+  security_controls: Array<CompanySecurityControl & { group_company_code: string; group_company_name: string }>
+}
+
+const extractCompanyMeta = (relation: SystemUsageExportRow['group_companies']) => {
+  if (!relation) {
+    return { company_code: '', company_name: '' }
+  }
+  const record = Array.isArray(relation) ? relation[0] : relation
+  return {
+    company_code: record?.company_code ?? '',
+    company_name: record?.company_name ?? '',
+  }
+}
+
+export async function fetchGroupCompanyExportData(): Promise<ActionResult<GroupCompanyExportData>> {
+  const supabase = await createClient()
+  const [companiesRes, usageRes, securityRes] = await Promise.all([
+    supabase.from('group_companies').select('*').order('company_code'),
+    supabase
+      .from('company_system_usage')
+      .select('*, group_companies:group_company_id(company_code, company_name)')
+      .order('group_company_id')
+      .order('category'),
+    supabase
+      .from('company_security_controls')
+      .select('*, group_companies:group_company_id(company_code, company_name)')
+      .order('group_company_id')
+      .order('control_type'),
+  ])
+
+  if (companiesRes.error) {
+    return buildError('グループ会社情報の取得に失敗しました')
+  }
+  if (usageRes.error) {
+    return buildError('システム利用情報の取得に失敗しました')
+  }
+  if (securityRes.error) {
+    return buildError('セキュリティ統制情報の取得に失敗しました')
+  }
+
+  const companies = ensureArrayRelation(companiesRes.data) as GroupCompany[]
+  const systemUsage = ensureArrayRelation<SystemUsageExportRow>(usageRes.data).map((row) => {
+    const meta = extractCompanyMeta(row.group_companies)
+    const { group_companies: _ignored, ...rest } = row
+    return {
+      ...(rest as CompanySystemUsage),
+      group_company_code: meta.company_code,
+      group_company_name: meta.company_name,
+    }
+  })
+
+  const securityControls = ensureArrayRelation<SecurityControlExportRow>(securityRes.data).map((row) => {
+    const meta = extractCompanyMeta(row.group_companies)
+    const { group_companies: _ignored, ...rest } = row
+    return {
+      ...(rest as CompanySecurityControl),
+      group_company_code: meta.company_code,
+      group_company_name: meta.company_name,
+    }
+  })
+
+  return {
+    success: true,
+    data: {
+      companies,
+      system_usage: systemUsage,
+      security_controls: securityControls,
+    },
+  }
 }
 
 export async function fetchGroupCompanySummaries(): Promise<
