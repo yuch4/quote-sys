@@ -2,10 +2,64 @@ import type {
   DocumentLayoutConfig,
   DocumentLayoutSectionConfig,
   DocumentLayoutTableColumnConfig,
+  DocumentPageConfig,
+  DocumentStyleConfig,
+  DocumentTableStyleConfig,
   DocumentSectionKey,
   DocumentTargetEntity,
   DocumentTableColumnKey,
 } from '@/types/document-layout'
+
+// デフォルトのページ設定
+export const DEFAULT_PAGE_CONFIG: DocumentPageConfig = {
+  size: 'A4',
+  orientation: 'portrait',
+  margin: {
+    top: 30,
+    right: 30,
+    bottom: 30,
+    left: 30,
+  },
+}
+
+// デフォルトのスタイル設定
+export const DEFAULT_STYLE_CONFIG: DocumentStyleConfig = {
+  baseFontSize: 10,
+  titleFontSize: 20,
+  sectionTitleFontSize: 12,
+  tableFontSize: 9,
+  footerFontSize: 8,
+  
+  primaryColor: '#000000',
+  secondaryColor: '#333333',
+  borderColor: '#000000',
+  headerBgColor: '#FFFFFF',
+  tableHeaderBgColor: '#f0f0f0',
+  tableStripeBgColor: '#f9f9f9',
+  
+  sectionSpacing: 15,
+  itemSpacing: 5,
+  
+  borderWidth: 1,
+  tableBorderWidth: 0.5,
+  
+  showPageNumbers: true,
+  pageNumberPosition: 'center',
+  
+  companyLogoUrl: null,
+  companyLogoWidth: 100,
+  companyLogoHeight: 40,
+  companyLogoPosition: 'right',
+}
+
+// デフォルトのテーブルスタイル設定
+export const DEFAULT_TABLE_STYLE_CONFIG: DocumentTableStyleConfig = {
+  headerAlign: 'center',
+  cellPadding: 5,
+  showRowNumbers: true,
+  showGridLines: true,
+  alternateRowColors: false,
+}
 
 type SectionDefinition = {
   key: DocumentSectionKey
@@ -304,6 +358,9 @@ export const getDefaultDocumentLayout = (target: DocumentTargetEntity): Document
   return {
     sections: Array.from(uniqueSections.values()),
     table_columns: Array.from(uniqueColumns.values()),
+    page: { ...DEFAULT_PAGE_CONFIG },
+    styles: { ...DEFAULT_STYLE_CONFIG },
+    tableStyles: { ...DEFAULT_TABLE_STYLE_CONFIG },
   }
 }
 
@@ -355,12 +412,45 @@ const mergeColumns = (
   return [...merged, ...extra]
 }
 
+const mergePageConfig = (overrides?: Partial<DocumentPageConfig>): DocumentPageConfig => {
+  if (!overrides) return { ...DEFAULT_PAGE_CONFIG }
+  return {
+    size: overrides.size ?? DEFAULT_PAGE_CONFIG.size,
+    orientation: overrides.orientation ?? DEFAULT_PAGE_CONFIG.orientation,
+    margin: {
+      top: overrides.margin?.top ?? DEFAULT_PAGE_CONFIG.margin.top,
+      right: overrides.margin?.right ?? DEFAULT_PAGE_CONFIG.margin.right,
+      bottom: overrides.margin?.bottom ?? DEFAULT_PAGE_CONFIG.margin.bottom,
+      left: overrides.margin?.left ?? DEFAULT_PAGE_CONFIG.margin.left,
+    },
+  }
+}
+
+const mergeStyleConfig = (overrides?: Partial<DocumentStyleConfig>): DocumentStyleConfig => {
+  if (!overrides) return { ...DEFAULT_STYLE_CONFIG }
+  return {
+    ...DEFAULT_STYLE_CONFIG,
+    ...overrides,
+  }
+}
+
+const mergeTableStyleConfig = (overrides?: Partial<DocumentTableStyleConfig>): DocumentTableStyleConfig => {
+  if (!overrides) return { ...DEFAULT_TABLE_STYLE_CONFIG }
+  return {
+    ...DEFAULT_TABLE_STYLE_CONFIG,
+    ...overrides,
+  }
+}
+
 export const mergeDocumentLayoutConfig = (
   target: DocumentTargetEntity,
   overrides?: Partial<DocumentLayoutConfig>,
 ): DocumentLayoutConfig => ({
   sections: mergeSections(target, overrides?.sections),
   table_columns: mergeColumns(target, overrides?.table_columns),
+  page: mergePageConfig(overrides?.page),
+  styles: mergeStyleConfig(overrides?.styles),
+  tableStyles: mergeTableStyleConfig(overrides?.tableStyles),
 })
 
 export const sanitizeDocumentLayoutConfig = (
@@ -389,9 +479,37 @@ export const sanitizeDocumentLayoutConfig = (
     order: Math.max(0, Math.floor(column.order)),
   })
 
+  const sanitizePageConfig = (page: DocumentPageConfig): DocumentPageConfig => ({
+    ...page,
+    margin: {
+      top: clamp(page.margin.top, 10, 100),
+      right: clamp(page.margin.right, 10, 100),
+      bottom: clamp(page.margin.bottom, 10, 100),
+      left: clamp(page.margin.left, 10, 100),
+    },
+  })
+
+  const sanitizeStyleConfig = (styles: DocumentStyleConfig): DocumentStyleConfig => ({
+    ...styles,
+    baseFontSize: clamp(styles.baseFontSize, 6, 24),
+    titleFontSize: clamp(styles.titleFontSize, 12, 48),
+    sectionTitleFontSize: clamp(styles.sectionTitleFontSize, 8, 32),
+    tableFontSize: clamp(styles.tableFontSize, 6, 18),
+    footerFontSize: clamp(styles.footerFontSize, 6, 14),
+    sectionSpacing: clamp(styles.sectionSpacing, 0, 50),
+    itemSpacing: clamp(styles.itemSpacing, 0, 20),
+    borderWidth: clamp(styles.borderWidth, 0, 5),
+    tableBorderWidth: clamp(styles.tableBorderWidth, 0, 3),
+    companyLogoWidth: styles.companyLogoWidth ? clamp(styles.companyLogoWidth, 20, 200) : undefined,
+    companyLogoHeight: styles.companyLogoHeight ? clamp(styles.companyLogoHeight, 10, 100) : undefined,
+  })
+
   return {
     sections: base.sections.map(sanitizeSection),
     table_columns: base.table_columns.map(sanitizeColumn),
+    page: sanitizePageConfig(base.page ?? DEFAULT_PAGE_CONFIG),
+    styles: sanitizeStyleConfig(base.styles ?? DEFAULT_STYLE_CONFIG),
+    tableStyles: base.tableStyles ?? DEFAULT_TABLE_STYLE_CONFIG,
   }
 }
 

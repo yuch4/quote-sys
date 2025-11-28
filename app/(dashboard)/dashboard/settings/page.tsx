@@ -17,19 +17,15 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
 import { previewDocumentLayout } from './actions'
+import { DocumentLayoutEditor } from '@/components/settings/document-layout-editor'
 import type {
   DocumentLayoutConfig,
-  DocumentLayoutSectionConfig,
-  DocumentLayoutTableColumnConfig,
-  DocumentSectionKey,
   DocumentTargetEntity,
 } from '@/types/document-layout'
 import {
   getDefaultDocumentLayout,
   mergeDocumentLayoutConfig,
   sanitizeDocumentLayoutConfig,
-  sortColumns,
-  sortSections,
 } from '@/lib/document-layout'
 
 interface User {
@@ -196,243 +192,6 @@ export default function SettingsPage() {
     purchase_order: '発注書',
   }
 
-  const FIXED_SECTION_KEYS: Record<DocumentTargetEntity, Set<DocumentSectionKey>> = {
-    quote: new Set(['document_meta', 'company_info', 'customer_info', 'project_info', 'items_table', 'totals', 'notes', 'footer']),
-    purchase_order: new Set(['document_meta', 'company_info', 'supplier_info', 'quote_info', 'items_table', 'totals', 'notes', 'footer']),
-  }
-
-  const sectionColumnOptions: { value: DocumentLayoutSectionConfig['column']; label: string }[] = [
-    { value: 'left', label: '左側' },
-    { value: 'right', label: '右側' },
-    { value: 'full', label: '全幅' },
-  ]
-
-  const renderLayoutEditor = (target: DocumentTargetEntity) => {
-    const layout = documentLayouts[target]
-    if (!layout) return null
-
-    const sections = sortSections(layout.sections)
-    const columns = sortColumns(layout.table_columns)
-    const fixedSections = sections.filter((section) => FIXED_SECTION_KEYS[target].has(section.key))
-    const customSections = sections.filter((section) => !FIXED_SECTION_KEYS[target].has(section.key))
-
-    const renderSectionTable = (tableSections: DocumentLayoutSectionConfig[]) => (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-12">表示</TableHead>
-            <TableHead>名称</TableHead>
-            <TableHead className="w-24">行</TableHead>
-            <TableHead className="w-32">配置</TableHead>
-            <TableHead className="w-24">幅(%)</TableHead>
-            <TableHead className="w-24">優先度</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tableSections.map((section) => (
-            <TableRow key={`${target}-${section.key}`}>
-              <TableCell>
-                <Checkbox
-                  checked={section.enabled}
-                  onCheckedChange={(value) =>
-                    handleSectionChange(target, section.key, { enabled: value === true })
-                  }
-                  aria-label={`${section.label}を表示`}
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  value={section.label}
-                  onChange={(event) =>
-                    handleSectionChange(target, section.key, { label: event.target.value })
-                  }
-                />
-                <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={section.show_label !== false}
-                      onCheckedChange={(value) =>
-                        handleSectionChange(target, section.key, { show_label: value === false ? false : true })
-                      }
-                    />
-                    <span>ラベルを表示</span>
-                  </label>
-                  <span>リージョン: {section.region}</span>
-                </div>
-                {section.key === 'document_meta' && (
-                  <div className="mt-2 space-y-2">
-                    <Input
-                      placeholder="タイトル (例: 御見積書)"
-                      value={section.title ?? ''}
-                      onChange={(event) =>
-                        handleSectionChange(target, section.key, { title: event.target.value })
-                      }
-                    />
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Checkbox
-                        checked={section.show_title !== false}
-                        onCheckedChange={(value) =>
-                          handleSectionChange(target, section.key, {
-                            show_title: value === false ? false : true,
-                          })
-                        }
-                      />
-                      <span>タイトルを表示</span>
-                    </label>
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min={0}
-                  value={section.row}
-                  onChange={(event) =>
-                    handleSectionChange(target, section.key, { row: Number(event.target.value) || 0 })
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                <Select
-                  value={section.column}
-                  onValueChange={(value) =>
-                    handleSectionChange(target, section.key, {
-                      column: value as DocumentLayoutSectionConfig['column'],
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectionColumnOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min={10}
-                  max={100}
-                  step={5}
-                  value={section.width}
-                  onChange={(event) =>
-                    handleSectionChange(target, section.key, { width: Number(event.target.value) || 0 })
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  min={0}
-                  value={section.order}
-                  onChange={(event) =>
-                    handleSectionChange(target, section.key, { order: Number(event.target.value) || 0 })
-                  }
-                />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    )
-
-    return (
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <h4 className="mb-2 font-semibold">固定表示セクション</h4>
-            {fixedSections.length > 0 ? (
-              renderSectionTable(fixedSections)
-            ) : (
-              <p className="text-sm text-muted-foreground">固定表示セクションはありません。</p>
-            )}
-          </div>
-          <div>
-            <h4 className="mb-2 font-semibold">カスタムセクション</h4>
-            {customSections.length > 0 ? (
-              renderSectionTable(customSections)
-            ) : (
-              <p className="text-sm text-muted-foreground">追加のカスタムセクションはありません。</p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h4 className="mb-2 font-semibold">明細テーブル列</h4>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">表示</TableHead>
-                <TableHead>列名</TableHead>
-                <TableHead className="w-24">幅(%)</TableHead>
-                <TableHead className="w-24">順序</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {columns.map((column) => (
-                <TableRow key={`${target}-${column.key}`}>
-                  <TableCell>
-                    <Checkbox
-                      checked={column.enabled}
-                      onCheckedChange={(value) =>
-                        handleColumnChange(target, column.key, { enabled: value === true })
-                      }
-                      aria-label={`${column.label}列を表示`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={column.label}
-                      onChange={(event) =>
-                        handleColumnChange(target, column.key, { label: event.target.value })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min={5}
-                      max={100}
-                      step={5}
-                      value={column.width}
-                      onChange={(event) =>
-                        handleColumnChange(target, column.key, { width: Number(event.target.value) || 0 })
-                      }
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={column.order}
-                      onChange={(event) =>
-                        handleColumnChange(target, column.key, { order: Number(event.target.value) || 0 })
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        <div className="flex justify-end">
-          <Button
-            onClick={() => handleSaveLayout(target)}
-            disabled={layoutSaving[target] || previewing[target]}
-          >
-            {layoutSaving[target] || previewing[target] ? '保存・プレビュー中...' : '保存してプレビュー'}
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   const generateNextCode = (values: (string | null | undefined)[], prefix: string) => {
     const numericValues = values.reduce<number[]>((acc, value) => {
       if (typeof value === 'string' && value.startsWith(prefix)) {
@@ -545,6 +304,9 @@ export default function SettingsPage() {
             nextLayouts[entity] = mergeDocumentLayoutConfig(entity, {
               sections: layoutRow.sections,
               table_columns: layoutRow.table_columns,
+              page: layoutRow.page ?? undefined,
+              styles: layoutRow.styles ?? undefined,
+              tableStyles: layoutRow.table_styles ?? undefined,
             })
           }
         }
@@ -696,40 +458,11 @@ export default function SettingsPage() {
 
   const updateDocumentLayout = (
     target: DocumentTargetEntity,
-    updater: (current: DocumentLayoutConfig) => DocumentLayoutConfig,
+    newLayout: DocumentLayoutConfig,
   ) => {
-    setDocumentLayouts((prev) => {
-      const current = prev[target] ?? getDefaultDocumentLayout(target)
-      return {
-        ...prev,
-        [target]: updater(current),
-      }
-    })
-  }
-
-  const handleSectionChange = (
-    target: DocumentTargetEntity,
-    key: string,
-    updates: Partial<Omit<DocumentLayoutSectionConfig, 'key' | 'region'>>,
-  ) => {
-    updateDocumentLayout(target, (current) => ({
-      ...current,
-      sections: current.sections.map((section) =>
-        section.key === key ? { ...section, ...updates } : section
-      ),
-    }))
-  }
-
-  const handleColumnChange = (
-    target: DocumentTargetEntity,
-    key: string,
-    updates: Partial<Omit<DocumentLayoutTableColumnConfig, 'key'>>,
-  ) => {
-    updateDocumentLayout(target, (current) => ({
-      ...current,
-      table_columns: current.table_columns.map((column) =>
-        column.key === key ? { ...column, ...updates } : column
-      ),
+    setDocumentLayouts((prev) => ({
+      ...prev,
+      [target]: newLayout,
     }))
   }
 
@@ -746,6 +479,9 @@ export default function SettingsPage() {
           target_entity: target,
           sections: sanitized.sections,
           table_columns: sanitized.table_columns,
+          page: sanitized.page ?? null,
+          styles: sanitized.styles ?? null,
+          table_styles: sanitized.tableStyles ?? null,
           updated_at: new Date().toISOString(),
         })
 
@@ -756,7 +492,6 @@ export default function SettingsPage() {
         [target]: sanitized,
       }))
       toast.success('帳票レイアウトを更新しました')
-      await handlePreviewLayout(target)
     } catch (error) {
       console.error('帳票レイアウト更新エラー:', error)
       toast.error('帳票レイアウトの更新に失敗しました')
@@ -1321,7 +1056,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>帳票レイアウト</CardTitle>
-              <CardDescription>見積書・発注書のセクションや明細列の表示/配置を調整します。</CardDescription>
+              <CardDescription>見積書・発注書のセクション・明細列・ページ設定・スタイルを調整します。</CardDescription>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="quote" className="space-y-4">
@@ -1338,7 +1073,15 @@ export default function SettingsPage() {
                   Object.keys(documentTargetLabels) as DocumentTargetEntity[]
                 ).map((target) => (
                   <TabsContent key={target} value={target} className="space-y-4">
-                    {renderLayoutEditor(target)}
+                    <DocumentLayoutEditor
+                      target={target}
+                      layout={documentLayouts[target]}
+                      onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
+                      onSave={() => handleSaveLayout(target)}
+                      onPreview={() => handlePreviewLayout(target)}
+                      saving={layoutSaving[target]}
+                      previewing={previewing[target]}
+                    />
                   </TabsContent>
                 ))}
               </Tabs>

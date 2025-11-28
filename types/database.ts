@@ -488,3 +488,14 @@ export interface SupplierFormData {
   address?: string
   payment_terms?: string
 }
+
+// 帳票レイアウト設定型
+export interface DocumentLayoutSettings {
+  target_entity: 'quote' | 'purchase_order'
+  sections: Record<string, unknown>[]
+  table_columns: Record<string, unknown>[]
+  page: Record<string, unknown> | null
+  styles: Record<string, unknown> | null
+  table_styles: Record<string, unknown> | null
+  updated_at: string
+}

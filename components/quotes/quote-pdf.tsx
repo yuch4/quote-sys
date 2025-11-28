@@ -1,146 +1,194 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { ensureJapaneseFonts, FONT_FAMILY } from '@/lib/pdf/fonts'
 import type {
   DocumentLayoutConfig,
   DocumentLayoutSectionConfig,
   DocumentTableColumnKey,
+  DocumentStyleConfig,
+  DocumentPageConfig,
+  DocumentTableStyleConfig,
 } from '@/types/document-layout'
-import { getDefaultDocumentLayout, sortColumns } from '@/lib/document-layout'
+import {
+  getDefaultDocumentLayout,
+  sortColumns,
+  DEFAULT_PAGE_CONFIG,
+  DEFAULT_STYLE_CONFIG,
+  DEFAULT_TABLE_STYLE_CONFIG,
+} from '@/lib/document-layout'
 
 ensureJapaneseFonts()
 
-// PDFスタイル定義
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontSize: 10,
-    fontFamily: FONT_FAMILY,
-  },
-  header: {
-    marginBottom: 20,
-    gap: 10,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  metaLabel: {
-    fontSize: 10,
-    color: '#333',
-    marginBottom: 6,
-  },
-  sectionContainer: {
-    flexGrow: 1,
-  },
-  companyInfo: {
-    textAlign: 'right',
-    gap: 2,
-  },
-  companyName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  companyLabel: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  companyAddress: {
-    fontSize: 10,
-  },
-  rowGroup: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  section: {
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    borderBottom: '1pt solid #000',
-    paddingBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 5,
-  },
-  label: {
-    width: '30%',
-    fontWeight: 'bold',
-  },
-  value: {
-    width: '70%',
-  },
-  table: {
-    width: '100%',
-    marginTop: 10,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    padding: 5,
-    borderBottom: '1pt solid #000',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 5,
-    borderBottom: '0.5pt solid #ddd',
-  },
-  tableHeaderCell: {
-    fontWeight: 'bold',
-    fontSize: 9,
-  },
-  tableCell: {
-    fontSize: 9,
-  },
-  totalSection: {
-    marginTop: 20,
-    alignItems: 'flex-end',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    width: '40%',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-    paddingHorizontal: 10,
-  },
-  totalLabel: {
-    fontWeight: 'bold',
-  },
-  totalValue: {
-    fontWeight: 'bold',
-  },
-  grandTotal: {
-    flexDirection: 'row',
-    width: '40%',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 10,
-    paddingHorizontal: 10,
-    borderTop: '1pt solid #000',
-  },
-  grandTotalLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  grandTotalValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  footer: {
-    marginTop: 30,
-    fontSize: 8,
-    color: '#666',
-  },
-})
+// 動的スタイル生成関数
+const createStyles = (
+  pageConfig: DocumentPageConfig,
+  styleConfig: DocumentStyleConfig,
+  tableStyleConfig: DocumentTableStyleConfig
+) =>
+  StyleSheet.create({
+    page: {
+      padding: pageConfig.margin.top,
+      paddingLeft: pageConfig.margin.left,
+      paddingRight: pageConfig.margin.right,
+      paddingBottom: pageConfig.margin.bottom,
+      fontSize: styleConfig.baseFontSize,
+      fontFamily: FONT_FAMILY,
+    },
+    header: {
+      marginBottom: styleConfig.sectionSpacing,
+      gap: 10,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    title: {
+      fontSize: styleConfig.titleFontSize,
+      fontWeight: 'bold',
+      marginBottom: 10,
+      color: styleConfig.primaryColor,
+    },
+    metaLabel: {
+      fontSize: styleConfig.baseFontSize,
+      color: styleConfig.secondaryColor,
+      marginBottom: 6,
+    },
+    sectionContainer: {
+      flexGrow: 1,
+    },
+    companyInfo: {
+      textAlign: 'right',
+      gap: 2,
+    },
+    companyName: {
+      fontSize: styleConfig.sectionTitleFontSize,
+      fontWeight: 'bold',
+    },
+    companyLabel: {
+      fontSize: styleConfig.baseFontSize,
+      fontWeight: 'bold',
+      marginBottom: 4,
+    },
+    companyAddress: {
+      fontSize: styleConfig.baseFontSize,
+    },
+    companyLogo: {
+      width: styleConfig.companyLogoWidth || 100,
+      height: styleConfig.companyLogoHeight || 40,
+      marginBottom: 8,
+    },
+    rowGroup: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    section: {
+      marginBottom: styleConfig.sectionSpacing,
+    },
+    sectionTitle: {
+      fontSize: styleConfig.sectionTitleFontSize,
+      fontWeight: 'bold',
+      marginBottom: 8,
+      borderBottom: `${styleConfig.borderWidth}pt solid ${styleConfig.borderColor}`,
+      paddingBottom: 4,
+      color: styleConfig.primaryColor,
+    },
+    row: {
+      flexDirection: 'row',
+      marginBottom: styleConfig.itemSpacing,
+    },
+    label: {
+      width: '30%',
+      fontWeight: 'bold',
+    },
+    value: {
+      width: '70%',
+    },
+    table: {
+      width: '100%',
+      marginTop: 10,
+    },
+    tableHeader: {
+      flexDirection: 'row',
+      backgroundColor: styleConfig.tableHeaderBgColor,
+      padding: tableStyleConfig.cellPadding,
+      borderBottom: `${styleConfig.borderWidth}pt solid ${styleConfig.borderColor}`,
+    },
+    tableRow: {
+      flexDirection: 'row',
+      padding: tableStyleConfig.cellPadding,
+      borderBottom: tableStyleConfig.showGridLines
+        ? `${styleConfig.tableBorderWidth}pt solid #ddd`
+        : 'none',
+    },
+    tableRowAlternate: {
+      flexDirection: 'row',
+      padding: tableStyleConfig.cellPadding,
+      borderBottom: tableStyleConfig.showGridLines
+        ? `${styleConfig.tableBorderWidth}pt solid #ddd`
+        : 'none',
+      backgroundColor: tableStyleConfig.alternateRowColors
+        ? styleConfig.tableStripeBgColor
+        : 'transparent',
+    },
+    tableHeaderCell: {
+      fontWeight: 'bold',
+      fontSize: styleConfig.tableFontSize,
+      textAlign: tableStyleConfig.headerAlign,
+    },
+    tableCell: {
+      fontSize: styleConfig.tableFontSize,
+    },
+    totalSection: {
+      marginTop: styleConfig.sectionSpacing + 5,
+      alignItems: 'flex-end',
+    },
+    totalRow: {
+      flexDirection: 'row',
+      width: '40%',
+      justifyContent: 'space-between',
+      marginBottom: styleConfig.itemSpacing,
+      paddingHorizontal: 10,
+    },
+    totalLabel: {
+      fontWeight: 'bold',
+    },
+    totalValue: {
+      fontWeight: 'bold',
+    },
+    grandTotal: {
+      flexDirection: 'row',
+      width: '40%',
+      justifyContent: 'space-between',
+      marginTop: 10,
+      paddingTop: 10,
+      paddingHorizontal: 10,
+      borderTop: `${styleConfig.borderWidth}pt solid ${styleConfig.borderColor}`,
+    },
+    grandTotalLabel: {
+      fontSize: styleConfig.sectionTitleFontSize + 2,
+      fontWeight: 'bold',
+      color: styleConfig.primaryColor,
+    },
+    grandTotalValue: {
+      fontSize: styleConfig.sectionTitleFontSize + 2,
+      fontWeight: 'bold',
+      color: styleConfig.primaryColor,
+    },
+    footer: {
+      marginTop: styleConfig.sectionSpacing * 2,
+      fontSize: styleConfig.footerFontSize,
+      color: '#666',
+    },
+    pageNumber: {
+      position: 'absolute',
+      bottom: 15,
+      left: 0,
+      right: 0,
+      fontSize: styleConfig.footerFontSize,
+      textAlign: styleConfig.pageNumberPosition,
+      color: '#666',
+    },
+  })
 
 interface QuoteItem {
   line_number: number
@@ -219,7 +267,17 @@ const getColumnValue = (key: DocumentTableColumnKey, item: QuoteItem, formatCurr
   }
 }
 
+const getTextAlign = (align?: string | null): 'left' | 'center' | 'right' => {
+  if (align === 'center' || align === 'right') return align
+  return 'left'
+}
+
 export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
+  const pageConfig = layout.page ?? DEFAULT_PAGE_CONFIG
+  const styleConfig = layout.styles ?? DEFAULT_STYLE_CONFIG
+  const tableStyleConfig = layout.tableStyles ?? DEFAULT_TABLE_STYLE_CONFIG
+  const styles = createStyles(pageConfig, styleConfig, tableStyleConfig)
+
   const formatCurrency = (amount: string | number) => {
     const numericAmount = typeof amount === 'number' ? amount : Number(amount)
     return `¥${numericAmount.toLocaleString()}`
@@ -244,11 +302,19 @@ export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
     return active.length > 0 ? active : defaultColumns
   })()
 
-const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
+  const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
+    const sectionStyle = {
+      ...(section.fontSize && { fontSize: section.fontSize }),
+      ...(section.backgroundColor && { backgroundColor: section.backgroundColor }),
+      ...(section.padding && { padding: section.padding }),
+      ...(section.marginTop && { marginTop: section.marginTop }),
+      ...(section.marginBottom && { marginBottom: section.marginBottom }),
+    }
+
     switch (section.key) {
       case 'document_meta':
         return (
-          <View>
+          <View style={sectionStyle}>
             {section.show_title !== false && (
               <Text style={styles.title}>{section.title?.trim() || '御見積書'}</Text>
             )}
@@ -264,8 +330,23 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'company_info':
         if (!companyInfo.name && !companyInfo.address) return null
+        const logoPosition = styleConfig.companyLogoPosition || 'right'
         return (
-          <View style={styles.companyInfo}>
+          <View style={[styles.companyInfo, sectionStyle]}>
+            {styleConfig.companyLogoUrl && (
+              <View
+                style={{
+                  alignItems:
+                    logoPosition === 'left'
+                      ? 'flex-start'
+                      : logoPosition === 'center'
+                        ? 'center'
+                        : 'flex-end',
+                }}
+              >
+                <Image src={styleConfig.companyLogoUrl} style={styles.companyLogo} />
+              </View>
+            )}
             {section.label && <Text style={styles.companyLabel}>{section.label}</Text>}
             {companyInfo.name && <Text style={styles.companyName}>{companyInfo.name}</Text>}
             {companyInfo.address &&
@@ -278,7 +359,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'customer_info':
         return (
-          <View style={styles.section}>
+          <View style={[styles.section, sectionStyle]}>
             {section.show_label !== false && (
               <Text style={styles.sectionTitle}>{section.label || 'お客様情報'}</Text>
             )}
@@ -308,7 +389,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'project_info':
         return (
-          <View style={styles.section}>
+          <View style={[styles.section, sectionStyle]}>
             {section.show_label !== false && (
               <Text style={styles.sectionTitle}>{section.label || '案件情報'}</Text>
             )}
@@ -328,26 +409,46 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'items_table':
         return (
-          <View style={styles.section}>
+          <View style={[styles.section, sectionStyle]}>
             {section.show_label !== false && (
               <Text style={styles.sectionTitle}>{section.label || '明細'}</Text>
             )}
             <View style={styles.table}>
               <View style={styles.tableHeader}>
                 {tableColumns.map((column) => (
-                  <Text key={`header-${column.key}`} style={[styles.tableHeaderCell, { width: `${column.width}%` }]}>
+                  <Text
+                    key={`header-${column.key}`}
+                    style={[
+                      styles.tableHeaderCell,
+                      { width: `${column.width}%`, textAlign: getTextAlign(column.textAlign) },
+                    ]}
+                  >
                     {column.label}
                   </Text>
                 ))}
               </View>
               {quote.items
                 .sort((a, b) => a.line_number - b.line_number)
-                .map((item) => (
-                  <View key={item.line_number} style={styles.tableRow}>
+                .map((item, index) => (
+                  <View
+                    key={item.line_number}
+                    style={
+                      tableStyleConfig.alternateRowColors && index % 2 === 1
+                        ? styles.tableRowAlternate
+                        : styles.tableRow
+                    }
+                  >
                     {tableColumns.map((column) => (
                       <Text
                         key={`${item.line_number}-${column.key}`}
-                        style={[styles.tableCell, { width: `${column.width}%` }]}
+                        style={[
+                          styles.tableCell,
+                          {
+                            width: `${column.width}%`,
+                            textAlign: getTextAlign(column.textAlign),
+                            fontWeight: column.fontWeight || 'normal',
+                          },
+                        ]}
                       >
                         {getColumnValue(column.key, item, formatCurrency)}
                       </Text>
@@ -359,7 +460,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'totals':
         return (
-          <View style={styles.totalSection}>
+          <View style={[styles.totalSection, sectionStyle]}>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>{section.label || '小計'}:</Text>
               <Text style={styles.totalValue}>{formatCurrency(quote.total_amount)}</Text>
@@ -373,7 +474,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
       case 'notes':
         if (!quote.notes) return null
         return (
-          <View style={styles.section}>
+          <View style={[styles.section, sectionStyle]}>
             {section.show_label !== false && (
               <Text style={styles.sectionTitle}>{section.label || '備考'}</Text>
             )}
@@ -382,7 +483,7 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         )
       case 'footer':
         return (
-          <View style={styles.footer}>
+          <View style={[styles.footer, sectionStyle]}>
             {section.show_label !== false && section.label && (
               <Text style={{ fontWeight: 'bold' }}>{section.label}</Text>
             )}
@@ -406,9 +507,16 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
     )
   }
 
+  const pageSize = pageConfig.size
+  const isLandscape = pageConfig.orientation === 'landscape'
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
+      <Page
+        size={pageSize}
+        orientation={isLandscape ? 'landscape' : 'portrait'}
+        style={styles.page}
+      >
         <View style={styles.header}>
           {headerRows.map((row, index) => (
             <View key={`header-row-${index}`} style={styles.headerRow}>
@@ -424,6 +532,14 @@ const renderSectionContent = (section: DocumentLayoutSectionConfig) => {
         ))}
 
         {footerSections.map((section) => renderSection(section))}
+
+        {styleConfig.showPageNumbers && (
+          <Text
+            style={styles.pageNumber}
+            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+            fixed
+          />
+        )}
       </Page>
     </Document>
   )
