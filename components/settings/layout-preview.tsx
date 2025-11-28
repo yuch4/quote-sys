@@ -137,9 +137,9 @@ export function LayoutPreview({ target, layout, className }: LayoutPreviewProps)
 
       case 'customer_name_only':
         return (
-          <div>
+          <div className="flex items-baseline">
             <span className="font-bold text-lg">{quoteData.customer_name}</span>
-            <span className="ml-4">御中</span>
+            <span className="ml-2">御中</span>
           </div>
         )
 

@@ -357,13 +357,13 @@ export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
         )
       
       case 'customer_name_only':
-        // 顧客名のみ（宛先）
+        // 顧客名のみ（宛先）- 御中を右側に配置
         return (
-          <View style={sectionStyle}>
+          <View style={[{ flexDirection: 'row', alignItems: 'baseline' }, sectionStyle]}>
             <Text style={{ fontSize: styleConfig.sectionTitleFontSize + 2, fontWeight: 'bold' }}>
               {quote.project.customer.customer_name}
             </Text>
-            <Text style={{ fontSize: styleConfig.baseFontSize, marginLeft: 20 }}>御中</Text>
+            <Text style={{ fontSize: styleConfig.baseFontSize, marginLeft: 8 }}>御中</Text>
           </View>
         )
       
