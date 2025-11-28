@@ -110,14 +110,11 @@ function DraggableSection({
   // 段組み表示テキスト
   const getColumnLabel = () => {
     if (section.column === 'full' || columnsInRow === 1) return '全幅'
-    if (columnsInRow === 2) {
-      return `${columnsInRow}列中 ${(section.columnIndex ?? 0) + 1}番目`
-    }
-    if (columnsInRow === 3) {
-      return `${columnsInRow}列中 ${(section.columnIndex ?? 0) + 1}番目`
-    }
-    return section.column === 'left' ? `左 ${section.width}%` : `右 ${section.width}%`
+    return `${columnsInRow}列中 ${(section.columnIndex ?? 0) + 1}番目`
   }
+
+  // 3列時はコンパクト表示
+  const isCompact = columnsInRow === 3
 
   return (
     <div
@@ -125,10 +122,11 @@ function DraggableSection({
       style={{
         ...style,
         width: `${getWidthPercent()}%`,
-        minHeight: getSectionHeight() * scale,
+        minWidth: isCompact ? 80 : 120, // 3列時は最小幅を小さく
+        minHeight: isCompact ? 50 * scale : getSectionHeight() * scale,
       }}
       className={cn(
-        'relative border-2 rounded-md transition-all cursor-pointer',
+        'relative border-2 rounded-md transition-all cursor-pointer overflow-hidden',
         section.enabled
           ? 'bg-white border-gray-300 hover:border-blue-400'
           : 'bg-gray-100 border-gray-200 opacity-60',
@@ -141,9 +139,12 @@ function DraggableSection({
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-1 left-1 p-1 rounded cursor-grab hover:bg-gray-100 active:cursor-grabbing"
+        className={cn(
+          'absolute top-0.5 left-0.5 p-0.5 rounded cursor-grab hover:bg-gray-100 active:cursor-grabbing',
+          isCompact && 'p-0'
+        )}
       >
-        <GripVertical className="h-4 w-4 text-gray-400" />
+        <GripVertical className={cn('text-gray-400', isCompact ? 'h-3 w-3' : 'h-4 w-4')} />
       </div>
 
       {/* 表示/非表示トグル */}
@@ -152,35 +153,42 @@ function DraggableSection({
           e.stopPropagation()
           onToggleEnabled()
         }}
-        className="absolute top-1 right-1 p-1 rounded hover:bg-gray-100"
+        className={cn(
+          'absolute top-0.5 right-0.5 p-0.5 rounded hover:bg-gray-100',
+          isCompact && 'p-0'
+        )}
       >
         {section.enabled ? (
-          <Eye className="h-4 w-4 text-gray-600" />
+          <Eye className={cn('text-gray-600', isCompact ? 'h-3 w-3' : 'h-4 w-4')} />
         ) : (
-          <EyeOff className="h-4 w-4 text-gray-400" />
+          <EyeOff className={cn('text-gray-400', isCompact ? 'h-3 w-3' : 'h-4 w-4')} />
         )}
       </button>
 
       {/* セクションコンテンツ */}
-      <div className="p-3 pt-8">
-        <div className="flex items-center gap-2 mb-1">
-          <Badge variant={section.enabled ? 'default' : 'secondary'} className="text-xs">
+      <div className={cn('p-2', isCompact ? 'pt-4' : 'pt-6')}>
+        <div className={cn('flex items-center gap-1 mb-0.5', isCompact && 'flex-wrap')}>
+          <Badge variant={section.enabled ? 'default' : 'secondary'} className={cn(isCompact ? 'text-[10px] px-1 py-0' : 'text-xs')}>
             {section.region}
           </Badge>
-          <span className="text-sm font-medium truncate">{section.label}</span>
+          <span className={cn('font-medium truncate', isCompact ? 'text-[10px]' : 'text-sm')}>{section.label}</span>
         </div>
-        <div className="text-xs text-gray-500">
-          {getColumnLabel()}
-        </div>
-        {section.title && (
-          <div className="mt-1 text-xs text-gray-400 truncate">
-            タイトル: {section.title}
-          </div>
+        {!isCompact && (
+          <>
+            <div className="text-xs text-gray-500">
+              {getColumnLabel()}
+            </div>
+            {section.title && (
+              <div className="mt-1 text-xs text-gray-400 truncate">
+                タイトル: {section.title}
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* リサイズハンドル (選択時のみ表示) */}
-      {isSelected && section.column !== 'full' && (
+      {isSelected && section.column !== 'full' && !isCompact && (
         <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-8 bg-blue-500 rounded cursor-ew-resize flex items-center justify-center">
           <Maximize2 className="h-2 w-2 text-white rotate-45" />
         </div>
@@ -220,12 +228,15 @@ function EmptyDropZone({ id, row, columnIndex, columnsInRow, scale, isOver }: Em
     return 100
   }
 
+  const isCompact = columnsInRow === 3
+
   return (
     <div
       ref={setNodeRef}
       style={{
         width: `${getWidthPercent()}%`,
-        minHeight: 70 * scale,
+        minWidth: isCompact ? 80 : 120,
+        minHeight: isCompact ? 50 * scale : 70 * scale,
       }}
       className={cn(
         'relative border-2 border-dashed rounded-md transition-all',
@@ -234,8 +245,11 @@ function EmptyDropZone({ id, row, columnIndex, columnsInRow, scale, isOver }: Em
           : 'border-gray-300 bg-gray-50 hover:border-gray-400'
       )}
     >
-      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-        <Plus className="h-4 w-4 mr-1" />
+      <div className={cn(
+        'flex items-center justify-center h-full text-gray-400',
+        isCompact ? 'text-xs' : 'text-sm'
+      )}>
+        <Plus className={cn(isCompact ? 'h-3 w-3' : 'h-4 w-4', 'mr-0.5')} />
         {columnIndex + 1}列目
       </div>
     </div>
