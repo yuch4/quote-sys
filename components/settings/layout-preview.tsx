@@ -9,6 +9,7 @@ import type {
   DocumentPageConfig,
   DocumentStyleConfig,
   DocumentTableStyleConfig,
+  ColumnsLayout,
 } from '@/types/document-layout'
 import {
   DEFAULT_PAGE_CONFIG,
@@ -329,6 +330,17 @@ export function LayoutPreview({ target, layout, className }: LayoutPreviewProps)
     .map(Number)
     .sort((a, b) => a - b)
 
+  // 行の段組み数を取得
+  const getRowColumnsLayout = (rowSections: DocumentLayoutSectionConfig[]): ColumnsLayout => {
+    const firstSection = rowSections[0]
+    if (firstSection?.columnsInRow) return firstSection.columnsInRow
+    // columnsInRowが未設定の場合、セクション数から推測
+    if (rowSections.length === 1) return 1
+    if (rowSections.length === 2) return 2
+    if (rowSections.length >= 3) return 3
+    return 1
+  }
+
   return (
     <div className={cn('bg-gray-200 rounded-lg p-4 overflow-auto', className)}>
       <div
@@ -363,40 +375,50 @@ export function LayoutPreview({ target, layout, className }: LayoutPreviewProps)
         )}
 
         {/* セクション */}
-        {sortedRows.map((row) => (
-          <div
-            key={row}
-            className="flex flex-wrap gap-4"
-            style={{ marginBottom: styleConfig.sectionSpacing * 0.75 }}
-          >
-            {groupedSections[row]
-              .sort((a, b) => a.order - b.order)
-              .map((section) => {
-                const getWidth = () => {
-                  if (section.column === 'full') return '100%'
-                  return `calc(${section.width}% - 8px)`
-                }
+        {sortedRows.map((row) => {
+          const rowSections = groupedSections[row]
+          const columnsInRow = getRowColumnsLayout(rowSections)
+          
+          return (
+            <div
+              key={row}
+              className="flex flex-wrap gap-4"
+              style={{ marginBottom: styleConfig.sectionSpacing * 0.75 }}
+            >
+              {rowSections
+                .sort((a, b) => (a.columnIndex ?? a.order) - (b.columnIndex ?? b.order))
+                .map((section) => {
+                  const getWidth = () => {
+                    // 全幅または1列の場合
+                    if (section.column === 'full' || columnsInRow === 1) return '100%'
+                    // 段組みの場合
+                    if (columnsInRow === 2) return 'calc(50% - 8px)'
+                    if (columnsInRow === 3) return 'calc(33.333% - 10.666px)'
+                    // 従来のwidth指定
+                    return `calc(${section.width}% - 8px)`
+                  }
 
-                return (
-                  <div
-                    key={section.key}
-                    style={{
-                      width: getWidth(),
-                      padding: section.padding ? section.padding * 0.75 : 0,
-                      marginTop: section.marginTop ? section.marginTop * 0.75 : 0,
-                      marginBottom: section.marginBottom ? section.marginBottom * 0.75 : 0,
-                      backgroundColor: section.backgroundColor || 'transparent',
-                      fontSize: section.fontSize ? section.fontSize * 0.75 : undefined,
-                      fontWeight: section.fontWeight || undefined,
-                      textAlign: section.textAlign || undefined,
-                    }}
-                  >
-                    {renderSectionContent(section)}
-                  </div>
-                )
-              })}
-          </div>
-        ))}
+                  return (
+                    <div
+                      key={section.key}
+                      style={{
+                        width: getWidth(),
+                        padding: section.padding ? section.padding * 0.75 : 0,
+                        marginTop: section.marginTop ? section.marginTop * 0.75 : 0,
+                        marginBottom: section.marginBottom ? section.marginBottom * 0.75 : 0,
+                        backgroundColor: section.backgroundColor || 'transparent',
+                        fontSize: section.fontSize ? section.fontSize * 0.75 : undefined,
+                        fontWeight: section.fontWeight || undefined,
+                        textAlign: section.textAlign || undefined,
+                      }}
+                    >
+                      {renderSectionContent(section)}
+                    </div>
+                  )
+                })}
+            </div>
+          )
+        })}
 
         {/* ページ番号 */}
         {styleConfig.showPageNumbers && (

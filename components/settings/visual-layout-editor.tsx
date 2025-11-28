@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
-import { GripVertical, Eye, EyeOff, Move, Maximize2, RotateCcw } from 'lucide-react'
+import { GripVertical, Eye, EyeOff, Move, Maximize2, RotateCcw, Columns2, Columns3, Square, Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
   DocumentLayoutConfig,
@@ -32,6 +32,7 @@ import type {
   DocumentTargetEntity,
   DocumentPageConfig,
   DocumentStyleConfig,
+  ColumnsLayout,
 } from '@/types/document-layout'
 import {
   DEFAULT_PAGE_CONFIG,
@@ -51,6 +52,7 @@ interface DraggableSectionProps {
   onClick: () => void
   onToggleEnabled: () => void
   scale: number
+  columnsInRow: ColumnsLayout
 }
 
 // A4サイズ (pt) - 595.28 x 841.89
@@ -63,6 +65,7 @@ function DraggableSection({
   onClick,
   onToggleEnabled,
   scale,
+  columnsInRow,
 }: DraggableSectionProps) {
   const {
     attributes,
@@ -86,9 +89,29 @@ function DraggableSection({
     return 70
   }
 
+  // 段組み対応の幅計算
   const getWidthPercent = () => {
-    if (section.column === 'full') return 100
+    // 全幅指定の場合
+    if (section.column === 'full' || columnsInRow === 1) return 100
+    
+    // 段組み設定がある場合、均等分割
+    if (columnsInRow === 2) return 49 // 2列で約50%ずつ（gap考慮）
+    if (columnsInRow === 3) return 32 // 3列で約33%ずつ（gap考慮）
+    
+    // 従来の左右配置
     return section.width || 50
+  }
+
+  // 段組み表示テキスト
+  const getColumnLabel = () => {
+    if (section.column === 'full' || columnsInRow === 1) return '全幅'
+    if (columnsInRow === 2) {
+      return `${columnsInRow}列中 ${(section.columnIndex ?? 0) + 1}番目`
+    }
+    if (columnsInRow === 3) {
+      return `${columnsInRow}列中 ${(section.columnIndex ?? 0) + 1}番目`
+    }
+    return section.column === 'left' ? `左 ${section.width}%` : `右 ${section.width}%`
   }
 
   return (
@@ -142,7 +165,7 @@ function DraggableSection({
           <span className="text-sm font-medium truncate">{section.label}</span>
         </div>
         <div className="text-xs text-gray-500">
-          {section.column === 'full' ? '全幅' : `${section.column === 'left' ? '左' : '右'} ${section.width}%`}
+          {getColumnLabel()}
         </div>
         {section.title && (
           <div className="mt-1 text-xs text-gray-400 truncate">
@@ -312,6 +335,52 @@ export function VisualLayoutEditor({
     .map(Number)
     .sort((a, b) => a - b)
 
+  // 行の段組み数を取得
+  const getRowColumnsLayout = (row: number): ColumnsLayout => {
+    const rowSections = groupedSections[row] || []
+    // 行内の最初のセクションから段組み設定を取得（全てのセクションで同じはず）
+    const firstSection = rowSections[0]
+    if (firstSection?.columnsInRow) return firstSection.columnsInRow
+    // columnsInRowが未設定の場合、セクション数から推測
+    if (rowSections.length === 1) return 1
+    if (rowSections.length === 2) return 2
+    if (rowSections.length >= 3) return 3
+    return 1
+  }
+
+  // 行の段組み設定を変更
+  const handleRowColumnsChange = (row: number, columns: ColumnsLayout) => {
+    const rowSections = groupedSections[row] || []
+    const newSections = layout.sections.map((section) => {
+      if (section.row !== row) return section
+      return {
+        ...section,
+        columnsInRow: columns,
+        column: columns === 1 ? 'full' as const : section.column,
+        columnIndex: rowSections.findIndex((s) => s.key === section.key) % columns,
+      }
+    })
+    onLayoutChange({ ...layout, sections: newSections })
+  }
+
+  // 新しい行を追加
+  const addNewRow = () => {
+    const maxRow = Math.max(...sortedRows, 0)
+    // 利用可能なセクションがあれば移動、なければ通知のみ
+    const disabledSections = layout.sections.filter((s) => !s.enabled)
+    if (disabledSections.length > 0) {
+      const sectionToMove = disabledSections[0]
+      onLayoutChange({
+        ...layout,
+        sections: layout.sections.map((s) =>
+          s.key === sectionToMove.key
+            ? { ...s, row: maxRow + 1, enabled: true, column: 'full' as const, columnsInRow: 1 as ColumnsLayout }
+            : s
+        ),
+      })
+    }
+  }
+
   return (
     <div className="flex gap-6">
       {/* メインエディタ */}
@@ -358,26 +427,68 @@ export function VisualLayoutEditor({
                 items={sections.map((s) => s.key)}
                 strategy={verticalListSortingStrategy}
               >
-                {sortedRows.map((row) => (
-                  <div
-                    key={row}
-                    className="flex flex-wrap gap-2 mb-2"
-                    style={{ minHeight: 40 * scale }}
-                  >
-                    {groupedSections[row]
-                      .sort((a, b) => a.order - b.order)
-                      .map((section) => (
-                        <DraggableSection
-                          key={section.key}
-                          section={section}
-                          isSelected={selectedSection === section.key}
-                          onClick={() => setSelectedSection(section.key)}
-                          onToggleEnabled={() => handleToggleEnabled(section.key)}
-                          scale={scale}
-                        />
-                      ))}
-                  </div>
-                ))}
+                {sortedRows.map((row) => {
+                  const columnsInRow = getRowColumnsLayout(row)
+                  return (
+                    <div key={row} className="group relative">
+                      {/* 行の段組みコントロール */}
+                      <div className="absolute -left-2 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <div className="flex flex-col gap-1 bg-white rounded shadow-md p-1 border">
+                          <button
+                            onClick={() => handleRowColumnsChange(row, 1)}
+                            className={cn(
+                              'p-1 rounded hover:bg-gray-100',
+                              columnsInRow === 1 && 'bg-blue-100 text-blue-600'
+                            )}
+                            title="1列"
+                          >
+                            <Square className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => handleRowColumnsChange(row, 2)}
+                            className={cn(
+                              'p-1 rounded hover:bg-gray-100',
+                              columnsInRow === 2 && 'bg-blue-100 text-blue-600'
+                            )}
+                            title="2列"
+                          >
+                            <Columns2 className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => handleRowColumnsChange(row, 3)}
+                            className={cn(
+                              'p-1 rounded hover:bg-gray-100',
+                              columnsInRow === 3 && 'bg-blue-100 text-blue-600'
+                            )}
+                            title="3列"
+                          >
+                            <Columns3 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 行コンテンツ */}
+                      <div
+                        className="flex flex-wrap gap-2 mb-2 pl-4"
+                        style={{ minHeight: 40 * scale }}
+                      >
+                        {groupedSections[row]
+                          .sort((a, b) => (a.columnIndex ?? a.order) - (b.columnIndex ?? b.order))
+                          .map((section) => (
+                            <DraggableSection
+                              key={section.key}
+                              section={section}
+                              isSelected={selectedSection === section.key}
+                              onClick={() => setSelectedSection(section.key)}
+                              onToggleEnabled={() => handleToggleEnabled(section.key)}
+                              scale={scale}
+                              columnsInRow={columnsInRow}
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </SortableContext>
 
               <DragOverlay>
@@ -415,39 +526,46 @@ export function VisualLayoutEditor({
                   />
                 </div>
 
+                {/* 行の段組み設定 */}
                 <div className="space-y-2">
-                  <Label>配置</Label>
+                  <Label>行の段組み</Label>
                   <div className="flex gap-2">
-                    {(['left', 'right', 'full'] as const).map((col) => (
+                    {([1, 2, 3] as ColumnsLayout[]).map((cols) => (
                       <Button
-                        key={col}
-                        variant={selectedSectionData.column === col ? 'default' : 'outline'}
+                        key={cols}
+                        variant={getRowColumnsLayout(selectedSectionData.row) === cols ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() =>
-                          handleSectionChange(selectedSectionData.key, { column: col })
-                        }
+                        onClick={() => handleRowColumnsChange(selectedSectionData.row, cols)}
+                        className="flex-1"
                       >
-                        {col === 'left' ? '左' : col === 'right' ? '右' : '全幅'}
+                        {cols === 1 && <Square className="h-4 w-4 mr-1" />}
+                        {cols === 2 && <Columns2 className="h-4 w-4 mr-1" />}
+                        {cols === 3 && <Columns3 className="h-4 w-4 mr-1" />}
+                        {cols}列
                       </Button>
                     ))}
                   </div>
                 </div>
 
-                {selectedSectionData.column !== 'full' && (
+                {/* 段組み内での位置 (2列以上の場合) */}
+                {getRowColumnsLayout(selectedSectionData.row) > 1 && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>幅</Label>
-                      <span className="text-sm text-gray-500">{selectedSectionData.width}%</span>
+                    <Label>列の位置</Label>
+                    <div className="flex gap-2">
+                      {Array.from({ length: getRowColumnsLayout(selectedSectionData.row) }).map((_, idx) => (
+                        <Button
+                          key={idx}
+                          variant={(selectedSectionData.columnIndex ?? 0) === idx ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() =>
+                            handleSectionChange(selectedSectionData.key, { columnIndex: idx })
+                          }
+                          className="flex-1"
+                        >
+                          {idx + 1}番目
+                        </Button>
+                      ))}
                     </div>
-                    <Slider
-                      value={[selectedSectionData.width]}
-                      onValueChange={([value]) =>
-                        handleWidthChange(selectedSectionData.key, value)
-                      }
-                      min={20}
-                      max={80}
-                      step={5}
-                    />
                   </div>
                 )}
 
@@ -473,6 +591,10 @@ export function VisualLayoutEditor({
                   <p className="text-xs text-gray-500">
                     <Move className="h-3 w-3 inline mr-1" />
                     ドラッグハンドルを掴んで移動できます
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    <Columns2 className="h-3 w-3 inline mr-1" />
+                    行左側のアイコンで段組みを変更
                   </p>
                 </div>
               </>

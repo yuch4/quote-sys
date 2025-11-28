@@ -16,6 +16,7 @@ export type DocumentSectionRegion = 'header' | 'body' | 'footer'
 export type DocumentSectionColumn = 'left' | 'right' | 'full'
 export type TextAlign = 'left' | 'center' | 'right'
 export type PositionMode = 'flow' | 'absolute'
+export type ColumnsLayout = 1 | 2 | 3 // 行の段組み数
 
 // ページ設定
 export interface DocumentPageConfig {
@@ -81,6 +82,8 @@ export interface DocumentLayoutSectionConfig {
   region: DocumentSectionRegion
   row: number
   column: DocumentSectionColumn
+  columnIndex?: number // 段組み内での位置 (0, 1, 2)
+  columnsInRow?: ColumnsLayout // この行の段組み数 (1, 2, 3)
   width: number
   order: number
   title?: string | null
