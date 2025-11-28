@@ -5,6 +5,7 @@ import { NotificationBell } from '@/components/notifications/notification-bell'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileSidebar } from '@/components/layout/mobile-sidebar'
 import { UserMenu } from '@/components/layout/user-menu'
+import { BreadcrumbNav } from '@/components/layout/breadcrumb-nav'
 
 export default async function DashboardLayout({
   children,
@@ -60,6 +61,7 @@ export default async function DashboardLayout({
 
         {/* コンテンツエリア */}
         <main className="flex-1 overflow-auto p-4 md:p-6">
+          <BreadcrumbNav />
           {children}
         </main>
       </div>
