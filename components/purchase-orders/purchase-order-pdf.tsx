@@ -6,11 +6,13 @@ import type {
   DocumentStyleConfig,
   DocumentPageConfig,
   DocumentTableStyleConfig,
+  ColumnsLayout,
 } from '@/types/document-layout'
 import { ensureJapaneseFonts, FONT_FAMILY } from '@/lib/pdf/fonts'
 import {
   getDefaultDocumentLayout,
   sortColumns,
+  sortSections,
   DEFAULT_PAGE_CONFIG,
   DEFAULT_STYLE_CONFIG,
   DEFAULT_TABLE_STYLE_CONFIG,
@@ -80,6 +82,8 @@ const createStyles = (
     rowGroup: {
       flexDirection: 'row',
       gap: 12,
+      marginBottom: styleConfig.sectionSpacing,
+      flexWrap: 'wrap',
     },
     section: {
       marginBottom: styleConfig.sectionSpacing,
@@ -221,7 +225,28 @@ const groupSectionsByRow = (sections: DocumentLayoutSectionConfig[]) => {
   })
   return Array.from(rows.entries())
     .sort(([a], [b]) => a - b)
-    .map(([, bucket]) => bucket.sort((a, b) => a.order - b.order))
+    .map(([row, bucket]) => ({
+      row,
+      sections: bucket.sort((a, b) => (a.columnIndex ?? a.order) - (b.columnIndex ?? b.order)),
+    }))
+}
+
+// 行の段組み数を取得
+const getRowColumnsLayout = (rowSections: DocumentLayoutSectionConfig[]): ColumnsLayout => {
+  const firstSection = rowSections[0]
+  if (firstSection?.columnsInRow) return firstSection.columnsInRow
+  if (rowSections.length === 1) return 1
+  if (rowSections.length === 2) return 2
+  if (rowSections.length >= 3) return 3
+  return 1
+}
+
+// 段組み対応の幅計算
+const getColumnWidth = (section: DocumentLayoutSectionConfig, columnsInRow: ColumnsLayout): string => {
+  if (section.column === 'full' || columnsInRow === 1) return '100%'
+  if (columnsInRow === 2) return '48%'
+  if (columnsInRow === 3) return '31%'
+  return `${section.width}%`
 }
 
 const getColumnValue = (
@@ -269,10 +294,9 @@ export function PurchaseOrderPDF({ order, companyInfo, items, layout }: Purchase
     })
   }
 
-  const enabledSections = layout.sections.filter((section) => section.enabled)
-  const headerRows = groupSectionsByRow(enabledSections.filter((section) => section.region === 'header'))
-  const bodyRows = groupSectionsByRow(enabledSections.filter((section) => section.region === 'body'))
-  const footerSections = enabledSections.filter((section) => section.region === 'footer').sort((a, b) => a.order - b.order)
+  // プレビューと同じロジック: 有効なセクションをrow順でソート・グルーピング
+  const enabledSections = sortSections(layout.sections.filter((section) => section.enabled))
+  const groupedRows = groupSectionsByRow(enabledSections)
 
   const defaultColumns = sortColumns(getDefaultDocumentLayout('purchase_order').table_columns)
   const tableColumns = (() => {
@@ -471,10 +495,11 @@ export function PurchaseOrderPDF({ order, companyInfo, items, layout }: Purchase
     }
   }
 
-  const renderSection = (section: DocumentLayoutSectionConfig) => {
+  // 段組み対応のセクションレンダリング
+  const renderSection = (section: DocumentLayoutSectionConfig, columnsInRow: ColumnsLayout) => {
     const content = renderSectionContent(section)
     if (!content) return null
-    const widthStyle = section.column === 'full' ? { width: '100%' } : { width: `${section.width}%` }
+    const widthStyle = { width: getColumnWidth(section, columnsInRow) }
     return (
       <View key={`${section.key}-${section.row}-${section.order}`} style={[styles.sectionContainer, widthStyle]}>
         {content}
@@ -492,21 +517,15 @@ export function PurchaseOrderPDF({ order, companyInfo, items, layout }: Purchase
         orientation={isLandscape ? 'landscape' : 'portrait'}
         style={styles.page}
       >
-        <View style={styles.header}>
-          {headerRows.map((row, index) => (
-            <View key={`header-row-${index}`} style={styles.headerRow}>
-              {row.map((section) => renderSection(section))}
+        {/* プレビューと同じ: 行ごとにレンダリング */}
+        {groupedRows.map(({ row, sections: rowSections }) => {
+          const columnsInRow = getRowColumnsLayout(rowSections)
+          return (
+            <View key={`row-${row}`} style={styles.rowGroup}>
+              {rowSections.map((section) => renderSection(section, columnsInRow))}
             </View>
-          ))}
-        </View>
-
-        {bodyRows.map((row, index) => (
-          <View key={`body-row-${index}`} style={styles.rowGroup}>
-            {row.map((section) => renderSection(section))}
-          </View>
-        ))}
-
-        {footerSections.map((section) => renderSection(section))}
+          )
+        })}
 
         {styleConfig.showPageNumbers && (
           <Text
