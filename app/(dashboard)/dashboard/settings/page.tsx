@@ -12,12 +12,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Pencil, Trash2, Plus } from 'lucide-react'
+import { Pencil, Trash2, Plus, LayoutGrid, Table2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
 import { previewDocumentLayout } from './actions'
 import { DocumentLayoutEditor } from '@/components/settings/document-layout-editor'
+import { VisualLayoutEditor } from '@/components/settings/visual-layout-editor'
+import { LayoutPreview } from '@/components/settings/layout-preview'
 import type {
   DocumentLayoutConfig,
   DocumentTargetEntity,
@@ -27,6 +29,8 @@ import {
   mergeDocumentLayoutConfig,
   sanitizeDocumentLayoutConfig,
 } from '@/lib/document-layout'
+
+type LayoutEditorMode = 'table' | 'visual'
 
 interface User {
   id: string
@@ -150,6 +154,7 @@ export default function SettingsPage() {
     quote: false,
     purchase_order: false,
   })
+  const [layoutEditorMode, setLayoutEditorMode] = useState<LayoutEditorMode>('visual')
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -1055,8 +1060,30 @@ export default function SettingsPage() {
         <TabsContent value="documents">
           <Card>
             <CardHeader>
-              <CardTitle>帳票レイアウト</CardTitle>
-              <CardDescription>見積書・発注書のセクション・明細列・ページ設定・スタイルを調整します。</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>帳票レイアウト</CardTitle>
+                  <CardDescription>見積書・発注書のセクション・明細列・ページ設定・スタイルを調整します。</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={layoutEditorMode === 'visual' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setLayoutEditorMode('visual')}
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    ビジュアル
+                  </Button>
+                  <Button
+                    variant={layoutEditorMode === 'table' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setLayoutEditorMode('table')}
+                  >
+                    <Table2 className="h-4 w-4 mr-2" />
+                    テーブル
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="quote" className="space-y-4">
@@ -1073,15 +1100,48 @@ export default function SettingsPage() {
                   Object.keys(documentTargetLabels) as DocumentTargetEntity[]
                 ).map((target) => (
                   <TabsContent key={target} value={target} className="space-y-4">
-                    <DocumentLayoutEditor
-                      target={target}
-                      layout={documentLayouts[target]}
-                      onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
-                      onSave={() => handleSaveLayout(target)}
-                      onPreview={() => handlePreviewLayout(target)}
-                      saving={layoutSaving[target]}
-                      previewing={previewing[target]}
-                    />
+                    {layoutEditorMode === 'visual' ? (
+                      <div className="space-y-6">
+                        <VisualLayoutEditor
+                          target={target}
+                          layout={documentLayouts[target]}
+                          onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
+                        />
+                        <div className="border-t pt-4">
+                          <h4 className="font-medium mb-3">リアルタイムプレビュー</h4>
+                          <LayoutPreview
+                            target={target}
+                            layout={documentLayouts[target]}
+                            className="max-h-[500px]"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => handlePreviewLayout(target)}
+                            disabled={previewing[target]}
+                          >
+                            {previewing[target] ? 'PDF生成中...' : '実際のPDFを確認'}
+                          </Button>
+                          <Button
+                            onClick={() => handleSaveLayout(target)}
+                            disabled={layoutSaving[target]}
+                          >
+                            {layoutSaving[target] ? '保存中...' : '保存'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <DocumentLayoutEditor
+                        target={target}
+                        layout={documentLayouts[target]}
+                        onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
+                        onSave={() => handleSaveLayout(target)}
+                        onPreview={() => handlePreviewLayout(target)}
+                        saving={layoutSaving[target]}
+                        previewing={previewing[target]}
+                      />
+                    )}
                   </TabsContent>
                 ))}
               </Tabs>

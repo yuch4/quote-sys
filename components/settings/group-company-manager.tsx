@@ -898,7 +898,7 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
             if (field.key === 'relationship_status') {
               return renderStatus(company.relationship_status ?? 'active')
             }
-            const value = (company as Record<string, unknown>)[field.key]
+            const value = (company as unknown as Record<string, unknown>)[field.key]
             return value === undefined || value === null ? '' : String(value)
           }),
         )

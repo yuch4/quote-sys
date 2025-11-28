@@ -15,6 +15,7 @@ export type DocumentSectionKey =
 export type DocumentSectionRegion = 'header' | 'body' | 'footer'
 export type DocumentSectionColumn = 'left' | 'right' | 'full'
 export type TextAlign = 'left' | 'center' | 'right'
+export type PositionMode = 'flow' | 'absolute'
 
 // ページ設定
 export interface DocumentPageConfig {
@@ -93,6 +94,12 @@ export interface DocumentLayoutSectionConfig {
   padding?: number | null
   marginTop?: number | null
   marginBottom?: number | null
+  // 自由配置モード用
+  positionMode?: PositionMode
+  x?: number | null
+  y?: number | null
+  height?: number | null
+  zIndex?: number | null
 }
 
 export type DocumentTableColumnKey =
