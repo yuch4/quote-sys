@@ -152,7 +152,7 @@ export function LayoutPreview({ target, layout, className }: LayoutPreviewProps)
 
       case 'summary_box':
         return (
-          <div className="border border-gray-400 p-3 text-sm">
+          <div className="p-3 text-sm">
             <div className="flex border-b border-gray-200 pb-2 mb-2">
               <span className="w-20 font-bold">件　　名</span>
               <span className="font-bold">{quoteData.project_name}</span>

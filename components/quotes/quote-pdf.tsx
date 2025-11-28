@@ -381,7 +381,6 @@ export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
         // 見積概要ボックス（件名・金額・納期・取引条件・有効期限）
         const summaryBoxStyle = StyleSheet.create({
           box: {
-            border: `${styleConfig.borderWidth}pt solid ${styleConfig.borderColor}`,
             padding: 10,
           },
           row: {
