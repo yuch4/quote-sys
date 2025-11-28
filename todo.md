@@ -568,8 +568,17 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ---
 
-**最終更新**: 2025年11月1日  
-**ステータス**: Phase 1-11完了  
+**最終更新**: 2025年11月28日  
+**ステータス**: Phase 1-11完了、Phase 17進行中
+
+**Phase 17で実装完了した機能** (仕入計上按分機能):
+- ✅ project_cost_schedulesテーブル作成（DBマイグレーション）
+- ✅ CostScheduleStatus/ProjectCostSchedule型定義追加
+- ✅ 仕入計上ロジック（lib/projects/cost-schedule.ts）
+- ✅ MonthlyCostPlannerコンポーネント（UIプランナー）
+- ✅ QuoteCostPlanManagerコンポーネント（見積画面統合）
+- ✅ 見積詳細ページに売上計上と仕入計上の両セクション追加
+- ✅ 案件詳細ページに仕入計上予定一覧表示
 
 **Phase 16で実装完了した機能** (ビジュアルレイアウトエディタ):
 - ✅ @dnd-kitライブラリ導入（ドラッグ&ドロップ対応）
