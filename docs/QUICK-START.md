@@ -87,7 +87,10 @@
 | 見積一覧 | `/dashboard/quotes` | 見積の検索・承認状況確認 |
 | 発注管理 | `/dashboard/procurement` | 発注・入荷の進捗確認 |
 | 計上管理 | `/dashboard/billing` | 計上申請・承認 |
+| 承認管理 | `/dashboard/approvals` | 承認一覧・ワークフロー |
 | レポート | `/dashboard/reports` | 売上・粗利分析 |
+| グループ会社 | `/dashboard/group-companies` | グループ会社CRM |
+| プロファイル | `/dashboard/profile` | ユーザープロファイル編集 |
 | 設定 | `/dashboard/settings` | マスタデータ管理 |
 
 ### 3. コードを読んでみる
@@ -481,4 +484,4 @@ npm run dev
 
 ---
 
-**最終更新**: 2025年11月28日
+**最終更新**: 2025年11月29日
