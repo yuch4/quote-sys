@@ -326,6 +326,12 @@ quote-sys/
 │   │   ├── calendar.tsx             ✨ NEW (Phase 11)
 │   │   ├── popover.tsx              ✨ NEW (Phase 11)
 │   │   └── date-picker.tsx          ✨ NEW (Phase 11)
+│   ├── layout/                      # レイアウト関連
+│   │   ├── sidebar.tsx              # サイドバー
+│   │   ├── mobile-sidebar.tsx       # モバイルサイドバー
+│   │   ├── user-menu.tsx            # ユーザーメニュー
+│   │   ├── breadcrumb.tsx           ✨ NEW (パンくずリスト)
+│   │   └── breadcrumb-nav.tsx       ✨ NEW (パンくずナビゲーション)
 │   ├── quotes/                      # 見積関連コンポーネント
 │   │   ├── approval-actions.tsx
 │   │   ├── pdf-generate-button.tsx
