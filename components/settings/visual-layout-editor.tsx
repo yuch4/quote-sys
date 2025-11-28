@@ -5,11 +5,13 @@ import {
   DndContext,
   DragEndEvent,
   DragStartEvent,
+  DragOverEvent,
   useSensor,
   useSensors,
   PointerSensor,
   KeyboardSensor,
   DragOverlay,
+  useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -199,6 +201,47 @@ function SectionOverlay({ section }: { section: DocumentLayoutSectionConfig }) {
   )
 }
 
+// 空のドロップエリア（段組みで空いている列用）
+interface EmptyDropZoneProps {
+  id: string
+  row: number
+  columnIndex: number
+  columnsInRow: ColumnsLayout
+  scale: number
+  isOver?: boolean
+}
+
+function EmptyDropZone({ id, row, columnIndex, columnsInRow, scale, isOver }: EmptyDropZoneProps) {
+  const { setNodeRef, isOver: dropIsOver } = useDroppable({ id })
+
+  const getWidthPercent = () => {
+    if (columnsInRow === 2) return 49
+    if (columnsInRow === 3) return 32
+    return 100
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        width: `${getWidthPercent()}%`,
+        minHeight: 70 * scale,
+      }}
+      className={cn(
+        'relative border-2 border-dashed rounded-md transition-all',
+        dropIsOver || isOver
+          ? 'border-blue-500 bg-blue-50'
+          : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+      )}
+    >
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+        <Plus className="h-4 w-4 mr-1" />
+        {columnIndex + 1}列目
+      </div>
+    </div>
+  )
+}
+
 export function VisualLayoutEditor({
   target,
   layout,
@@ -206,6 +249,7 @@ export function VisualLayoutEditor({
 }: VisualLayoutEditorProps) {
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [overDropZone, setOverDropZone] = useState<string | null>(null)
   const [scale, setScale] = useState(0.6)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -253,36 +297,98 @@ export function VisualLayoutEditor({
     setActiveId(event.active.id as string)
   }
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event
+    if (over && typeof over.id === 'string' && over.id.startsWith('dropzone-')) {
+      setOverDropZone(over.id)
+    } else {
+      setOverDropZone(null)
+    }
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
+    setOverDropZone(null)
 
-    if (!over || active.id === over.id) return
+    if (!over) return
 
-    const oldIndex = sections.findIndex((s) => s.key === active.id)
-    const newIndex = sections.findIndex((s) => s.key === over.id)
+    const overId = over.id as string
+    const activeKey = active.id as string
+
+    // 空のドロップゾーンへのドロップ
+    if (overId.startsWith('dropzone-')) {
+      // dropzone-{row}-{columnIndex} 形式
+      const parts = overId.replace('dropzone-', '').split('-')
+      const targetRow = parseInt(parts[0], 10)
+      const targetColumnIndex = parseInt(parts[1], 10)
+
+      // その行の段組み設定を取得
+      const columnsInRow = getRowColumnsLayout(targetRow)
+
+      const newSections = layout.sections.map((section) => {
+        if (section.key === activeKey) {
+          return {
+            ...section,
+            row: targetRow,
+            columnIndex: targetColumnIndex,
+            columnsInRow: columnsInRow,
+            column: 'left' as const, // 段組みなので full ではない
+          }
+        }
+        return section
+      })
+
+      onLayoutChange({ ...layout, sections: newSections })
+      return
+    }
+
+    // 既存のセクションへのドロップ（従来の処理）
+    if (activeKey === overId) return
+
+    const oldIndex = sections.findIndex((s) => s.key === activeKey)
+    const newIndex = sections.findIndex((s) => s.key === overId)
 
     if (oldIndex === -1 || newIndex === -1) return
 
     // 新しい順序を計算
     const newSections = [...layout.sections]
-    const movedSection = newSections.find((s) => s.key === active.id)
-    const targetSection = newSections.find((s) => s.key === over.id)
+    const movedSection = newSections.find((s) => s.key === activeKey)
+    const targetSection = newSections.find((s) => s.key === overId)
 
     if (movedSection && targetSection) {
-      // row と order を更新
-      movedSection.row = targetSection.row
-      movedSection.order = targetSection.order
+      // ターゲットセクションの行と段組み設定を継承
+      const targetColumnsInRow = targetSection.columnsInRow || getRowColumnsLayout(targetSection.row)
+      
+      // 同じ行に移動する場合、columnIndexを交換
+      if (movedSection.row === targetSection.row) {
+        const tempColumnIndex = movedSection.columnIndex
+        movedSection.columnIndex = targetSection.columnIndex
+        targetSection.columnIndex = tempColumnIndex
+      } else {
+        // 異なる行に移動
+        movedSection.row = targetSection.row
+        movedSection.columnsInRow = targetColumnsInRow
+        movedSection.order = targetSection.order
 
-      // 必要に応じて他のセクションの順序を調整
-      const samRowSections = newSections.filter(
-        (s) => s.row === targetSection.row && s.key !== active.id
-      )
-      samRowSections.forEach((s, i) => {
-        if (s.order >= targetSection.order) {
-          s.order = s.order + 1
+        // 行内で空いているcolumnIndexを探す
+        const rowSections = newSections.filter(
+          (s) => s.row === targetSection.row && s.key !== activeKey
+        )
+        const usedIndices = rowSections.map((s) => s.columnIndex ?? 0)
+        let newColumnIndex = targetSection.columnIndex ?? 0
+        
+        // 同じcolumnIndexが既にあれば、空いている場所を探す
+        if (usedIndices.includes(newColumnIndex)) {
+          for (let i = 0; i < targetColumnsInRow; i++) {
+            if (!usedIndices.includes(i)) {
+              newColumnIndex = i
+              break
+            }
+          }
         }
-      })
+        movedSection.columnIndex = newColumnIndex
+      }
     }
 
     onLayoutChange({ ...layout, sections: newSections })
@@ -424,6 +530,7 @@ export function VisualLayoutEditor({
             <DndContext
               sensors={sensors}
               onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
             >
               <SortableContext
@@ -432,6 +539,45 @@ export function VisualLayoutEditor({
               >
                 {sortedRows.map((row) => {
                   const columnsInRow = getRowColumnsLayout(row)
+                  const rowSections = groupedSections[row]
+                    .sort((a, b) => (a.columnIndex ?? a.order) - (b.columnIndex ?? b.order))
+                  
+                  // 使用されているcolumnIndexを取得
+                  const usedColumnIndices = rowSections.map((s) => s.columnIndex ?? 0)
+                  
+                  // 空いている列のインデックスを計算
+                  const emptyColumnIndices: number[] = []
+                  if (columnsInRow > 1) {
+                    for (let i = 0; i < columnsInRow; i++) {
+                      if (!usedColumnIndices.includes(i)) {
+                        emptyColumnIndices.push(i)
+                      }
+                    }
+                  }
+
+                  // セクションと空ドロップゾーンを混合して正しい順序で表示
+                  const renderItems: { type: 'section' | 'dropzone'; key: string; columnIndex: number; section?: DocumentLayoutSectionConfig }[] = []
+                  
+                  rowSections.forEach((section) => {
+                    renderItems.push({
+                      type: 'section',
+                      key: section.key,
+                      columnIndex: section.columnIndex ?? 0,
+                      section,
+                    })
+                  })
+                  
+                  emptyColumnIndices.forEach((colIdx) => {
+                    renderItems.push({
+                      type: 'dropzone',
+                      key: `dropzone-${row}-${colIdx}`,
+                      columnIndex: colIdx,
+                    })
+                  })
+                  
+                  // columnIndexでソート
+                  renderItems.sort((a, b) => a.columnIndex - b.columnIndex)
+
                   return (
                     <div key={row} className="group relative">
                       {/* 行の段組みコントロール */}
@@ -475,19 +621,32 @@ export function VisualLayoutEditor({
                         className="flex flex-wrap gap-2 mb-2 pl-4"
                         style={{ minHeight: 40 * scale }}
                       >
-                        {groupedSections[row]
-                          .sort((a, b) => (a.columnIndex ?? a.order) - (b.columnIndex ?? b.order))
-                          .map((section) => (
+                        {renderItems.map((item) => {
+                          if (item.type === 'dropzone') {
+                            return (
+                              <EmptyDropZone
+                                key={item.key}
+                                id={item.key}
+                                row={row}
+                                columnIndex={item.columnIndex}
+                                columnsInRow={columnsInRow}
+                                scale={scale}
+                                isOver={overDropZone === item.key}
+                              />
+                            )
+                          }
+                          return (
                             <DraggableSection
-                              key={section.key}
-                              section={section}
-                              isSelected={selectedSection === section.key}
-                              onClick={() => setSelectedSection(section.key)}
-                              onToggleEnabled={() => handleToggleEnabled(section.key)}
+                              key={item.section!.key}
+                              section={item.section!}
+                              isSelected={selectedSection === item.section!.key}
+                              onClick={() => setSelectedSection(item.section!.key)}
+                              onToggleEnabled={() => handleToggleEnabled(item.section!.key)}
                               scale={scale}
                               columnsInRow={columnsInRow}
                             />
-                          ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
