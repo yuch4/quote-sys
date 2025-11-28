@@ -19,7 +19,7 @@ export interface BillingScheduleGenerateOptions {
 
 const MIN_MONTHS = 1
 const MAX_MONTHS = 60
-const DEFAULT_STATUS: BillingScheduleStatus = '予定'
+const DEFAULT_STATUS: BillingScheduleStatus = '確認済'
 
 export const BILLING_SCHEDULE_STATUSES: BillingScheduleStatus[] = ['予定', '確認済', '延期', '計上済']
 

@@ -19,7 +19,7 @@ export interface CostScheduleGenerateOptions {
 
 const MIN_MONTHS = 1
 const MAX_MONTHS = 60
-const DEFAULT_STATUS: CostScheduleStatus = '予定'
+const DEFAULT_STATUS: CostScheduleStatus = '確認済'
 
 export const COST_SCHEDULE_STATUSES: CostScheduleStatus[] = ['予定', '確認済', '延期', '計上済']
 
