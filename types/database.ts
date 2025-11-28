@@ -318,6 +318,29 @@ export interface ProjectBillingSchedule {
   quote?: Quote
 }
 
+// 仕入（原価）計上予定の型定義
+export type CostScheduleStatus = '予定' | '確認済' | '延期' | '計上済'
+
+export interface ProjectCostSchedule {
+  id: string
+  project_id: string
+  quote_id: string | null
+  purchase_order_id: string | null
+  cost_month: string
+  cost_date: string | null
+  amount: number
+  status: CostScheduleStatus
+  notes: string | null
+  confirmed_by: string | null
+  confirmed_at: string | null
+  recorded_by: string | null
+  recorded_at: string | null
+  created_at: string
+  updated_at: string
+  quote?: Quote
+  purchase_order?: PurchaseOrder
+}
+
 // 発注・入荷履歴型
 export type ActionType = '発注' | '入荷' | '出荷準備完了'
 

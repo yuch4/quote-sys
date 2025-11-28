@@ -106,6 +106,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
     console.error('Failed to load billing schedules:', billingSchedulesError)
   }
 
+  const { data: costSchedulesData, error: costSchedulesError } = await supabase
+    .from('project_cost_schedules')
+    .select('*, quote:quotes(id, quote_number), purchase_order:purchase_orders(id, purchase_order_number)')
+    .eq('project_id', id)
+    .order('cost_month', { ascending: true })
+
+  if (costSchedulesError) {
+    console.error('Failed to load cost schedules:', costSchedulesError)
+  }
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'リード': return 'outline'
@@ -186,6 +196,25 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
   )
   const billingDiffFromExpected =
     project.expected_sales != null ? billingTotalAmount - Number(project.expected_sales) : null
+
+  const costSchedules = costSchedulesData ?? []
+  const costTotalAmount = costSchedules.reduce(
+    (total, schedule) => total + Number(schedule.amount ?? 0),
+    0,
+  )
+
+  const getCostScheduleStatusVariant = (status: string) => {
+    switch (status) {
+      case '計上済':
+        return 'default'
+      case '確認済':
+        return 'secondary'
+      case '延期':
+        return 'destructive'
+      default:
+        return 'outline'
+    }
+  }
 
   const formatCurrency = (amount?: number | string | null) => {
     if (amount == null) return '-'
@@ -552,6 +581,62 @@ export default async function ProjectDetailPage({ params }: { params: Promise<Pr
                             <TableCell>{formatCurrency(schedule.amount)}</TableCell>
                             <TableCell>
                               <Badge variant={getBillingScheduleStatusVariant(schedule.status)}>
+                                {schedule.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{schedule.notes || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>月次仕入計上予定</CardTitle>
+              <CardDescription>仕入原価を自動按分した計上予定を閲覧できます。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {costSchedules.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  仕入計上予定はまだ登録されていません。見積詳細から自動生成できます。
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-4 rounded-lg border bg-slate-50 p-4 text-sm text-gray-700 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-gray-500">仕入計上予定合計</p>
+                      <p className="text-2xl font-semibold text-gray-900">{formatCurrency(costTotalAmount)}</p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>対象月</TableHead>
+                          <TableHead>見積</TableHead>
+                          <TableHead>発注書</TableHead>
+                          <TableHead>計上予定日</TableHead>
+                          <TableHead>金額</TableHead>
+                          <TableHead>ステータス</TableHead>
+                          <TableHead>備考</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {costSchedules.map((schedule) => (
+                          <TableRow key={schedule.id}>
+                            <TableCell>{formatMonth(schedule.cost_month)}</TableCell>
+                            <TableCell>{schedule.quote?.quote_number ?? '-'}</TableCell>
+                            <TableCell>{schedule.purchase_order?.purchase_order_number ?? '-'}</TableCell>
+                            <TableCell>{formatActivityDate(schedule.cost_date)}</TableCell>
+                            <TableCell>{formatCurrency(schedule.amount)}</TableCell>
+                            <TableCell>
+                              <Badge variant={getCostScheduleStatusVariant(schedule.status)}>
                                 {schedule.status}
                               </Badge>
                             </TableCell>

@@ -10,6 +10,7 @@ import { PurchaseOrderDialog } from '@/components/quotes/purchase-order-dialog'
 import { PurchaseOrderEditDialog } from '@/components/purchase-orders/purchase-order-edit-dialog'
 import { PurchaseOrderApprovalActions } from '@/components/purchase-orders/purchase-order-approval-actions'
 import { QuoteBillingPlanManager } from '@/components/quotes/quote-billing-plan'
+import { QuoteCostPlanManager } from '@/components/quotes/quote-cost-plan'
 import { firstRelation, ensureArrayRelation } from '@/lib/supabase/relations'
 import type {
   Quote,
@@ -21,6 +22,7 @@ import type {
   ApprovalStatus,
   PurchaseOrderStatus,
   ProjectBillingSchedule,
+  ProjectCostSchedule,
 } from '@/types/database'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -205,6 +207,13 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
     .eq('quote_id', id)
     .order('billing_month', { ascending: true })
 
+  // 仕入計上予定を取得
+  const { data: costSchedules } = await supabase
+    .from('project_cost_schedules')
+    .select('*')
+    .eq('quote_id', id)
+    .order('cost_month', { ascending: true })
+
   // バージョン履歴を取得
   const baseNumber = quote.quote_number.split('-v')[0]
   const { data: versionsRaw } = await supabase
@@ -358,8 +367,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
 
       <Card>
         <CardHeader>
-          <CardTitle>計上予定</CardTitle>
-          <CardDescription>受注確定した見積をもとに月次計上予定を管理します</CardDescription>
+          <CardTitle>売上計上予定</CardTitle>
+          <CardDescription>受注確定した見積をもとに月次売上計上予定を管理します</CardDescription>
         </CardHeader>
         <CardContent>
           <QuoteBillingPlanManager
@@ -370,6 +379,25 @@ export default async function QuoteDetailPage({ params }: { params: Promise<Quot
             totalAmount={Number(quote.total_amount || 0)}
             defaultStartMonth={quoteDefaultStartMonth}
             initialSchedules={(billingSchedules ?? []) as ProjectBillingSchedule[]}
+            isAwarded={quote.is_awarded}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>仕入計上予定</CardTitle>
+          <CardDescription>受注確定した見積をもとに月次仕入計上予定を管理します</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <QuoteCostPlanManager
+            quoteId={quote.id}
+            projectId={quote.project_id}
+            quoteNumber={quote.quote_number}
+            projectName={quote.project?.project_name ?? ''}
+            totalCost={Number(quote.total_cost || 0)}
+            defaultStartMonth={quoteDefaultStartMonth}
+            initialSchedules={(costSchedules ?? []) as ProjectCostSchedule[]}
             isAwarded={quote.is_awarded}
           />
         </CardContent>
