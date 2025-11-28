@@ -85,7 +85,10 @@ function DraggableSection({
   const getSectionHeight = () => {
     if (section.key === 'items_table') return 150
     if (section.key === 'notes' || section.key === 'footer') return 60
-    if (section.key === 'document_meta') return 80
+    if (section.key === 'document_meta' || section.key === 'document_title') return 80
+    if (section.key === 'summary_box') return 140
+    if (section.key === 'stamp_area') return 100
+    if (section.key === 'greeting_text') return 40
     return 70
   }
 

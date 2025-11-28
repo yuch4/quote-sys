@@ -312,6 +312,184 @@ export function QuotePDF({ quote, companyInfo, layout }: QuotePDFProps) {
     }
 
     switch (section.key) {
+      case 'document_title':
+        // タイトルのみ（御見積書）- 中央配置
+        return (
+          <View style={[{ alignItems: 'center', marginBottom: styleConfig.sectionSpacing }, sectionStyle]}>
+            <Text style={[styles.title, { fontSize: styleConfig.titleFontSize + 4 }]}>
+              {section.title?.trim() || '御見積書'}
+            </Text>
+          </View>
+        )
+      
+      case 'document_number':
+        // 見積番号・発行日（右上）
+        return (
+          <View style={[{ textAlign: 'right' }, sectionStyle]}>
+            <Text style={{ marginBottom: 4 }}>（見積No.）{quote.quote_number}</Text>
+            <Text>（発行日）{formatDate(quote.issue_date)}</Text>
+          </View>
+        )
+      
+      case 'customer_name_only':
+        // 顧客名のみ（宛先）
+        return (
+          <View style={sectionStyle}>
+            <Text style={{ fontSize: styleConfig.sectionTitleFontSize + 2, fontWeight: 'bold' }}>
+              {quote.project.customer.customer_name}
+            </Text>
+            <Text style={{ fontSize: styleConfig.baseFontSize, marginLeft: 20 }}>御中</Text>
+          </View>
+        )
+      
+      case 'greeting_text':
+        // 挨拶文
+        return (
+          <View style={[{ marginTop: 8, marginBottom: 8 }, sectionStyle]}>
+            <Text style={{ fontSize: styleConfig.baseFontSize }}>
+              {section.title || 'ご照会の件、下記の通りお見積り申し上げます。'}
+            </Text>
+          </View>
+        )
+      
+      case 'summary_box':
+        // 見積概要ボックス（件名・金額・納期・取引条件・有効期限）
+        const summaryBoxStyle = StyleSheet.create({
+          box: {
+            border: `${styleConfig.borderWidth}pt solid ${styleConfig.borderColor}`,
+            padding: 10,
+          },
+          row: {
+            flexDirection: 'row',
+            marginBottom: 6,
+            borderBottom: `0.5pt solid #ddd`,
+            paddingBottom: 6,
+          },
+          label: {
+            width: 80,
+            fontWeight: 'bold',
+            fontSize: styleConfig.baseFontSize,
+          },
+          value: {
+            flex: 1,
+            fontSize: styleConfig.baseFontSize,
+          },
+          amountRow: {
+            flexDirection: 'row',
+            marginBottom: 6,
+            paddingBottom: 6,
+          },
+          amountValue: {
+            fontSize: styleConfig.sectionTitleFontSize + 2,
+            fontWeight: 'bold',
+          },
+          taxNote: {
+            fontSize: styleConfig.baseFontSize - 2,
+            color: '#cc0000',
+            marginLeft: 10,
+          },
+          noteText: {
+            fontSize: styleConfig.baseFontSize - 2,
+            color: '#cc0000',
+            marginTop: 8,
+          },
+        })
+        return (
+          <View style={[summaryBoxStyle.box, sectionStyle]}>
+            <View style={summaryBoxStyle.row}>
+              <Text style={summaryBoxStyle.label}>件　　名</Text>
+              <Text style={[summaryBoxStyle.value, { fontWeight: 'bold' }]}>
+                {quote.subject || quote.project.project_name}
+              </Text>
+            </View>
+            <View style={summaryBoxStyle.amountRow}>
+              <Text style={summaryBoxStyle.label}>金　　額</Text>
+              <Text style={summaryBoxStyle.amountValue}>{formatCurrency(quote.total_amount)}-</Text>
+              <Text style={summaryBoxStyle.taxNote}>（税抜き価格）</Text>
+            </View>
+            <View style={summaryBoxStyle.row}>
+              <Text style={summaryBoxStyle.label}>納　　期</Text>
+              <Text style={summaryBoxStyle.value}>別途お打合せ</Text>
+            </View>
+            <View style={summaryBoxStyle.row}>
+              <Text style={summaryBoxStyle.label}>取引条件</Text>
+              <Text style={summaryBoxStyle.value}>従来通り</Text>
+            </View>
+            <View style={[summaryBoxStyle.row, { borderBottom: 'none' }]}>
+              <Text style={summaryBoxStyle.label}>有効期限</Text>
+              <Text style={summaryBoxStyle.value}>
+                {quote.valid_until ? `発行日より${Math.ceil((new Date(quote.valid_until).getTime() - new Date(quote.issue_date).getTime()) / (1000 * 60 * 60 * 24 * 30))}ヶ月` : '発行日より1ヶ月'}
+              </Text>
+            </View>
+            <Text style={summaryBoxStyle.noteText}>
+              ※ご請求時には別途、法令所定の消費税等を合わせてご請求させて頂きます。
+            </Text>
+          </View>
+        )
+      
+      case 'stamp_area':
+        // 印鑑エリア（会社情報 + 印鑑枠）
+        const stampStyle = StyleSheet.create({
+          container: {
+            alignItems: 'flex-end',
+          },
+          companySection: {
+            marginBottom: 10,
+            textAlign: 'right',
+          },
+          companyName: {
+            fontSize: styleConfig.sectionTitleFontSize,
+            fontWeight: 'bold',
+            marginBottom: 4,
+          },
+          address: {
+            fontSize: styleConfig.baseFontSize - 1,
+            marginBottom: 2,
+          },
+          stampBoxContainer: {
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            gap: 10,
+          },
+          stampBox: {
+            width: 50,
+            height: 50,
+            border: `1pt solid ${styleConfig.borderColor}`,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          stampLabel: {
+            fontSize: 8,
+            color: '#999',
+          },
+        })
+        return (
+          <View style={[stampStyle.container, sectionStyle]}>
+            {styleConfig.companyLogoUrl && (
+              <View style={{ alignItems: 'flex-end', marginBottom: 8 }}>
+                <Image src={styleConfig.companyLogoUrl} style={styles.companyLogo} />
+              </View>
+            )}
+            <View style={stampStyle.companySection}>
+              {companyInfo.name && <Text style={stampStyle.companyName}>{companyInfo.name}</Text>}
+              {companyInfo.address &&
+                companyInfo.address.split('\n').map((line, index) => (
+                  <Text key={`stamp-address-${index}`} style={stampStyle.address}>
+                    {line}
+                  </Text>
+                ))}
+            </View>
+            <View style={stampStyle.stampBoxContainer}>
+              <View style={stampStyle.stampBox}>
+                <Text style={stampStyle.stampLabel}>承認</Text>
+              </View>
+              <View style={stampStyle.stampBox}>
+                <Text style={stampStyle.stampLabel}>担当</Text>
+              </View>
+            </View>
+          </View>
+        )
+
       case 'document_meta':
         return (
           <View style={sectionStyle}>

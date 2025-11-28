@@ -2,8 +2,14 @@ export type DocumentTargetEntity = 'quote' | 'purchase_order'
 
 export type DocumentSectionKey =
   | 'document_meta'
+  | 'document_title'      // タイトルのみ（御見積書）
+  | 'document_number'     // 見積番号・発行日（右上）
   | 'company_info'
   | 'customer_info'
+  | 'customer_name_only'  // 顧客名のみ（宛先）
+  | 'greeting_text'       // ご照会の件、〜
+  | 'summary_box'         // 件名・金額・納期・取引条件・有効期限
+  | 'stamp_area'          // 印鑑エリア
   | 'project_info'
   | 'supplier_info'
   | 'quote_info'

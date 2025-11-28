@@ -112,6 +112,104 @@ export function LayoutPreview({ target, layout, className }: LayoutPreviewProps)
     if (!section.enabled) return null
 
     switch (section.key) {
+      case 'document_title':
+        return (
+          <div className="text-center">
+            <h1
+              style={{
+                fontSize: styleConfig.titleFontSize * 0.9,
+                color: styleConfig.primaryColor,
+                fontWeight: 'bold',
+              }}
+            >
+              {section.title || (target === 'quote' ? '御見積書' : '発注書')}
+            </h1>
+          </div>
+        )
+
+      case 'document_number':
+        return (
+          <div className="text-right text-sm">
+            <div>（見積No.）{quoteData.quote_number}</div>
+            <div>（発行日）{quoteData.issue_date}</div>
+          </div>
+        )
+
+      case 'customer_name_only':
+        return (
+          <div>
+            <span className="font-bold text-lg">{quoteData.customer_name}</span>
+            <span className="ml-4">御中</span>
+          </div>
+        )
+
+      case 'greeting_text':
+        return (
+          <div className="text-sm my-2">
+            {section.title || 'ご照会の件、下記の通りお見積り申し上げます。'}
+          </div>
+        )
+
+      case 'summary_box':
+        return (
+          <div className="border border-gray-400 p-3 text-sm">
+            <div className="flex border-b border-gray-200 pb-2 mb-2">
+              <span className="w-20 font-bold">件　　名</span>
+              <span className="font-bold">{quoteData.project_name}</span>
+            </div>
+            <div className="flex pb-2 mb-2">
+              <span className="w-20 font-bold">金　　額</span>
+              <span className="text-lg font-bold">{formatCurrency(quoteData.total)}-</span>
+              <span className="ml-2 text-xs text-red-600">（税抜き価格）</span>
+            </div>
+            <div className="flex border-b border-gray-200 pb-2 mb-2">
+              <span className="w-20 font-bold">納　　期</span>
+              <span>別途お打合せ</span>
+            </div>
+            <div className="flex border-b border-gray-200 pb-2 mb-2">
+              <span className="w-20 font-bold">取引条件</span>
+              <span>従来通り</span>
+            </div>
+            <div className="flex pb-2">
+              <span className="w-20 font-bold">有効期限</span>
+              <span>発行日より1ヶ月</span>
+            </div>
+            <div className="text-xs text-red-600 mt-2">
+              ※ご請求時には別途、法令所定の消費税等を合わせてご請求させて頂きます。
+            </div>
+          </div>
+        )
+
+      case 'stamp_area':
+        return (
+          <div className="text-right">
+            {styleConfig.companyLogoUrl && (
+              <div className="mb-2">
+                <img
+                  src={styleConfig.companyLogoUrl}
+                  alt="Logo"
+                  className="inline-block"
+                  style={{
+                    width: (styleConfig.companyLogoWidth || 80) * 0.6,
+                    height: (styleConfig.companyLogoHeight || 30) * 0.6,
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            )}
+            <div className="font-bold mb-1">{quoteData.company_name}</div>
+            <div className="text-xs whitespace-pre-line mb-2">{quoteData.company_address}</div>
+            <div className="flex justify-end gap-2">
+              <div className="w-10 h-10 border border-gray-400 flex items-center justify-center">
+                <span className="text-xs text-gray-400">承認</span>
+              </div>
+              <div className="w-10 h-10 border border-gray-400 flex items-center justify-center">
+                <span className="text-xs text-gray-400">担当</span>
+              </div>
+            </div>
+          </div>
+        )
+
       case 'document_meta':
         return (
           <div className="text-center">
