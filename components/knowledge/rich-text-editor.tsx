@@ -180,7 +180,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 1 })}
-              onPressedChange={() =>
+              onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 1 }).run()
               }
               title="見出し1"
@@ -190,7 +190,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 2 })}
-              onPressedChange={() =>
+              onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 2 }).run()
               }
               title="見出し2"
@@ -200,7 +200,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 3 })}
-              onPressedChange={() =>
+              onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 3 }).run()
               }
               title="見出し3"
@@ -216,7 +216,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('bold')}
-              onPressedChange={() => editor.chain().focus().toggleBold().run()}
+              onClick={() => editor.chain().focus().toggleBold().run()}
               title="太字"
             >
               <Bold className="h-4 w-4" />
@@ -224,7 +224,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('italic')}
-              onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
               title="斜体"
             >
               <Italic className="h-4 w-4" />
@@ -232,7 +232,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('underline')}
-              onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
               title="下線"
             >
               <UnderlineIcon className="h-4 w-4" />
@@ -240,7 +240,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('strike')}
-              onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
               title="取り消し線"
             >
               <Strikethrough className="h-4 w-4" />
@@ -248,7 +248,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('highlight')}
-              onPressedChange={() => editor.chain().focus().toggleHighlight().run()}
+              onClick={() => editor.chain().focus().toggleHighlight().run()}
               title="ハイライト"
             >
               <Highlighter className="h-4 w-4" />
@@ -256,7 +256,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('code')}
-              onPressedChange={() => editor.chain().focus().toggleCode().run()}
+              onClick={() => editor.chain().focus().toggleCode().run()}
               title="インラインコード"
             >
               <Code className="h-4 w-4" />
@@ -270,7 +270,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'left' })}
-              onPressedChange={() => editor.chain().focus().setTextAlign('left').run()}
+              onClick={() => editor.chain().focus().setTextAlign('left').run()}
               title="左揃え"
             >
               <AlignLeft className="h-4 w-4" />
@@ -278,7 +278,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'center' })}
-              onPressedChange={() => editor.chain().focus().setTextAlign('center').run()}
+              onClick={() => editor.chain().focus().setTextAlign('center').run()}
               title="中央揃え"
             >
               <AlignCenter className="h-4 w-4" />
@@ -286,7 +286,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'right' })}
-              onPressedChange={() => editor.chain().focus().setTextAlign('right').run()}
+              onClick={() => editor.chain().focus().setTextAlign('right').run()}
               title="右揃え"
             >
               <AlignRight className="h-4 w-4" />
@@ -300,7 +300,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('bulletList')}
-              onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
               title="箇条書き"
             >
               <List className="h-4 w-4" />
@@ -308,7 +308,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('orderedList')}
-              onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
               title="番号付きリスト"
             >
               <ListOrdered className="h-4 w-4" />
@@ -322,7 +322,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('blockquote')}
-              onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
               title="引用"
             >
               <Quote className="h-4 w-4" />
@@ -330,7 +330,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('codeBlock')}
-              onPressedChange={() => editor.chain().focus().toggleCodeBlock().run()}
+              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
               title="コードブロック"
             >
               <Code2 className="h-4 w-4" />
