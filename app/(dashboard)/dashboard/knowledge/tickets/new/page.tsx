@@ -200,16 +200,16 @@ export default function NewTicketPage() {
               <div className="space-y-2">
                 <Label htmlFor="customer_id">顧客</Label>
                 <Select
-                  value={formData.customer_id}
+                  value={formData.customer_id || '__none__'}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, customer_id: value, group_company_id: '' })
+                    setFormData({ ...formData, customer_id: value === '__none__' ? '' : value, group_company_id: '' })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="顧客を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">選択なし</SelectItem>
+                    <SelectItem value="__none__">選択なし</SelectItem>
                     {customers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
                         {customer.customer_name}
@@ -222,16 +222,16 @@ export default function NewTicketPage() {
               <div className="space-y-2">
                 <Label htmlFor="group_company_id">グループ会社</Label>
                 <Select
-                  value={formData.group_company_id}
+                  value={formData.group_company_id || '__none__'}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, group_company_id: value, customer_id: '' })
+                    setFormData({ ...formData, group_company_id: value === '__none__' ? '' : value, customer_id: '' })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="グループ会社を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">選択なし</SelectItem>
+                    <SelectItem value="__none__">選択なし</SelectItem>
                     {groupCompanies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.company_name}
@@ -312,14 +312,14 @@ export default function NewTicketPage() {
             <div className="space-y-2">
               <Label htmlFor="assigned_to">担当者</Label>
               <Select
-                value={formData.assigned_to}
-                onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                value={formData.assigned_to || '__none__'}
+                onValueChange={(value) => setFormData({ ...formData, assigned_to: value === '__none__' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="担当者を選択（任意）" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">未割当</SelectItem>
+                  <SelectItem value="__none__">未割当</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.display_name}
