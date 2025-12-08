@@ -504,15 +504,15 @@ export default function TicketDetailPage({
               <div>
                 <Label className="text-xs text-gray-500">担当者</Label>
                 <Select
-                  value={ticket.assigned_to || ''}
-                  onValueChange={(value) => updateAssignee(value || null)}
+                  value={ticket.assigned_to || '__none__'}
+                  onValueChange={(value) => updateAssignee(value === '__none__' ? null : value)}
                   disabled={updating}
                 >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="未割当" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">未割当</SelectItem>
+                    <SelectItem value="__none__">未割当</SelectItem>
                     {users.map((user) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.display_name}
