@@ -70,6 +70,9 @@ export function RichTextEditor({
         heading: {
           levels: [1, 2, 3],
         },
+        // StarterKit がデフォルトで含む link / underline を無効化し、下で個別設定する
+        link: false,
+        underline: false,
       }),
       Link.configure({
         openOnClick: false,
