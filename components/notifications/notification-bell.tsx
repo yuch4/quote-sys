@@ -101,6 +101,17 @@ export function NotificationBell({ userId }: { userId: string }) {
         return 'bg-yellow-100 text-yellow-800'
       case '入荷完了':
         return 'bg-purple-100 text-purple-800'
+      // チケット関連の通知タイプ
+      case 'チケット作成':
+        return 'bg-purple-100 text-purple-800'
+      case 'チケット割当':
+        return 'bg-teal-100 text-teal-800'
+      case 'チケットコメント':
+        return 'bg-blue-100 text-blue-800'
+      case 'チケットステータス':
+        return 'bg-amber-100 text-amber-800'
+      case 'チケット解決':
+        return 'bg-green-100 text-green-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }

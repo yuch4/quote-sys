@@ -561,6 +561,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 - [x] ページネーション（20件/ページ）- Phase 9
 - [x] レスポンシブ対応強化（モバイル・タブレット最適化）- Phase 10
 - [x] 高度なレポート（期間フィルター、顧客別・カテゴリ別分析、CSVエクスポート）- Phase 11
+- [x] ナレッジ管理機能（チケット・記事・顧客ポータル）- Phase 18
 
 ### Phase 12以降（今後）
 - [ ] テスト実装（単体・E2E）
@@ -568,8 +569,30 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ---
 
-**最終更新**: 2025年11月28日  
-**ステータス**: Phase 1-11完了、Phase 17進行中
+**最終更新**: 2025年1月  
+**ステータス**: Phase 1-11, 15-18完了
+
+**Phase 18で実装完了した機能** (ナレッジ登録機能):
+- ✅ DBスキーマ作成（knowledge_tickets, ticket_comments, ticket_attachments, knowledge_base, ticket_knowledge_links, customer_portal_invites, customer_portal_sessions）
+- ✅ ENUMタイプ追加（ticket_status, ticket_priority, content_visibility）
+- ✅ Supabase Storage バケット作成（knowledge-attachments、10MB制限）
+- ✅ 型定義追加（types/knowledge.ts）
+- ✅ チケット管理コンポーネント（ステータス/優先度/公開範囲バッジ、タイムライン、ファイルアップロード）
+- ✅ ナレッジ管理ライブラリ（tickets.ts, knowledge-base.ts, notifications.ts, portal-auth.ts）
+- ✅ メール通知API（/api/email/ticket-notification）
+- ✅ サイドバーにナレッジ管理メニュー追加
+- ✅ ダッシュボードページ（/dashboard/knowledge/）
+  - メインダッシュボード（統計、最新チケット、ナレッジ一覧）
+  - チケット管理（一覧、新規作成、詳細表示、コメント追加）
+  - ナレッジベース（一覧、新規作成、詳細表示、編集、Markdown対応）
+  - 分析ダッシュボード（トレンド、カテゴリ分布、グループ会社別統計）
+- ✅ 顧客ポータル（/portal/）
+  - 招待リンク認証（30日有効、初回使用で無効化）
+  - 3段階公開範囲制御（internal/customer/public）
+  - チケット閲覧（公開コメントのみ表示）
+  - ナレッジベース検索・閲覧
+- ✅ 通知ベル更新（チケット関連タイプ追加）
+- ✅ react-markdownパッケージ追加
 
 **Phase 17で実装完了した機能** (仕入計上按分機能):
 - ✅ project_cost_schedulesテーブル作成（DBマイグレーション）

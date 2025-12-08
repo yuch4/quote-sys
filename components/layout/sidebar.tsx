@@ -19,6 +19,10 @@ import {
   Building2,
   ListChecks,
   ChevronDown,
+  BookOpen,
+  Ticket,
+  FileQuestion,
+  BarChart3,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -76,6 +80,7 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
   const pathname = usePathname()
   const [procurementMenuOpen, setProcurementMenuOpen] = useState(() => pathname.startsWith('/dashboard/procurement'))
   const [groupMenuOpen, setGroupMenuOpen] = useState(() => pathname.startsWith('/dashboard/group-companies'))
+  const [knowledgeMenuOpen, setKnowledgeMenuOpen] = useState(() => pathname.startsWith('/dashboard/knowledge'))
 
   const groupMenuItems = useMemo(
     () => [
@@ -88,6 +93,32 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
         name: 'グループ会社一覧',
         href: '/dashboard/group-companies/list',
         icon: ListChecks,
+      },
+    ],
+    [],
+  )
+
+  const knowledgeMenuItems = useMemo(
+    () => [
+      {
+        name: 'ダッシュボード',
+        href: '/dashboard/knowledge',
+        icon: BookOpen,
+      },
+      {
+        name: 'チケット一覧',
+        href: '/dashboard/knowledge/tickets',
+        icon: Ticket,
+      },
+      {
+        name: 'ナレッジベース',
+        href: '/dashboard/knowledge/base',
+        icon: FileQuestion,
+      },
+      {
+        name: '分析',
+        href: '/dashboard/knowledge/analytics',
+        icon: BarChart3,
       },
     ],
     [],
@@ -174,6 +205,38 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
         <div className="px-3 pb-4 space-y-1">
           {renderNavLink('/dashboard/billing', '計上管理', CreditCard, pathname === '/dashboard/billing')}
           {renderNavLink('/dashboard/reports', 'レポート', TrendingUp, pathname === '/dashboard/reports')}
+          
+          {/* ナレッジ管理メニュー */}
+          <div className="mt-4 rounded-lg bg-white/5">
+            <button
+              type="button"
+              onClick={() => setKnowledgeMenuOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
+            >
+              <span className="flex items-center gap-3">
+                <BookOpen className="h-5 w-5" />
+                ナレッジ管理
+              </span>
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', knowledgeMenuOpen ? 'rotate-180' : 'rotate-0')}
+              />
+            </button>
+            {knowledgeMenuOpen && (
+              <div className="border-t border-white/10 py-2">
+                {knowledgeMenuItems.map((item) => (
+                  <div key={item.href} className="px-4">
+                    {renderNavLink(
+                      item.href,
+                      item.name,
+                      item.icon,
+                      pathname === item.href || pathname.startsWith(item.href + '/'),
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {(userRole === '営業事務' || userRole === '管理者') && (
             <>
               <div className="mt-4 rounded-lg bg-white/5">
