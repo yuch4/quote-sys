@@ -23,14 +23,18 @@ import {
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RichTextEditor } from '@/components/knowledge/rich-text-editor'
 import {
   TICKET_CATEGORY_LABELS,
   VISIBILITY_LABELS,
   type TicketCategory,
   type ContentVisibility,
 } from '@/types/knowledge'
-import { ArrowLeft, Save, X, Eye, Plus } from 'lucide-react'
+import { ArrowLeft, Save, X, Plus, FileText, Code } from 'lucide-react'
 import Link from 'next/link'
+
+type ContentFormat = 'markdown' | 'html'
 
 export default function NewKnowledgeArticlePage() {
   const router = useRouter()
@@ -39,6 +43,7 @@ export default function NewKnowledgeArticlePage() {
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [contentFormat, setContentFormat] = useState<ContentFormat>('html')
   const [category, setCategory] = useState<TicketCategory>('general')
   const [visibility, setVisibility] = useState<ContentVisibility>('internal')
   const [isPublished, setIsPublished] = useState(false)
@@ -55,6 +60,17 @@ export default function NewKnowledgeArticlePage() {
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((t) => t !== tagToRemove))
+  }
+
+  const handleFormatChange = (newFormat: ContentFormat) => {
+    // フォーマット切り替え時、内容をクリアするか確認
+    if (content.trim() && newFormat !== contentFormat) {
+      if (!confirm('エディタの形式を変更すると、現在の内容が失われる可能性があります。続行しますか？')) {
+        return
+      }
+      setContent('')
+    }
+    setContentFormat(newFormat)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +97,7 @@ export default function NewKnowledgeArticlePage() {
         .insert({
           title,
           content,
+          content_format: contentFormat,
           category,
           visibility,
           is_published: isPublished,
@@ -127,10 +144,27 @@ export default function NewKnowledgeArticlePage() {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>記事内容</CardTitle>
-                <CardDescription>
-                  Markdown形式で記述できます
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>記事内容</CardTitle>
+                    <CardDescription>
+                      リッチテキストまたはMarkdown形式で記述できます
+                    </CardDescription>
+                  </div>
+                  {/* エディタ形式切り替え */}
+                  <Tabs value={contentFormat} onValueChange={(v) => handleFormatChange(v as ContentFormat)}>
+                    <TabsList>
+                      <TabsTrigger value="html" className="gap-2">
+                        <FileText className="h-4 w-4" />
+                        リッチテキスト
+                      </TabsTrigger>
+                      <TabsTrigger value="markdown" className="gap-2">
+                        <Code className="h-4 w-4" />
+                        Markdown
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {error && (
@@ -151,17 +185,28 @@ export default function NewKnowledgeArticlePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="content">本文 *</Label>
-                  <Textarea
-                    id="content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="# 概要&#10;&#10;ここに記事の内容を記述します...&#10;&#10;## 手順&#10;&#10;1. 最初の手順&#10;2. 次の手順&#10;&#10;## 注意点&#10;&#10;- 注意点1&#10;- 注意点2"
-                    className="min-h-[400px] font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Markdown記法（#見出し、**太字**、`コード`、- リストなど）が使用できます
-                  </p>
+                  <Label>本文 *</Label>
+                  {contentFormat === 'html' ? (
+                    <RichTextEditor
+                      content={content}
+                      onChange={setContent}
+                      placeholder="記事の内容を入力..."
+                      className="min-h-[400px]"
+                    />
+                  ) : (
+                    <>
+                      <Textarea
+                        id="content"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="# 概要&#10;&#10;ここに記事の内容を記述します...&#10;&#10;## 手順&#10;&#10;1. 最初の手順&#10;2. 次の手順&#10;&#10;## 注意点&#10;&#10;- 注意点1&#10;- 注意点2"
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Markdown記法（#見出し、**太字**、`コード`、- リストなど）が使用できます
+                      </p>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>

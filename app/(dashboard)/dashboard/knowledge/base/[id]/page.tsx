@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { VisibilityBadge } from '@/components/knowledge/visibility-badge'
+import { RichTextViewer } from '@/components/knowledge/rich-text-editor'
 import {
   TICKET_CATEGORY_LABELS,
   type TicketCategory,
@@ -24,6 +25,8 @@ import {
   User,
   LinkIcon,
   Clock,
+  FileText,
+  Code,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -142,52 +145,72 @@ export default async function KnowledgeArticleDetailPage({
         <div className="lg:col-span-3">
           <Card>
             <CardContent className="pt-6">
-              <div className="prose prose-slate max-w-none">
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children }) => (
-                      <h1 className="text-2xl font-bold mt-8 mb-4 pb-2 border-b">{children}</h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="text-xl font-semibold mt-6 mb-3">{children}</h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="text-lg font-medium mt-4 mb-2">{children}</h3>
-                    ),
-                    p: ({ children }) => (
-                      <p className="mb-4 leading-relaxed">{children}</p>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="list-disc pl-6 mb-4 space-y-1">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="list-decimal pl-6 mb-4 space-y-1">{children}</ol>
-                    ),
-                    code: ({ children, className }) => {
-                      const isInline = !className
-                      return isInline ? (
-                        <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-purple-700">
-                          {children}
-                        </code>
-                      ) : (
-                        <code className={className}>{children}</code>
-                      )
-                    },
-                    pre: ({ children }) => (
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4">
-                        {children}
-                      </pre>
-                    ),
-                    blockquote: ({ children }) => (
-                      <blockquote className="border-l-4 border-purple-300 pl-4 italic text-gray-600 my-4">
-                        {children}
-                      </blockquote>
-                    ),
-                  }}
-                >
-                  {article.content}
-                </ReactMarkdown>
+              {/* コンテンツ形式の表示 */}
+              <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
+                {article.content_format === 'html' ? (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    リッチテキスト形式
+                  </>
+                ) : (
+                  <>
+                    <Code className="h-4 w-4" />
+                    Markdown形式
+                  </>
+                )}
               </div>
+              
+              {/* コンテンツ表示 */}
+              {article.content_format === 'html' ? (
+                <RichTextViewer content={article.content} />
+              ) : (
+                <div className="prose prose-slate max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => (
+                        <h1 className="text-2xl font-bold mt-8 mb-4 pb-2 border-b">{children}</h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-xl font-semibold mt-6 mb-3">{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-lg font-medium mt-4 mb-2">{children}</h3>
+                      ),
+                      p: ({ children }) => (
+                        <p className="mb-4 leading-relaxed">{children}</p>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-6 mb-4 space-y-1">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-6 mb-4 space-y-1">{children}</ol>
+                      ),
+                      code: ({ children, className }) => {
+                        const isInline = !className
+                        return isInline ? (
+                          <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-purple-700">
+                            {children}
+                          </code>
+                        ) : (
+                          <code className={className}>{children}</code>
+                        )
+                      },
+                      pre: ({ children }) => (
+                        <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4">
+                          {children}
+                        </pre>
+                      ),
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-purple-300 pl-4 italic text-gray-600 my-4">
+                          {children}
+                        </blockquote>
+                      ),
+                    }}
+                  >
+                    {article.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

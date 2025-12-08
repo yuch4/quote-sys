@@ -34,6 +34,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { RichTextEditor } from '@/components/knowledge/rich-text-editor'
 import {
   TICKET_CATEGORY_LABELS,
   VISIBILITY_LABELS,
@@ -41,8 +43,10 @@ import {
   type ContentVisibility,
   type KnowledgeBase,
 } from '@/types/knowledge'
-import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, X, Plus, Trash2, FileText, Code } from 'lucide-react'
 import Link from 'next/link'
+
+type ContentFormat = 'markdown' | 'html'
 
 interface PageParams {
   id: string
@@ -62,6 +66,7 @@ export default function EditKnowledgeArticlePage({
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [contentFormat, setContentFormat] = useState<ContentFormat>('markdown')
   const [category, setCategory] = useState<TicketCategory>('general')
   const [visibility, setVisibility] = useState<ContentVisibility>('internal')
   const [isPublished, setIsPublished] = useState(false)
@@ -88,6 +93,7 @@ export default function EditKnowledgeArticlePage({
       setArticle(data as KnowledgeBase)
       setTitle(data.title)
       setContent(data.content)
+      setContentFormat((data.content_format as ContentFormat) || 'markdown')
       setCategory(data.category as TicketCategory)
       setVisibility(data.visibility as ContentVisibility)
       setIsPublished(data.is_published)
@@ -133,6 +139,7 @@ export default function EditKnowledgeArticlePage({
         .update({
           title,
           content,
+          content_format: contentFormat,
           category,
           visibility,
           is_published: isPublished,
@@ -234,10 +241,27 @@ export default function EditKnowledgeArticlePage({
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>記事内容</CardTitle>
-                <CardDescription>
-                  Markdown形式で記述できます
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>記事内容</CardTitle>
+                    <CardDescription>
+                      リッチテキストまたはMarkdown形式で記述できます
+                    </CardDescription>
+                  </div>
+                  {/* エディタ形式切り替え */}
+                  <Tabs value={contentFormat} onValueChange={(v) => setContentFormat(v as ContentFormat)}>
+                    <TabsList>
+                      <TabsTrigger value="html" className="gap-2">
+                        <FileText className="h-4 w-4" />
+                        リッチテキスト
+                      </TabsTrigger>
+                      <TabsTrigger value="markdown" className="gap-2">
+                        <Code className="h-4 w-4" />
+                        Markdown
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {error && (
@@ -258,17 +282,28 @@ export default function EditKnowledgeArticlePage({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="content">本文 *</Label>
-                  <Textarea
-                    id="content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    placeholder="記事の内容を入力..."
-                    className="min-h-[400px] font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Markdown記法（#見出し、**太字**、`コード`、- リストなど）が使用できます
-                  </p>
+                  <Label>本文 *</Label>
+                  {contentFormat === 'html' ? (
+                    <RichTextEditor
+                      content={content}
+                      onChange={setContent}
+                      placeholder="記事の内容を入力..."
+                      className="min-h-[400px]"
+                    />
+                  ) : (
+                    <>
+                      <Textarea
+                        id="content"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        placeholder="記事の内容を入力..."
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Markdown記法（#見出し、**太字**、`コード`、- リストなど）が使用できます
+                      </p>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
