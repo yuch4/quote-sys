@@ -10,13 +10,8 @@ import {
   MessageSquare,
   Lock,
   Paperclip,
-  Download,
-  FileText,
-  Image,
-  File,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
+import { AttachmentList } from '@/components/knowledge/file-preview'
 
 interface TicketTimelineProps {
   comments: TicketComment[]
@@ -33,38 +28,10 @@ export function TicketTimeline({
   ticketCreatedBy,
   isCustomerPortal = false,
 }: TicketTimelineProps) {
-  const supabase = createClient()
-
   // 顧客ポータルでは内部コメントを非表示
   const visibleComments = isCustomerPortal
     ? comments.filter((c) => !c.is_internal)
     : comments
-
-  const downloadAttachment = async (attachment: TicketAttachment) => {
-    const { data, error } = await supabase.storage
-      .from('knowledge-attachments')
-      .download(attachment.file_path)
-
-    if (error || !data) {
-      console.error('Download error:', error)
-      return
-    }
-
-    const url = URL.createObjectURL(data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = attachment.file_name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return Image
-    if (mimeType.includes('pdf')) return FileText
-    return File
-  }
 
   const getInitials = (name: string) => {
     return name
@@ -173,26 +140,7 @@ export function TicketTimeline({
                       <Paperclip className="h-4 w-4" />
                       添付ファイル ({comment.attachments.length})
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {comment.attachments.map((attachment) => {
-                        const FileIcon = getFileIcon(attachment.mime_type)
-                        return (
-                          <Button
-                            key={attachment.id}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 text-gray-600 hover:text-gray-900"
-                            onClick={() => downloadAttachment(attachment)}
-                          >
-                            <FileIcon className="h-4 w-4" />
-                            <span className="max-w-[150px] truncate">
-                              {attachment.file_name}
-                            </span>
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        )
-                      })}
-                    </div>
+                    <AttachmentList attachments={comment.attachments} />
                   </div>
                 )}
               </div>

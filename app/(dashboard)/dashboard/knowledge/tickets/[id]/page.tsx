@@ -21,6 +21,7 @@ import { TicketPriorityBadge } from '@/components/knowledge/ticket-priority-badg
 import { VisibilityBadge } from '@/components/knowledge/visibility-badge'
 import { TicketTimeline } from '@/components/knowledge/ticket-timeline'
 import { FileUpload, type UploadedFile } from '@/components/knowledge/file-upload'
+import { AttachmentList } from '@/components/knowledge/file-preview'
 import {
   TICKET_STATUS_LABELS,
   TICKET_PRIORITY_LABELS,
@@ -351,19 +352,7 @@ export default function TicketDetailPage({
                     <Paperclip className="h-4 w-4" />
                     添付ファイル ({ticket.attachments.length})
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {ticket.attachments.map((file) => (
-                      <Button
-                        key={file.id}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                      >
-                        <FileText className="h-4 w-4" />
-                        {file.file_name}
-                      </Button>
-                    ))}
-                  </div>
+                  <AttachmentList attachments={ticket.attachments} />
                 </div>
               )}
             </CardContent>
