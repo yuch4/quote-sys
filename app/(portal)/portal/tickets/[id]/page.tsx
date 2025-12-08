@@ -97,11 +97,12 @@ export default async function PortalTicketDetailPage({
   const portalComments: TicketComment[] = (comments || []).map((c) => ({
     id: c.id,
     ticket_id: id,
-    user_id: '',
+    user_id: null,
+    customer_session_id: null,
     content: c.content,
     is_internal: false,
     created_at: c.created_at,
-    user: c.user as { display_name: string } | null,
+    user: c.user as unknown as { id: string; display_name: string; email: string } | undefined,
   }))
 
   return (
@@ -157,7 +158,12 @@ export default async function PortalTicketDetailPage({
             </CardHeader>
             <CardContent>
               {portalComments.length > 0 ? (
-                <TicketTimeline comments={portalComments} />
+                <TicketTimeline 
+                  comments={portalComments} 
+                  ticketCreatedAt={ticket.created_at}
+                  ticketCreatedBy={{ display_name: 'あなた' }}
+                  isCustomerPortal={true}
+                />
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <p>まだ回答がありません</p>

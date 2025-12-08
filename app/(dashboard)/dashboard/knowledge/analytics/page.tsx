@@ -59,11 +59,13 @@ interface CompanyStats {
   company_name: string
   company_id: string
   ticket_count: number
+  [key: string]: string | number
 }
 
 interface CategoryStats {
   category: string
   count: number
+  [key: string]: string | number
 }
 
 interface TrendData {
@@ -132,7 +134,8 @@ export default function KnowledgeAnalyticsPage() {
         companyTickets.forEach((t) => {
           if (t.group_company_id) {
             const existing = companyMap.get(t.group_company_id)
-            const companyName = (t.group_companies as { name: string })?.name || '不明'
+            const groupCompany = t.group_companies as unknown as { name: string } | null
+            const companyName = groupCompany?.name || '不明'
             if (existing) {
               existing.count++
             } else {

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { verifyInviteToken, createPortalSession } from '@/lib/knowledge/portal-auth'
 
 interface PortalAuthFormProps {
   token: string
@@ -24,33 +23,24 @@ export function PortalAuthForm({ token, customerEmail }: PortalAuthFormProps) {
     setError(null)
 
     try {
-      // トークン検証
-      const { data: invite, error: verifyError } = await verifyInviteToken(token)
+      const response = await fetch('/api/portal/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, email }),
+      })
 
-      if (verifyError || !invite) {
-        setError('招待リンクが無効です')
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || '認証に失敗しました')
         return
       }
-
-      // メールアドレス確認
-      if (email.toLowerCase() !== customerEmail.toLowerCase()) {
-        setError('登録されているメールアドレスと一致しません')
-        return
-      }
-
-      // セッション作成
-      const { data: session, error: sessionError } = await createPortalSession(invite.id)
-
-      if (sessionError || !session) {
-        setError('セッションの作成に失敗しました')
-        return
-      }
-
-      // Cookie にセッショントークンを保存
-      document.cookie = `portal_session=${session.session_token}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=strict`
 
       // ポータルホームにリダイレクト
       router.push('/portal')
+      router.refresh()
     } catch {
       setError('認証に失敗しました')
     } finally {

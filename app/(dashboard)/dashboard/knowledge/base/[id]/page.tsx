@@ -75,7 +75,15 @@ async function getRelatedTickets(articleId: string) {
     .eq('knowledge_base_id', articleId)
     .limit(5)
 
-  return data?.map((d) => d.knowledge_tickets).filter(Boolean) || []
+  // Flatten and type the result
+  const tickets: Array<{ id: string; ticket_number: string; subject: string; status: string }> = []
+  data?.forEach((d) => {
+    const ticket = d.knowledge_tickets as unknown as { id: string; ticket_number: string; subject: string; status: string } | null
+    if (ticket) {
+      tickets.push(ticket)
+    }
+  })
+  return tickets
 }
 
 export default async function KnowledgeArticleDetailPage({
@@ -245,7 +253,7 @@ export default async function KnowledgeArticleDetailPage({
                 <CardDescription>この記事に紐付けられたチケット</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {relatedTickets.map((ticket: { id: string; ticket_number: string; subject: string; status: string }) => (
+                {relatedTickets.map((ticket) => (
                   <Link
                     key={ticket.id}
                     href={`/dashboard/knowledge/tickets/${ticket.id}`}

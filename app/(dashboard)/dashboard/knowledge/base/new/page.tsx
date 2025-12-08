@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,7 +29,6 @@ import {
   type TicketCategory,
   type ContentVisibility,
 } from '@/types/knowledge'
-import { createKnowledgeArticle } from '@/lib/knowledge/knowledge-base'
 import { ArrowLeft, Save, X, Eye, Plus } from 'lucide-react'
 import Link from 'next/link'
 
@@ -73,14 +73,23 @@ export default function NewKnowledgeArticlePage() {
     setError(null)
 
     try {
-      const { data, error: createError } = await createKnowledgeArticle({
-        title,
-        content,
-        category,
-        visibility,
-        is_published: isPublished,
-        tags: tags.length > 0 ? tags : null,
-      })
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const { data, error: createError } = await supabase
+        .from('knowledge_base')
+        .insert({
+          title,
+          content,
+          category,
+          visibility,
+          is_published: isPublished,
+          tags: tags.length > 0 ? tags : null,
+          created_by: user?.id,
+          updated_by: user?.id,
+        })
+        .select()
+        .single()
 
       if (createError) {
         setError(createError.message)

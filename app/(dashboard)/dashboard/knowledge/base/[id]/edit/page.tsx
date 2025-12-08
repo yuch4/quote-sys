@@ -41,7 +41,6 @@ import {
   type ContentVisibility,
   type KnowledgeBase,
 } from '@/types/knowledge'
-import { updateKnowledgeArticle, deleteKnowledgeArticle } from '@/lib/knowledge/knowledge-base'
 import { ArrowLeft, Save, X, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -126,14 +125,22 @@ export default function EditKnowledgeArticlePage({
     setError(null)
 
     try {
-      const { error: updateError } = await updateKnowledgeArticle(articleId, {
-        title,
-        content,
-        category,
-        visibility,
-        is_published: isPublished,
-        tags: tags.length > 0 ? tags : null,
-      })
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      const { error: updateError } = await supabase
+        .from('knowledge_base')
+        .update({
+          title,
+          content,
+          category,
+          visibility,
+          is_published: isPublished,
+          tags: tags.length > 0 ? tags : null,
+          updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', articleId)
 
       if (updateError) {
         setError(updateError.message)
@@ -151,7 +158,11 @@ export default function EditKnowledgeArticlePage({
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      const { error: deleteError } = await deleteKnowledgeArticle(articleId)
+      const supabase = createClient()
+      const { error: deleteError } = await supabase
+        .from('knowledge_base')
+        .delete()
+        .eq('id', articleId)
 
       if (deleteError) {
         setError(deleteError.message)
