@@ -152,6 +152,7 @@ export function RichTextEditor({
           {/* 履歴 */}
           <div className="flex gap-0.5 mr-2">
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().undo().run()}
@@ -161,6 +162,7 @@ export function RichTextEditor({
               <Undo className="h-4 w-4" />
             </Button>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().redo().run()}
@@ -334,6 +336,7 @@ export function RichTextEditor({
               <Code2 className="h-4 w-4" />
             </Toggle>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().setHorizontalRule().run()}
@@ -374,10 +377,10 @@ export function RichTextEditor({
                     />
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setLinkOpen(false)}>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setLinkOpen(false)}>
                       キャンセル
                     </Button>
-                    <Button size="sm" onClick={setLink}>
+                    <Button type="button" size="sm" onClick={setLink}>
                       適用
                     </Button>
                   </div>
@@ -386,6 +389,7 @@ export function RichTextEditor({
             </Popover>
             {editor.isActive('link') && (
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => editor.chain().focus().unsetLink().run()}
@@ -399,7 +403,7 @@ export function RichTextEditor({
           {/* 画像 */}
           <Popover open={imageOpen} onOpenChange={setImageOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" title="画像挿入">
+              <Button type="button" variant="ghost" size="sm" title="画像挿入">
                 <ImageIcon className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
@@ -420,10 +424,10 @@ export function RichTextEditor({
                   />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setImageOpen(false)}>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setImageOpen(false)}>
                     キャンセル
                   </Button>
-                  <Button size="sm" onClick={addImage}>
+                  <Button type="button" size="sm" onClick={addImage}>
                     挿入
                   </Button>
                 </div>
