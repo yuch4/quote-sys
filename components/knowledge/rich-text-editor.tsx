@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCallback, useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
 import {
   Popover,
   PopoverContent,
@@ -143,6 +144,16 @@ export function RichTextEditor({
     setImageOpen(false)
   }, [editor, imageUrl])
 
+  // エディタの選択状態が失われないよう、マウスダウンでコマンド実行
+  const handleCommand = useCallback(
+    (command: () => void) => (event: MouseEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+      command()
+    },
+    []
+  )
+
   if (!editor) {
     return null
   }
@@ -158,7 +169,7 @@ export function RichTextEditor({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => editor.chain().focus().undo().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().undo().run())}
               disabled={!editor.can().undo()}
               title="元に戻す"
             >
@@ -168,7 +179,7 @@ export function RichTextEditor({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => editor.chain().focus().redo().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().redo().run())}
               disabled={!editor.can().redo()}
               title="やり直し"
             >
@@ -183,9 +194,9 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 1 })}
-              onClick={() =>
+              onMouseDown={handleCommand(() =>
                 editor.chain().focus().toggleHeading({ level: 1 }).run()
-              }
+              )}
               title="見出し1"
             >
               <Heading1 className="h-4 w-4" />
@@ -193,9 +204,9 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 2 })}
-              onClick={() =>
+              onMouseDown={handleCommand(() =>
                 editor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
+              )}
               title="見出し2"
             >
               <Heading2 className="h-4 w-4" />
@@ -203,9 +214,9 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('heading', { level: 3 })}
-              onClick={() =>
+              onMouseDown={handleCommand(() =>
                 editor.chain().focus().toggleHeading({ level: 3 }).run()
-              }
+              )}
               title="見出し3"
             >
               <Heading3 className="h-4 w-4" />
@@ -219,7 +230,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('bold')}
-              onClick={() => editor.chain().focus().toggleBold().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleBold().run())}
               title="太字"
             >
               <Bold className="h-4 w-4" />
@@ -227,7 +238,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('italic')}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleItalic().run())}
               title="斜体"
             >
               <Italic className="h-4 w-4" />
@@ -235,7 +246,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('underline')}
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleUnderline().run())}
               title="下線"
             >
               <UnderlineIcon className="h-4 w-4" />
@@ -243,7 +254,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('strike')}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleStrike().run())}
               title="取り消し線"
             >
               <Strikethrough className="h-4 w-4" />
@@ -251,7 +262,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('highlight')}
-              onClick={() => editor.chain().focus().toggleHighlight().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleHighlight().run())}
               title="ハイライト"
             >
               <Highlighter className="h-4 w-4" />
@@ -259,7 +270,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('code')}
-              onClick={() => editor.chain().focus().toggleCode().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleCode().run())}
               title="インラインコード"
             >
               <Code className="h-4 w-4" />
@@ -273,7 +284,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'left' })}
-              onClick={() => editor.chain().focus().setTextAlign('left').run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().setTextAlign('left').run())}
               title="左揃え"
             >
               <AlignLeft className="h-4 w-4" />
@@ -281,7 +292,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'center' })}
-              onClick={() => editor.chain().focus().setTextAlign('center').run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().setTextAlign('center').run())}
               title="中央揃え"
             >
               <AlignCenter className="h-4 w-4" />
@@ -289,7 +300,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive({ textAlign: 'right' })}
-              onClick={() => editor.chain().focus().setTextAlign('right').run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().setTextAlign('right').run())}
               title="右揃え"
             >
               <AlignRight className="h-4 w-4" />
@@ -303,7 +314,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('bulletList')}
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleBulletList().run())}
               title="箇条書き"
             >
               <List className="h-4 w-4" />
@@ -311,7 +322,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('orderedList')}
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleOrderedList().run())}
               title="番号付きリスト"
             >
               <ListOrdered className="h-4 w-4" />
@@ -325,7 +336,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('blockquote')}
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleBlockquote().run())}
               title="引用"
             >
               <Quote className="h-4 w-4" />
@@ -333,7 +344,7 @@ export function RichTextEditor({
             <Toggle
               size="sm"
               pressed={editor.isActive('codeBlock')}
-              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().toggleCodeBlock().run())}
               title="コードブロック"
             >
               <Code2 className="h-4 w-4" />
@@ -342,7 +353,7 @@ export function RichTextEditor({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => editor.chain().focus().setHorizontalRule().run()}
+              onMouseDown={handleCommand(() => editor.chain().focus().setHorizontalRule().run())}
               title="水平線"
             >
               <Minus className="h-4 w-4" />
@@ -395,7 +406,7 @@ export function RichTextEditor({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => editor.chain().focus().unsetLink().run()}
+                onMouseDown={handleCommand(() => editor.chain().focus().unsetLink().run())}
                 title="リンク解除"
               >
                 <Unlink className="h-4 w-4" />
