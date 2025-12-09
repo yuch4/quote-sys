@@ -196,27 +196,51 @@ export function ProjectKanbanBoard({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">案件カンバン</h2>
-          <p className="text-sm text-gray-500">
-            ステージ別の進捗と金額感を確認できます（{totalVisibleProjects}件）
+          <h2 className="text-xl font-bold text-foreground tracking-tight">案件パイプライン</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            ドラッグ&ドロップでステータスを更新（{totalVisibleProjects}件）
           </p>
         </div>
         {isPending && (
-          <p className="text-xs text-teal-700">ステータスを更新中...</p>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[oklch(0.65_0.12_195_/_0.1)] text-[oklch(0.45_0.18_195)]">
+            <div className="w-2 h-2 rounded-full bg-[oklch(0.65_0.12_195)] animate-pulse" />
+            <span className="text-xs font-medium">更新中...</span>
+          </div>
         )}
       </div>
 
-      <div className="overflow-x-auto pb-1">
-        <div className="flex gap-4 min-w-[960px]">
-          {grouped.map((column) => (
-            <section key={column.value} className="flex-1 min-w-[260px] max-w-[340px]">
+      <div className="overflow-x-auto pb-4 -mx-4 px-4">
+        <div className="flex gap-5 min-w-[1100px]">
+          {grouped.map((column, columnIndex) => {
+            // ステータスごとの色設定
+            const statusColors: Record<string, { bg: string; border: string; text: string; accent: string }> = {
+              'リード': { bg: 'from-slate-50 to-slate-100/50', border: 'border-slate-200', text: 'text-slate-700', accent: 'bg-slate-500' },
+              '見積中': { bg: 'from-blue-50 to-blue-100/50', border: 'border-blue-200', text: 'text-blue-700', accent: 'bg-blue-500' },
+              '受注': { bg: 'from-emerald-50 to-emerald-100/50', border: 'border-emerald-200', text: 'text-emerald-700', accent: 'bg-emerald-500' },
+              '計上OK': { bg: 'from-violet-50 to-violet-100/50', border: 'border-violet-200', text: 'text-violet-700', accent: 'bg-violet-500' },
+              '計上済み': { bg: 'from-cyan-50 to-cyan-100/50', border: 'border-cyan-200', text: 'text-cyan-700', accent: 'bg-cyan-500' },
+              '失注': { bg: 'from-rose-50 to-rose-100/50', border: 'border-rose-200', text: 'text-rose-700', accent: 'bg-rose-500' },
+              'キャンセル': { bg: 'from-gray-50 to-gray-100/50', border: 'border-gray-300', text: 'text-gray-600', accent: 'bg-gray-500' },
+            }
+            const colors = statusColors[column.value] || statusColors['リード']
+            
+            return (
+            <section 
+              key={column.value} 
+              className="flex-1 min-w-[280px] max-w-[360px]"
+              style={{ animationDelay: `${columnIndex * 0.05}s` }}
+            >
               <div
                 className={cn(
-                  'h-full rounded-3xl border bg-white p-5 shadow-sm transition',
-                  dragOverStatus === column.value ? 'border-teal-400 ring-2 ring-teal-200' : 'border-gray-200'
+                  'h-full rounded-2xl border bg-gradient-to-b transition-all duration-300',
+                  colors.bg,
+                  colors.border,
+                  dragOverStatus === column.value 
+                    ? 'ring-2 ring-[oklch(0.65_0.12_195)] border-[oklch(0.65_0.12_195_/_0.5)] shadow-lg shadow-[oklch(0.65_0.12_195_/_0.15)]' 
+                    : 'shadow-sm hover:shadow-md'
                 )}
                 onDragOver={(event) => event.preventDefault()}
                 onDragEnter={() => setDragOverStatus(column.value)}
@@ -228,40 +252,70 @@ export function ProjectKanbanBoard({
                 }}
                 onDrop={handleDrop(column.value)}
               >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-base font-bold text-gray-900">{column.label}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-gray-600">{column.stats.count}件</p>
-                </div>
-                <div className="mt-3 space-y-1 rounded-2xl bg-slate-50 p-3 text-sm text-gray-600">
+                {/* Column Header */}
+                <div className="p-4 border-b border-black/5">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500">予定売上合計</span>
-                    <span className="font-semibold text-gray-900">
-                      {formatStatCurrency(column.stats.totalSales)}
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn('w-3 h-3 rounded-full', colors.accent)} />
+                      <h3 className={cn('text-sm font-bold', colors.text)}>{column.label}</h3>
+                    </div>
+                    <span className={cn(
+                      'px-2.5 py-1 rounded-full text-xs font-bold',
+                      column.stats.count > 0 
+                        ? `${colors.accent} text-white` 
+                        : 'bg-gray-200 text-gray-500'
+                    )}>
+                      {column.stats.count}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">予定粗利合計</span>
-                    <span className="font-semibold text-gray-900">
-                      {formatStatCurrency(column.stats.totalGrossProfit)}
-                    </span>
+                  
+                  {/* Stats Summary */}
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-white">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">売上</p>
+                      <p className="text-sm font-bold text-foreground mt-0.5">
+                        {formatStatCurrency(column.stats.totalSales)}
+                      </p>
+                    </div>
+                    <div className="px-3 py-2 rounded-xl bg-white/60 backdrop-blur-sm border border-white">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">粗利</p>
+                      <p className="text-sm font-bold text-foreground mt-0.5">
+                        {formatStatCurrency(column.stats.totalGrossProfit)}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 min-h-[120px]">
+                {/* Cards Container */}
+                <div className="p-3 space-y-3 min-h-[200px] max-h-[600px] overflow-y-auto">
                   {column.items.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-400">
-                      案件なし
+                    <div className="flex flex-col items-center justify-center h-[180px] rounded-xl border-2 border-dashed border-gray-200/80 bg-white/40">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <p className="text-xs text-gray-400 font-medium">案件なし</p>
                     </div>
                   ) : (
-                    column.items.map((project) => {
+                    column.items.map((project, projectIndex) => {
                       const agingColors = project.agingBackground
                         ? {
                             backgroundColor: project.agingBackground,
                             borderColor: project.agingBorder ?? project.agingBackground,
+                            state: project.agingState ?? 'none',
                           }
                         : getAgingColors(project.daysSinceLastActivity ?? null, activitySettings)
+                      
+                      // 契約確度バッジの色
+                      const probabilityColors: Record<string, string> = {
+                        'S': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                        'A': 'bg-blue-100 text-blue-700 border-blue-200',
+                        'B': 'bg-amber-100 text-amber-700 border-amber-200',
+                        'C': 'bg-orange-100 text-orange-700 border-orange-200',
+                        'D': 'bg-gray-100 text-gray-600 border-gray-200',
+                      }
+                      
                       return (
                       <article
                         key={project.id}
@@ -275,83 +329,119 @@ export function ProjectKanbanBoard({
                           setDragOverStatus(null)
                         }}
                         className={cn(
-                          'rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)] transition hover:border-blue-200 cursor-grab active:cursor-grabbing select-none',
-                          draggingId === project.id && 'opacity-70 ring-1 ring-teal-200'
+                          'group rounded-xl border bg-white p-4 shadow-sm transition-all duration-200 cursor-grab active:cursor-grabbing select-none',
+                          'hover:shadow-lg hover:-translate-y-0.5 hover:border-[oklch(0.65_0.12_195_/_0.4)]',
+                          draggingId === project.id && 'opacity-60 ring-2 ring-[oklch(0.65_0.12_195)] scale-[1.02] shadow-xl rotate-1'
                         )}
-                        style={
-                          agingColors.backgroundColor !== 'transparent'
-                            ? { backgroundColor: agingColors.backgroundColor, borderColor: agingColors.borderColor }
-                            : undefined
-                        }
+                        style={{
+                          animationDelay: `${projectIndex * 0.03}s`,
+                          ...(agingColors.state === 'danger' ? { 
+                            borderLeftWidth: '4px',
+                            borderLeftColor: 'oklch(0.55 0.22 25)',
+                          } : agingColors.state === 'warning' ? {
+                            borderLeftWidth: '4px',
+                            borderLeftColor: 'oklch(0.75 0.15 85)',
+                          } : {})
+                        }}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-xs text-gray-400">{project.project_number ?? '未採番'}</p>
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                                {project.project_number ?? '未採番'}
+                              </span>
+                              {project.contract_probability && (
+                                <span className={cn(
+                                  'text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                                  probabilityColors[project.contract_probability] || probabilityColors['D']
+                                )}>
+                                  {project.contract_probability}
+                                </span>
+                              )}
+                            </div>
                             <Link
                               href={`/dashboard/projects/${project.id}`}
-                              className="mt-0.5 block text-sm font-semibold text-blue-600 hover:underline line-clamp-2"
+                              className="mt-1.5 block text-sm font-semibold text-foreground hover:text-[oklch(0.45_0.18_195)] transition-colors line-clamp-2 leading-snug"
                             >
                               {project.project_name ?? '案件名未設定'}
                             </Link>
+                            <p className="mt-1 text-xs text-muted-foreground truncate">
+                              {project.customer?.customer_name ?? '顧客未設定'}
+                            </p>
                           </div>
-                          <div className="text-right text-[11px] text-gray-500">
-                            <p>{formatDate(project.lastActivityDate)}</p>
-                            <p>{formatDaysAgo(project.daysSinceLastActivity)}</p>
-                          </div>
-                        </div>
-                        <p className="mt-2 text-xs text-gray-500">
-                          {project.customer?.customer_name ?? '顧客未設定'}
-                        </p>
-                        <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-3 text-xs text-gray-600 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">予定売上</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(project.expected_sales)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">予定粗利</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(project.expected_gross_profit)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">契約確度</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatContractProbability(project.contract_probability)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">受注予定</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatMonth(project.order_month)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">計上予定</span>
-                            <span className="text-sm font-semibold text-gray-900">
-                              {formatMonth(project.accounting_month)}
+                          
+                          {/* Activity Indicator */}
+                          <div className="flex flex-col items-end gap-1">
+                            {agingColors.state === 'danger' && (
+                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+                                要対応
+                              </span>
+                            )}
+                            {agingColors.state === 'warning' && (
+                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[oklch(0.80_0.15_85_/_0.15)] text-[oklch(0.55_0.15_85)] text-[10px] font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[oklch(0.75_0.15_85)]" />
+                                注意
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDaysAgo(project.daysSinceLastActivity)}
                             </span>
                           </div>
                         </div>
-                        <div className="mt-3 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-gray-400">
-                          <span>{project.sales_rep?.display_name ?? '担当未設定'}</span>
-                          <div className="flex items-center gap-3 font-semibold text-blue-600 text-xs">
-                            <Link href={`/dashboard/projects/${project.id}`}>詳細</Link>
-                            <span className="text-gray-300">/</span>
-                            <Link href={`/dashboard/projects/${project.id}/edit`}>編集</Link>
+                        
+                        {/* Financial Info */}
+                        <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-br from-muted/30 to-muted/50 border border-border/50">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground text-[10px]">売上</span>
+                              <p className="font-bold text-foreground">{formatCurrency(project.expected_sales)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px]">粗利</span>
+                              <p className="font-bold text-[oklch(0.55_0.18_145)]">{formatCurrency(project.expected_gross_profit)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px]">受注予定</span>
+                              <p className="font-medium text-foreground">{formatMonth(project.order_month)}</p>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground text-[10px]">計上予定</span>
+                              <p className="font-medium text-foreground">{formatMonth(project.accounting_month)}</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="mt-2 flex justify-end">
-                          <ProjectActivityEntryButton
-                            projectId={project.id}
-                            projectNumber={project.project_number}
-                            projectName={project.project_name}
-                            customerName={project.customer?.customer_name}
-                            label="活動登録"
-                            variant="ghost"
-                            size="sm"
-                          />
+                        
+                        {/* Footer */}
+                        <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground font-medium truncate max-w-[100px]">
+                            {project.sales_rep?.display_name ?? '担当未設定'}
+                          </span>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Link 
+                              href={`/dashboard/projects/${project.id}`}
+                              className="px-2 py-1 text-[10px] font-medium text-[oklch(0.45_0.18_195)] hover:bg-[oklch(0.65_0.12_195_/_0.1)] rounded-md transition-colors"
+                            >
+                              詳細
+                            </Link>
+                            <Link 
+                              href={`/dashboard/projects/${project.id}/edit`}
+                              className="px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                            >
+                              編集
+                            </Link>
+                            <ProjectActivityEntryButton
+                              projectId={project.id}
+                              projectNumber={project.project_number}
+                              projectName={project.project_name}
+                              customerName={project.customer?.customer_name}
+                              label="活動"
+                              variant="ghost"
+                              size="sm"
+                              className="h-auto px-2 py-1 text-[10px]"
+                            />
+                          </div>
                         </div>
                       </article>
                       )
@@ -360,7 +450,8 @@ export function ProjectKanbanBoard({
                 </div>
               </div>
             </section>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
