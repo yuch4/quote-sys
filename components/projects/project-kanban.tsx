@@ -439,7 +439,6 @@ export function ProjectKanbanBoard({
                               label="活動"
                               variant="ghost"
                               size="sm"
-                              className="h-auto px-2 py-1 text-[10px]"
                             />
                           </div>
                         </div>
