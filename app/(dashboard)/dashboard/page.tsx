@@ -239,63 +239,84 @@ export default async function DashboardPage() {
   })
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">
-          {userData?.display_name}さん、ようこそ
-          {!isAdmin && ' （あなたの案件のみ表示）'}
-        </p>
+    <div className="space-y-6 md:space-y-8">
+      {/* Welcome Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[oklch(0.22_0.04_250)] via-[oklch(0.26_0.05_248)] to-[oklch(0.20_0.06_255)] p-8 text-white shadow-2xl shadow-black/10">
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[oklch(0.65_0.12_195_/_0.4)] to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-[oklch(0.75_0.12_85_/_0.3)] to-transparent rounded-full translate-y-1/2 -translate-x-1/2" />
+        </div>
+        <div className="relative">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+            おはようございます、{userData?.display_name}さん
+          </h1>
+          <p className="text-white/70 text-lg">
+            本日も素晴らしい一日になりますように
+            {!isAdmin && <span className="ml-2 text-sm opacity-70">（あなたの担当案件を表示）</span>}
+          </p>
+        </div>
       </div>
 
       {/* KPI カード */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <Card>
+        <Card className="group relative overflow-hidden border-0 shadow-lg shadow-black/5 hover:shadow-xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.65_0.12_195_/_0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">進行中案件</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">進行中案件</CardTitle>
+            <div className="p-2 rounded-xl bg-[oklch(0.65_0.12_195_/_0.1)]">
+              <TrendingUp className="h-5 w-5 text-[oklch(0.55_0.18_195)]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{projectCount || 0}</div>
+            <div className="text-3xl font-bold tracking-tight">{projectCount || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">見積中・受注案件</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="group relative overflow-hidden border-0 shadow-lg shadow-black/5 hover:shadow-xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.65_0.18_145_/_0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">承認済み見積</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">承認済み見積</CardTitle>
+            <div className="p-2 rounded-xl bg-[oklch(0.65_0.18_145_/_0.1)]">
+              <CheckCircle className="h-5 w-5 text-[oklch(0.55_0.18_145)]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{approvedQuoteCount || 0}</div>
+            <div className="text-3xl font-bold tracking-tight">{approvedQuoteCount || 0}</div>
             <p className="text-xs text-muted-foreground mt-1">今月作成</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="group relative overflow-hidden border-0 shadow-lg shadow-black/5 hover:shadow-xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.75_0.12_85_/_0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">今月売上</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">今月売上</CardTitle>
+            <div className="p-2 rounded-xl bg-[oklch(0.75_0.12_85_/_0.1)]">
+              <TrendingUp className="h-5 w-5 text-[oklch(0.65_0.15_85)]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold tracking-tight">
               ¥{totalSales.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">承認済み見積合計</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="group relative overflow-hidden border-0 shadow-lg shadow-black/5 hover:shadow-xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.55_0.18_195_/_0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">今月粗利</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">今月粗利</CardTitle>
+            <div className="p-2 rounded-xl bg-[oklch(0.55_0.18_195_/_0.1)]">
+              <TrendingUp className="h-5 w-5 text-[oklch(0.55_0.18_195)]" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold tracking-tight">
               ¥{totalProfit.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              粗利率 {totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : 0}%
+              粗利率 <span className="font-semibold text-[oklch(0.55_0.18_195)]">{totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : 0}%</span>
             </p>
           </CardContent>
         </Card>
@@ -306,30 +327,37 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* 承認待ち */}
           {safePendingApprovals.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-yellow-600" />
-                  <CardTitle>承認待ち見積</CardTitle>
+            <Card className="border-0 shadow-lg shadow-black/5 bg-card/80 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-[oklch(0.80_0.15_85_/_0.1)] to-transparent">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-[oklch(0.80_0.15_85_/_0.2)]">
+                    <Clock className="h-5 w-5 text-[oklch(0.65_0.15_85)]" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">承認待ち見積</CardTitle>
+                    <CardDescription>{safePendingApprovals.length}件の見積が承認待ちです</CardDescription>
+                  </div>
                 </div>
-                <CardDescription>{safePendingApprovals.length}件の見積が承認待ちです</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {safePendingApprovals.map((quote) => (
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  {safePendingApprovals.map((quote, index) => (
                     <Link
                       key={quote.id}
                       href={`/dashboard/quotes/${quote.id}`}
-                      className="block p-3 rounded-lg border hover:bg-gray-50 transition"
+                      className="block p-4 rounded-xl border border-border/50 hover:border-[oklch(0.65_0.12_195_/_0.5)] hover:bg-muted/50 transition-all duration-200 group"
+                      style={{ animationDelay: `${index * 0.05}s` }}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm">{quote.quote_number}</p>
-                          <p className="text-xs text-gray-600">
-                            {quote.projectName ?? '-'} - {quote.customerName ?? '-'}
+                          <p className="font-semibold text-foreground group-hover:text-[oklch(0.55_0.18_195)] transition-colors">{quote.quote_number}</p>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {quote.projectName ?? '-'} • {quote.customerName ?? '-'}
                           </p>
                         </div>
-                        <Badge variant="secondary">承認待ち</Badge>
+                        <Badge className="bg-[oklch(0.80_0.15_85_/_0.15)] text-[oklch(0.55_0.15_85)] border-[oklch(0.80_0.15_85_/_0.3)] hover:bg-[oklch(0.80_0.15_85_/_0.2)]">
+                          承認待ち
+                        </Badge>
                       </div>
                     </Link>
                   ))}
@@ -340,23 +368,31 @@ export default async function DashboardPage() {
 
           {/* 長期未入荷 */}
           {safeLongDelayItems.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                  <CardTitle>長期未入荷アラート</CardTitle>
+            <Card className="border-0 shadow-lg shadow-black/5 bg-card/80 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="border-b border-border/50 bg-gradient-to-r from-[oklch(0.55_0.22_25_/_0.1)] to-transparent">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-[oklch(0.55_0.22_25_/_0.2)]">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">長期未入荷アラート</CardTitle>
+                    <CardDescription>14日以上入荷待ちの明細があります</CardDescription>
+                  </div>
                 </div>
-                <CardDescription>14日以上入荷待ちの明細があります</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {safeLongDelayItems.slice(0, 3).map((item) => (
-                    <div key={item.id} className="p-3 rounded-lg border border-red-200 bg-red-50">
-                      <p className="font-medium text-sm">{item.product_name}</p>
-                      <p className="text-xs text-gray-600">
-                        {item.projectName ?? '-'} - {item.supplierName ?? '-'}
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  {safeLongDelayItems.slice(0, 3).map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      className="p-4 rounded-xl border border-destructive/20 bg-destructive/5"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <p className="font-semibold text-foreground">{item.product_name}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {item.projectName ?? '-'} • {item.supplierName ?? '-'}
                       </p>
-                      <p className="text-xs text-red-600 mt-1">
+                      <p className="text-xs text-destructive mt-2 font-medium">
                         発注日: {item.ordered_at ? new Date(item.ordered_at).toLocaleDateString('ja-JP') : '-'}
                       </p>
                     </div>
@@ -369,37 +405,38 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* 最近の活動 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>最近の見積</CardTitle>
+      <Card className="border-0 shadow-lg shadow-black/5 bg-card/80 backdrop-blur-sm">
+        <CardHeader className="border-b border-border/50">
+          <CardTitle className="text-xl">最近の見積</CardTitle>
           <CardDescription>直近の見積更新</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           {safeRecentActivity.length > 0 ? (
-            <div className="space-y-2">
-              {safeRecentActivity.map((quote) => (
+            <div className="space-y-3">
+              {safeRecentActivity.map((quote, index) => (
                 <Link
                   key={quote.id}
                   href={`/dashboard/quotes/${quote.id}`}
-                  className="block p-3 rounded-lg border hover:bg-gray-50 transition"
+                  className="block p-4 rounded-xl border border-border/50 hover:border-[oklch(0.65_0.12_195_/_0.5)] hover:bg-muted/50 transition-all duration-200 group"
+                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-sm">{quote.quote_number}</p>
-                      <p className="text-xs text-gray-600">
-                        {quote.projectName ?? '-'} - {quote.customerName ?? '-'}
+                      <p className="font-semibold text-foreground group-hover:text-[oklch(0.55_0.18_195)] transition-colors">{quote.quote_number}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {quote.projectName ?? '-'} • {quote.customerName ?? '-'}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground/70 mt-1">
                         更新: {new Date(quote.updated_at).toLocaleDateString('ja-JP')}
                       </p>
                     </div>
                     <Badge
-                      variant={
+                      className={
                         quote.approval_status === '承認済み'
-                          ? 'default'
+                          ? 'bg-[oklch(0.65_0.18_145_/_0.15)] text-[oklch(0.45_0.18_145)] border-[oklch(0.65_0.18_145_/_0.3)]'
                           : quote.approval_status === '承認待ち'
-                          ? 'secondary'
-                          : 'outline'
+                          ? 'bg-[oklch(0.80_0.15_85_/_0.15)] text-[oklch(0.55_0.15_85)] border-[oklch(0.80_0.15_85_/_0.3)]'
+                          : 'bg-muted text-muted-foreground border-border'
                       }
                     >
                       {quote.approval_status}
@@ -409,7 +446,12 @@ export default async function DashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">データがありません</p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+                <TrendingUp className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <p className="text-muted-foreground">データがありません</p>
+            </div>
           )}
         </CardContent>
       </Card>

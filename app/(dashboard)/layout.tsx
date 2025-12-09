@@ -27,28 +27,31 @@ export default async function DashboardLayout({
     .single()
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-background">
       <Toaster position="top-right" richColors />
       
       {/* デスクトップサイドバー */}
-      <aside className="hidden lg:flex lg:flex-col h-full w-64 bg-[#1E2938] text-white shadow-lg">
+      <aside className="hidden lg:flex lg:flex-col h-full w-72 bg-gradient-to-b from-[oklch(0.20_0.04_250)] via-[oklch(0.22_0.045_250)] to-[oklch(0.18_0.04_255)] text-white shadow-2xl shadow-black/20 border-r border-white/5">
         <Sidebar userRole={userData?.role} />
       </aside>
 
       {/* メインコンテンツ */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* ヘッダー */}
-        <header className="bg-white border-b px-4 md:px-6 py-4">
+        <header className="bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 md:px-8 py-4 sticky top-0 z-40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <MobileSidebar userRole={userData?.role} />
-              <h2 className="text-sm md:text-lg font-semibold text-gray-800">
-                <span className="hidden sm:inline">{userData?.display_name} さん ({userData?.role})</span>
-                <span className="sm:hidden">{userData?.display_name}</span>
-              </h2>
+              <div className="hidden sm:block">
+                <h2 className="text-base font-semibold text-foreground">
+                  {userData?.display_name}
+                </h2>
+                <p className="text-xs text-muted-foreground">{userData?.role}</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
               <NotificationBell userId={user.id} />
+              <div className="w-px h-8 bg-border hidden md:block" />
               <UserMenu
                 userId={user.id}
                 name={userData?.display_name ?? 'ユーザー'}
@@ -60,9 +63,13 @@ export default async function DashboardLayout({
         </header>
 
         {/* コンテンツエリア */}
-        <main className="flex-1 overflow-auto p-4 md:p-6">
-          <BreadcrumbNav />
-          {children}
+        <main className="flex-1 overflow-auto p-4 md:p-8 bg-gradient-to-br from-background via-background to-muted/20">
+          <div className="mb-4">
+            <BreadcrumbNav />
+          </div>
+          <div className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
     </div>

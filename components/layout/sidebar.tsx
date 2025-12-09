@@ -145,50 +145,63 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
         onClick={handleClick}
         title={title}
         className={cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all border-l-4',
+          'flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-white/10 text-white border-teal-300 shadow-inner'
-            : 'text-gray-300 hover:bg-white/5 hover:text-white border-transparent'
+            ? 'bg-gradient-to-r from-[oklch(0.65_0.12_195)] to-[oklch(0.55_0.15_195)] text-white shadow-lg shadow-cyan-500/20'
+            : 'text-white/70 hover:bg-white/10 hover:text-white'
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className={cn('h-5 w-5 transition-transform', isActive ? 'scale-110' : '')} />
         {label}
       </Link>
     )
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#1E2938] text-white">
+    <div className="flex h-full flex-col">
+      {/* Logo Section */}
       <div className="p-6 border-b border-white/10">
-        <div className="text-xl font-bold">見積システム</div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[oklch(0.65_0.12_195)] to-[oklch(0.55_0.18_195)] flex items-center justify-center shadow-lg shadow-cyan-500/20">
+            <span className="text-white font-bold text-lg">Q</span>
+          </div>
+          <div>
+            <div className="text-lg font-bold text-white tracking-tight">Quote System</div>
+            <div className="text-xs text-white/50">見積管理システム</div>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4 flex flex-col gap-6">
-        <div className="space-y-1 px-3">
+      <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
+        {/* Main Navigation */}
+        <div className="space-y-1">
+          <p className="px-4 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">メイン</p>
           {navigationItems.map((item) =>
             renderNavLink(item.href, item.name, item.icon, pathname === item.href)
           )}
         </div>
 
-        <div className="px-3">
-          <div className="rounded-lg bg-white/5">
+        {/* Procurement Section */}
+        <div>
+          <p className="px-4 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">調達</p>
+          <div className="rounded-xl bg-white/5 overflow-hidden">
             <button
               type="button"
               onClick={() => setProcurementMenuOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
+              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white/90 hover:bg-white/5 transition-colors"
             >
               <span className="flex items-center gap-3">
-                <ShoppingCart className="h-5 w-5" />
+                <ShoppingCart className="h-5 w-5 text-[oklch(0.65_0.12_195)]" />
                 調達・発注
               </span>
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', procurementMenuOpen ? 'rotate-180' : 'rotate-0')}
+                className={cn('h-4 w-4 text-white/50 transition-transform duration-200', procurementMenuOpen ? 'rotate-180' : 'rotate-0')}
               />
             </button>
             {procurementMenuOpen && (
-              <div className="border-t border-white/10 py-2">
+              <div className="border-t border-white/10 py-2 px-2 space-y-1">
                 {procurementItems.map((item) => (
-                  <div key={item.href} className="px-4">
+                  <div key={item.href}>
                     {renderNavLink(
                       item.href,
                       item.name,
@@ -202,29 +215,34 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
           </div>
         </div>
 
-        <div className="px-3 pb-4 space-y-1">
+        {/* Reports & Billing */}
+        <div className="space-y-1">
+          <p className="px-4 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">レポート</p>
           {renderNavLink('/dashboard/billing', '計上管理', CreditCard, pathname === '/dashboard/billing')}
           {renderNavLink('/dashboard/reports', 'レポート', TrendingUp, pathname === '/dashboard/reports')}
+        </div>
           
-          {/* ナレッジ管理メニュー */}
-          <div className="mt-4 rounded-lg bg-white/5">
+        {/* Knowledge Management */}
+        <div>
+          <p className="px-4 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">ナレッジ</p>
+          <div className="rounded-xl bg-white/5 overflow-hidden">
             <button
               type="button"
               onClick={() => setKnowledgeMenuOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
+              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white/90 hover:bg-white/5 transition-colors"
             >
               <span className="flex items-center gap-3">
-                <BookOpen className="h-5 w-5" />
+                <BookOpen className="h-5 w-5 text-[oklch(0.75_0.12_85)]" />
                 ナレッジ管理
               </span>
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', knowledgeMenuOpen ? 'rotate-180' : 'rotate-0')}
+                className={cn('h-4 w-4 text-white/50 transition-transform duration-200', knowledgeMenuOpen ? 'rotate-180' : 'rotate-0')}
               />
             </button>
             {knowledgeMenuOpen && (
-              <div className="border-t border-white/10 py-2">
+              <div className="border-t border-white/10 py-2 px-2 space-y-1">
                 {knowledgeMenuItems.map((item) => (
-                  <div key={item.href} className="px-4">
+                  <div key={item.href}>
                     {renderNavLink(
                       item.href,
                       item.name,
@@ -236,48 +254,57 @@ export function Sidebar({ userRole, onNavigate }: SidebarProps) {
               </div>
             )}
           </div>
-
-          {(userRole === '営業事務' || userRole === '管理者') && (
-            <>
-              <div className="mt-4 rounded-lg bg-white/5">
-                <button
-                  type="button"
-                  onClick={() => setGroupMenuOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm font-semibold text-white"
-                >
-                  <span className="flex items-center gap-3">
-                    <Building2 className="h-5 w-5" />
-                    グループ管理
-                  </span>
-                  <ChevronDown
-                    className={cn('h-4 w-4 transition-transform', groupMenuOpen ? 'rotate-180' : 'rotate-0')}
-                  />
-                </button>
-                {groupMenuOpen && (
-                  <div className="border-t border-white/10 py-2">
-                    {groupMenuItems.map((item) => (
-                      <div key={item.href} className="px-4">
-                        {renderNavLink(
-                          item.href,
-                          item.name,
-                          item.icon,
-                          pathname === item.href,
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {renderNavLink(
-                '/dashboard/settings',
-                '設定',
-                Settings,
-                pathname.startsWith('/dashboard/settings'),
-              )}
-            </>
-          )}
         </div>
+
+        {/* Admin Section */}
+        {(userRole === '営業事務' || userRole === '管理者') && (
+          <div className="space-y-1">
+            <p className="px-4 text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">管理</p>
+            <div className="rounded-xl bg-white/5 overflow-hidden mb-2">
+              <button
+                type="button"
+                onClick={() => setGroupMenuOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white/90 hover:bg-white/5 transition-colors"
+              >
+                <span className="flex items-center gap-3">
+                  <Building2 className="h-5 w-5 text-[oklch(0.65_0.18_145)]" />
+                  グループ管理
+                </span>
+                <ChevronDown
+                  className={cn('h-4 w-4 text-white/50 transition-transform duration-200', groupMenuOpen ? 'rotate-180' : 'rotate-0')}
+                />
+              </button>
+              {groupMenuOpen && (
+                <div className="border-t border-white/10 py-2 px-2 space-y-1">
+                  {groupMenuItems.map((item) => (
+                    <div key={item.href}>
+                      {renderNavLink(
+                        item.href,
+                        item.name,
+                        item.icon,
+                        pathname === item.href,
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {renderNavLink(
+              '/dashboard/settings',
+              '設定',
+              Settings,
+              pathname.startsWith('/dashboard/settings'),
+            )}
+          </div>
+        )}
       </nav>
+      
+      {/* Footer */}
+      <div className="p-4 border-t border-white/10">
+        <div className="text-xs text-white/30 text-center">
+          © {new Date().getFullYear()} Quote System
+        </div>
+      </div>
     </div>
   )
 }

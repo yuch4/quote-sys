@@ -237,25 +237,27 @@ export default async function QuotesPage(props: {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">見積管理</h1>
-          <p className="text-sm md:text-base text-gray-600 mt-1 md:mt-2">見積の作成・管理</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">見積管理</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1 md:mt-2">見積の作成・管理</p>
         </div>
         <Link href="/dashboard/quotes/new">
-          <Button className="w-full sm:w-auto">新規見積作成</Button>
+          <Button className="w-full sm:w-auto bg-gradient-to-r from-primary to-[oklch(0.40_0.08_250)] hover:opacity-90 transition-all shadow-lg shadow-primary/20">
+            新規見積作成
+          </Button>
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>見積一覧</CardTitle>
+      <Card className="border-0 shadow-lg shadow-black/5 bg-card/80 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
+          <CardTitle className="text-xl">見積一覧</CardTitle>
           <CardDescription>
             登録されている見積情報（全{totalCount}件）
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-4 md:p-6">
           <QuoteFilters
             statusFilter={statusFilter}
             salesRepFilter={salesRepFilter}
@@ -266,46 +268,60 @@ export default async function QuotesPage(props: {
           {quotes && quotes.length > 0 ? (
             <>
               {/* デスクトップ: テーブル表示 */}
-              <div className="hidden md:block">
+              <div className="hidden md:block rounded-xl border border-border/50 overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>見積番号</TableHead>
-                      <TableHead>件名</TableHead>
-                      <TableHead>案件名</TableHead>
-                      <TableHead>顧客名</TableHead>
-                      <TableHead>発行日</TableHead>
-                      <TableHead>合計金額</TableHead>
-                      <TableHead>粗利</TableHead>
-                      <TableHead>承認状況</TableHead>
-                      <TableHead>現在の承認者</TableHead>
-                      <TableHead className="text-right">操作</TableHead>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableHead className="font-semibold">見積番号</TableHead>
+                      <TableHead className="font-semibold">件名</TableHead>
+                      <TableHead className="font-semibold">案件名</TableHead>
+                      <TableHead className="font-semibold">顧客名</TableHead>
+                      <TableHead className="font-semibold">発行日</TableHead>
+                      <TableHead className="font-semibold">合計金額</TableHead>
+                      <TableHead className="font-semibold">粗利</TableHead>
+                      <TableHead className="font-semibold">承認状況</TableHead>
+                      <TableHead className="font-semibold">現在の承認者</TableHead>
+                      <TableHead className="text-right font-semibold">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {quotes.map((quote) => (
-                      <TableRow key={quote.id}>
-                        <TableCell className="font-medium">{quote.quote_number}</TableCell>
-                        <TableCell>{quote.subject || '-'}</TableCell>
-                        <TableCell>{quote.project?.project_name}</TableCell>
-                        <TableCell>{quote.project?.customer?.customer_name}</TableCell>
-                        <TableCell>{formatDate(quote.issue_date)}</TableCell>
-                        <TableCell>{formatCurrency(Number(quote.total_amount))}</TableCell>
-                        <TableCell>{formatCurrency(Number(quote.gross_profit))}</TableCell>
+                    {quotes.map((quote, index) => (
+                      <TableRow 
+                        key={quote.id} 
+                        className="hover:bg-muted/50 transition-colors"
+                        style={{ animationDelay: `${index * 0.02}s` }}
+                      >
+                        <TableCell className="font-medium font-mono text-[oklch(0.55_0.18_195)]">{quote.quote_number}</TableCell>
+                        <TableCell className="text-foreground">{quote.subject || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{quote.project?.project_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{quote.project?.customer?.customer_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(quote.issue_date)}</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency(Number(quote.total_amount))}</TableCell>
+                        <TableCell className="text-[oklch(0.55_0.18_145)]">{formatCurrency(Number(quote.gross_profit))}</TableCell>
                         <TableCell>
-                          <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
+                          <Badge 
+                            className={
+                              quote.approval_status === '承認済み'
+                                ? 'bg-[oklch(0.65_0.18_145_/_0.15)] text-[oklch(0.45_0.18_145)] border-[oklch(0.65_0.18_145_/_0.3)] hover:bg-[oklch(0.65_0.18_145_/_0.2)]'
+                                : quote.approval_status === '承認待ち'
+                                ? 'bg-[oklch(0.80_0.15_85_/_0.15)] text-[oklch(0.55_0.15_85)] border-[oklch(0.80_0.15_85_/_0.3)] hover:bg-[oklch(0.80_0.15_85_/_0.2)]'
+                                : quote.approval_status === '却下'
+                                ? 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/15'
+                                : 'bg-muted text-muted-foreground border-border hover:bg-muted'
+                            }
+                          >
                             {quote.approval_status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{getCurrentApproverLabel(quote)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{getCurrentApproverLabel(quote)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-2 justify-end">
                             <Link href={`/dashboard/quotes/${quote.id}`}>
-                              <Button variant="outline" size="sm">詳細</Button>
+                              <Button variant="outline" size="sm" className="hover:bg-[oklch(0.65_0.12_195_/_0.1)] hover:border-[oklch(0.65_0.12_195_/_0.5)] hover:text-[oklch(0.45_0.18_195)]">詳細</Button>
                             </Link>
                             {quote.approval_status === '下書き' && (
                               <Link href={`/dashboard/quotes/${quote.id}/edit`}>
-                                <Button variant="outline" size="sm">編集</Button>
+                                <Button variant="outline" size="sm" className="hover:bg-[oklch(0.75_0.12_85_/_0.1)] hover:border-[oklch(0.75_0.12_85_/_0.5)] hover:text-[oklch(0.55_0.15_85)]">編集</Button>
                               </Link>
                             )}
                           </div>
@@ -318,53 +334,67 @@ export default async function QuotesPage(props: {
 
               {/* モバイル: カード表示 */}
               <div className="md:hidden space-y-4">
-                {quotes.map((quote) => (
-                    <Card key={quote.id}>
+                {quotes.map((quote, index) => (
+                    <Card 
+                      key={quote.id} 
+                      className="border-0 shadow-md shadow-black/5 bg-card/80 overflow-hidden"
+                      style={{ animationDelay: `${index * 0.03}s` }}
+                    >
                       <CardContent className="pt-6">
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <p className="text-sm font-semibold text-gray-900">{quote.quote_number}</p>
-                            <p className="text-sm text-gray-600 mt-1">{quote.subject || '-'}</p>
-                            <p className="text-xs text-gray-500">{quote.project?.project_name}</p>
+                              <p className="font-mono text-sm font-semibold text-[oklch(0.55_0.18_195)]">{quote.quote_number}</p>
+                            <p className="text-sm text-foreground mt-1 font-medium">{quote.subject || '-'}</p>
+                            <p className="text-xs text-muted-foreground">{quote.project?.project_name}</p>
                             </div>
-                          <Badge variant={getApprovalStatusBadgeVariant(quote.approval_status)}>
+                          <Badge 
+                            className={
+                              quote.approval_status === '承認済み'
+                                ? 'bg-[oklch(0.65_0.18_145_/_0.15)] text-[oklch(0.45_0.18_145)] border-[oklch(0.65_0.18_145_/_0.3)]'
+                                : quote.approval_status === '承認待ち'
+                                ? 'bg-[oklch(0.80_0.15_85_/_0.15)] text-[oklch(0.55_0.15_85)] border-[oklch(0.80_0.15_85_/_0.3)]'
+                                : quote.approval_status === '却下'
+                                ? 'bg-destructive/10 text-destructive border-destructive/30'
+                                : 'bg-muted text-muted-foreground border-border'
+                            }
+                          >
                             {quote.approval_status}
                           </Badge>
                         </div>
                         
-                        <div className="space-y-1 text-sm">
+                        <div className="space-y-2 text-sm border-t border-border/50 pt-4">
                           <div className="flex justify-between">
-                            <span className="text-gray-500">顧客</span>
-                            <span className="font-medium">{quote.project?.customer?.customer_name}</span>
+                            <span className="text-muted-foreground">顧客</span>
+                            <span className="font-medium text-foreground">{quote.project?.customer?.customer_name}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">発行日</span>
-                            <span className="font-medium">{formatDate(quote.issue_date)}</span>
+                            <span className="text-muted-foreground">発行日</span>
+                            <span className="font-medium text-foreground">{formatDate(quote.issue_date)}</span>
+                          </div>
+                          <div className="flex justify-between items-baseline">
+                            <span className="text-muted-foreground">合計金額</span>
+                            <span className="font-bold text-lg text-foreground">{formatCurrency(Number(quote.total_amount))}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">合計金額</span>
-                            <span className="font-semibold text-lg">{formatCurrency(Number(quote.total_amount))}</span>
+                            <span className="text-muted-foreground">粗利</span>
+                            <span className="font-medium text-[oklch(0.55_0.18_145)]">{formatCurrency(Number(quote.gross_profit))}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">粗利</span>
-                            <span className="font-medium">{formatCurrency(Number(quote.gross_profit))}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">現在の承認者</span>
-                            <span className="font-medium text-right max-w-[60%]">
+                            <span className="text-muted-foreground">現在の承認者</span>
+                            <span className="font-medium text-right max-w-[60%] text-foreground">
                               {getCurrentApproverLabel(quote)}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2 pt-4 border-t border-border/50">
                           <Link href={`/dashboard/quotes/${quote.id}`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full">詳細</Button>
+                            <Button variant="outline" size="sm" className="w-full hover:bg-[oklch(0.65_0.12_195_/_0.1)] hover:border-[oklch(0.65_0.12_195_/_0.5)]">詳細</Button>
                           </Link>
                           {quote.approval_status === '下書き' && (
                             <Link href={`/dashboard/quotes/${quote.id}/edit`} className="flex-1">
-                              <Button variant="outline" size="sm" className="w-full">編集</Button>
+                              <Button variant="outline" size="sm" className="w-full hover:bg-[oklch(0.75_0.12_85_/_0.1)] hover:border-[oklch(0.75_0.12_85_/_0.5)]">編集</Button>
                             </Link>
                           )}
                         </div>
@@ -375,14 +405,14 @@ export default async function QuotesPage(props: {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex justify-center">
+                <div className="flex justify-center pt-4">
                   <Pagination>
                     <PaginationContent>
                       <PaginationItem>
                         <PaginationPrevious
                           href={buildPageHref(Math.max(1, currentPage - 1))}
                           aria-disabled={currentPage === 1}
-                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}
                         />
                       </PaginationItem>
                       
@@ -400,6 +430,7 @@ export default async function QuotesPage(props: {
                               <PaginationLink
                                 href={buildPageHref(page)}
                                 isActive={currentPage === page}
+                                className={currentPage === page ? 'bg-primary text-primary-foreground' : ''}
                               >
                                 {page}
                               </PaginationLink>
@@ -411,7 +442,7 @@ export default async function QuotesPage(props: {
                         ) {
                           return (
                             <PaginationItem key={page}>
-                              <span className="px-4">...</span>
+                              <span className="px-4 text-muted-foreground">...</span>
                             </PaginationItem>
                           )
                         }
@@ -422,7 +453,7 @@ export default async function QuotesPage(props: {
                         <PaginationNext
                           href={buildPageHref(Math.min(totalPages, currentPage + 1))}
                           aria-disabled={currentPage === totalPages}
-                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}
                         />
                       </PaginationItem>
                     </PaginationContent>
@@ -431,9 +462,14 @@ export default async function QuotesPage(props: {
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-500 text-center py-8">
-              登録されている見積がありません
-            </p>
+            <div className="text-center py-16">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted/50 flex items-center justify-center">
+                <svg className="w-8 h-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-muted-foreground">登録されている見積がありません</p>
+            </div>
           )}
         </CardContent>
       </Card>
