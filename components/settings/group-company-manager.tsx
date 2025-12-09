@@ -1203,8 +1203,8 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
     <div className="space-y-4">
       {showInsights && <GroupSystemInsights />}
       {showSimulator && <VendorConsolidationSimulator />}
-      <Card>
-        <CardHeader className="space-y-4">
+      <Card className="border-0 shadow-lg">
+        <CardHeader className="space-y-4 pb-4">
           <input
             ref={fileInputRef}
             type="file"
@@ -1213,38 +1213,45 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
             onChange={handleImportWorkbook}
           />
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <CardTitle>グループ会社一覧</CardTitle>
-              <CardDescription>グループ各社の基本情報と棚卸件数を管理します。</CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100">
+                <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <CardTitle className="text-lg">グループ会社一覧</CardTitle>
+                <CardDescription className="text-xs">グループ各社の基本情報と棚卸件数を管理</CardDescription>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={handleImportButtonClick} disabled={loading || importing}>
-                <Upload className="mr-2 h-4 w-4" />
-                {importing ? 'インポート中...' : 'Excelインポート'}
+              <Button variant="outline" size="sm" onClick={handleImportButtonClick} disabled={loading || importing} className="gap-1.5">
+                <Upload className="h-4 w-4" />
+                {importing ? 'インポート中...' : 'インポート'}
               </Button>
-              <Button variant="outline" onClick={handleExportWorkbook} disabled={loading || exporting}>
-                <Download className="mr-2 h-4 w-4" />
-                {exporting ? 'エクスポート中...' : 'Excelエクスポート'}
+              <Button variant="outline" size="sm" onClick={handleExportWorkbook} disabled={loading || exporting} className="gap-1.5">
+                <Download className="h-4 w-4" />
+                {exporting ? 'エクスポート中...' : 'エクスポート'}
               </Button>
-              <Button onClick={openCreateDialog} disabled={loading}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button size="sm" onClick={openCreateDialog} disabled={loading} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
+                <Plus className="h-4 w-4" />
                 新規登録
               </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 p-3">
             <div className="relative w-full max-w-xs flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="会社名・コードで検索"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className="pl-9"
+                className="pl-9 bg-white border-slate-200"
               />
             </div>
-            <div className="min-w-[180px]">
+            <div className="min-w-[160px]">
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 text-sm">
                   <SelectValue placeholder="ステータス" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1257,9 +1264,9 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-[180px]">
+            <div className="min-w-[160px]">
               <Select value={industryFilter} onValueChange={(value) => setIndustryFilter(value as IndustryFilter)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 text-sm">
                   <SelectValue placeholder="業種" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1272,9 +1279,9 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-[200px]">
+            <div className="min-w-[180px]">
               <Select value={systemFilter} onValueChange={(value) => setSystemFilter(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 text-sm">
                   <SelectValue placeholder="システム" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1287,9 +1294,9 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
                 </SelectContent>
               </Select>
             </div>
-            <div className="min-w-[200px]">
+            <div className="min-w-[180px]">
               <Select value={securityFilter} onValueChange={(value) => setSecurityFilter(value)}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-200 text-sm">
                   <SelectValue placeholder="セキュリティ製品" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1306,72 +1313,112 @@ export function GroupCompanyManager({ showInsights = true, showSimulator = true 
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              読み込み中...
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin mb-3" />
+              <p className="text-sm">読み込み中...</p>
             </div>
           ) : companies.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">登録されているグループ会社がありません</p>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 mb-4">
+                <svg className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <p className="text-muted-foreground mb-1">登録されているグループ会社がありません</p>
+              <p className="text-sm text-muted-foreground">「新規登録」ボタンから会社を追加してください</p>
+            </div>
           ) : displayedCompanies.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">条件に一致するグループ会社がありません</p>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 mb-4">
+                <Search className="h-8 w-8 text-slate-400" />
+              </div>
+              <p className="text-muted-foreground">条件に一致するグループ会社がありません</p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border bg-slate-50/50">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent bg-slate-100/50">
                     {renderSortableHeader('会社コード', 'company_code', 'w-32')}
                     {renderSortableHeader('会社名', 'company_name')}
-                    <TableHead>業種</TableHead>
-                    <TableHead>担当者</TableHead>
-                    {renderSortableHeader('システム棚卸', 'system_usage_count')}
-                    {renderSortableHeader('セキュリティ統制', 'security_control_count')}
-                    <TableHead>ステータス</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead className="text-xs font-semibold">業種</TableHead>
+                    <TableHead className="text-xs font-semibold">担当者</TableHead>
+                    {renderSortableHeader('システム', 'system_usage_count')}
+                    {renderSortableHeader('セキュリティ', 'security_control_count')}
+                    <TableHead className="text-xs font-semibold">ステータス</TableHead>
+                    <TableHead className="text-right text-xs font-semibold">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayedCompanies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">{company.company_code}</TableCell>
+                  {displayedCompanies.map((company, index) => (
+                    <TableRow key={company.id} className={`hover:bg-white/80 ${index % 2 === 0 ? 'bg-white/40' : ''}`}>
+                      <TableCell className="font-mono text-sm text-muted-foreground">{company.company_code}</TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-semibold">{company.company_name}</p>
+                          <p className="font-medium text-sm">{company.company_name}</p>
                           {company.region && (
                             <p className="text-xs text-muted-foreground">{company.region}{company.country ? ` / ${company.country}` : ''}</p>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{company.industry || '-'}</TableCell>
+                      <TableCell className="text-sm">{company.industry || '-'}</TableCell>
                       <TableCell>
                         {company.primary_contact_name ? (
                           <div>
-                            <p>{company.primary_contact_name}</p>
+                            <p className="text-sm">{company.primary_contact_name}</p>
                             {company.primary_contact_email && (
                               <p className="text-xs text-muted-foreground">{company.primary_contact_email}</p>
                             )}
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">未設定</span>
+                          <span className="text-xs text-muted-foreground">未設定</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{company.system_usage_count}</Badge>
+                        <button
+                          onClick={() => openDetailSheet(company, 'usage')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                          </svg>
+                          {company.system_usage_count}
+                        </button>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{company.security_control_count}</Badge>
+                        <button
+                          onClick={() => openDetailSheet(company, 'security')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          {company.security_control_count}
+                        </button>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={company.relationship_status === 'active' ? 'default' : 'secondary'}>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            company.relationship_status === 'active' 
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                              : company.relationship_status === 'suspended'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}
+                        >
                           {renderStatus(company.relationship_status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => openDetailSheet(company, 'profile')}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(company)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openDetailSheet(company, 'profile')} className="h-8 w-8 p-0">
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(company)} className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
