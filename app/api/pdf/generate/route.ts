@@ -1,10 +1,9 @@
-'use server'
-
 /**
- * 見積PDF生成 Server Action
- * HTML/CSS + Puppeteer方式でPDFを生成
+ * PDF生成API
+ * POST: 見積データからPDFを生成
  */
 
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { renderTemplate, convertQuoteToPDFData } from '@/lib/pdf/template-engine'
 import { generatePDFFromHTML } from '@/lib/pdf/puppeteer-generator'
@@ -12,37 +11,35 @@ import { DEFAULT_QUOTE_TEMPLATE_HTML, DEFAULT_QUOTE_TEMPLATE_CSS } from '@/lib/p
 import type { QuotePDFData, StampApplication } from '@/types/pdf-templates'
 import crypto from 'crypto'
 
-interface GenerateQuotePDFOptions {
+export const runtime = 'nodejs'
+export const maxDuration = 60 // Vercel Pro/Enterprise: 60秒まで
+
+interface GeneratePDFRequest {
+  quoteId: string
+  templateId?: string
   applyStamps?: boolean
   fileType?: 'draft' | 'final'
-  templateId?: string
 }
 
-interface GenerateQuotePDFResult {
-  success: boolean
-  message: string
-  url?: string
-  fileName?: string
-  fileSize?: number
-  sha256Hash?: string
-}
-
-export async function generateQuotePDF(
-  quoteId: string,
-  options: GenerateQuotePDFOptions = {}
-): Promise<GenerateQuotePDFResult> {
-  const { applyStamps = false, fileType = 'draft', templateId } = options
+export async function POST(request: NextRequest) {
   const supabase = await createClient()
 
   try {
     // 認証チェック
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return { success: false, message: '認証が必要です' }
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    const body: GeneratePDFRequest = await request.json()
+    const { quoteId, templateId, applyStamps = false, fileType = 'draft' } = body
+
+    if (!quoteId) {
+      return NextResponse.json({ error: '見積IDが必要です' }, { status: 400 })
     }
 
     // 見積データ取得
-    const { data: quote, error } = await supabase
+    const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .select(`
         *,
@@ -59,18 +56,16 @@ export async function generateQuotePDF(
       .eq('id', quoteId)
       .single()
 
-    if (error || !quote) {
-      return { success: false, message: '見積データの取得に失敗しました' }
+    if (quoteError || !quote) {
+      return NextResponse.json({ error: '見積データの取得に失敗しました' }, { status: 404 })
     }
 
     // 最終版PDFは承認済みのみ
     if (fileType === 'final' && quote.approval_status !== '承認済み') {
-      return { success: false, message: '承認済みの見積のみ最終版PDFを生成できます' }
-    }
-
-    // 下書き版でも承認済み確認（既存動作との互換性）
-    if (fileType === 'draft' && quote.approval_status !== '承認済み') {
-      return { success: false, message: '承認済みの見積のみPDFを生成できます' }
+      return NextResponse.json(
+        { error: '承認済みの見積のみ最終版PDFを生成できます' },
+        { status: 400 }
+      )
     }
 
     // 会社情報取得
@@ -84,7 +79,7 @@ export async function generateQuotePDF(
       address: companyProfile?.company_address ?? '住所未設定',
     }
 
-    // テンプレート取得
+    // テンプレート取得（指定がなければデフォルト）
     let htmlTemplate = DEFAULT_QUOTE_TEMPLATE_HTML
     let cssTemplate: string | null = DEFAULT_QUOTE_TEMPLATE_CSS
     let templateVersion = 1
@@ -160,6 +155,7 @@ export async function generateQuotePDF(
             .single()
 
           if (userStamp) {
+            // 印影画像のURL生成
             const { data: signedUrl } = await supabase.storage
               .from('user-stamps')
               .createSignedUrl(userStamp.image_path, 300)
@@ -177,6 +173,7 @@ export async function generateQuotePDF(
             }
             stampsApplied.push(stampApplication)
 
+            // PDFデータに押印情報を追加
             if (!pdfData.stamps) pdfData.stamps = {}
             if (i === 0) pdfData.stamps.slot1 = stampApplication
             else if (i === 1) pdfData.stamps.slot2 = stampApplication
@@ -226,7 +223,7 @@ export async function generateQuotePDF(
     // SHA256ハッシュ計算
     const sha256Hash = crypto.createHash('sha256').update(pdfBuffer).digest('hex')
 
-    // ファイル名・パス生成
+    // ファイル名生成
     const fileName = `${quote.quote_number}_v${quote.version}${fileType === 'final' ? '_final' : ''}.pdf`
     const storagePath = `quotes/${quoteId}/${fileName}`
 
@@ -240,39 +237,47 @@ export async function generateQuotePDF(
 
     if (uploadError) {
       console.error('Upload error:', uploadError)
-      return { success: false, message: 'PDFのアップロードに失敗しました' }
+      return NextResponse.json({ error: 'PDFのアップロードに失敗しました' }, { status: 500 })
     }
 
-    // 公開URL取得
+    // 公開URLを取得
     const { data: urlData } = supabase.storage.from('documents').getPublicUrl(storagePath)
 
     // quote_filesに記録
-    await supabase.from('quote_files').upsert({
-      quote_id: quoteId,
-      file_type: fileType,
-      storage_path: storagePath,
-      file_name: fileName,
-      file_size: pdfBuffer.length,
-      sha256_hash: sha256Hash,
-      template_id: usedTemplateId,
-      template_version: templateVersion,
-      stamps_applied: stampsApplied,
-      generated_by: user.id,
-      generated_at: new Date().toISOString(),
-    }, {
-      onConflict: 'quote_id,file_type',
-    })
-
-    // quotesテーブル更新
-    await supabase
-      .from('quotes')
-      .update({
-        pdf_url: urlData.publicUrl,
-        pdf_generated_at: new Date().toISOString(),
+    const { error: fileRecordError } = await supabase
+      .from('quote_files')
+      .upsert({
+        quote_id: quoteId,
+        file_type: fileType,
+        storage_path: storagePath,
+        file_name: fileName,
+        file_size: pdfBuffer.length,
+        sha256_hash: sha256Hash,
+        template_id: usedTemplateId,
+        template_version: templateVersion,
+        stamps_applied: stampsApplied,
+        generated_by: user.id,
+        generated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'quote_id,file_type',
       })
-      .eq('id', quoteId)
 
-    // 監査ログ
+    if (fileRecordError) {
+      console.error('File record error:', fileRecordError)
+    }
+
+    // quotesテーブルを更新（最終版の場合）
+    if (fileType === 'final') {
+      await supabase
+        .from('quotes')
+        .update({
+          pdf_url: urlData.publicUrl,
+          pdf_generated_at: new Date().toISOString(),
+        })
+        .eq('id', quoteId)
+    }
+
+    // 監査ログ記録
     await supabase.from('audit_logs').insert({
       event_type: 'pdf_generated',
       entity_type: 'quote',
@@ -287,19 +292,19 @@ export async function generateQuotePDF(
       },
     })
 
-    return {
+    return NextResponse.json({
       success: true,
-      message: 'PDF生成が完了しました',
       url: urlData.publicUrl,
       fileName,
       fileSize: pdfBuffer.length,
       sha256Hash,
-    }
+      stampsApplied: stampsApplied.length,
+    })
   } catch (error) {
-    console.error('PDF生成エラー:', error)
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : 'PDF生成に失敗しました',
-    }
+    console.error('PDF generation error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'PDF生成に失敗しました' },
+      { status: 500 }
+    )
   }
 }

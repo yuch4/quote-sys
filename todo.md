@@ -1,5 +1,38 @@
 # 見積システム開発タスク一覧
 
+## ✅ Phase 19 - PDF生成リファクタリング - **完了**
+
+### 目的
+仕様書（docs/pdf-generate.md）に基づき、PDF生成機能をHTML/CSS + Puppeteer方式にリファクタリング
+
+### 完了タスク
+- [x] テンプレート管理テーブル作成（templates, quote_files）
+- [x] 押印管理テーブル作成（stamp_assets, user_stamps）
+- [x] 監査ログテーブル作成（audit_logs）
+- [x] HTML/CSSテンプレートエンジン実装（Handlebars）
+- [x] Puppeteer PDF生成API作成（app/api/pdf/generate/route.ts）
+- [x] PDFプレビューAPI作成（app/api/pdf/preview/route.ts）
+- [x] デフォルト見積書テンプレート作成（日本式レイアウト）
+- [x] 押印機能実装（担当印3枠 + 角印）
+- [x] PDF生成関数リファクタリング（lib/pdf/generate-quote-pdf.ts）
+- [x] 監査ログ追加（PDF生成イベント）
+- [x] コンポーネント更新（PDFGenerateButton - ドロップダウンメニュー追加）
+- [x] Storageバケット作成（user-stamps, stamp-assets）
+- [x] 型定義追加（types/pdf-templates.ts）
+
+### 変更点
+- @react-pdf/renderer → HTML/CSS + Puppeteer（Headless Chromium）
+- テンプレートベースの自由レイアウト（Handlebarsで差し込み）
+- 押印機能追加（最終承認時に一括反映）
+- 監査ログ強化
+- プレビュー版/最終版の切り替え対応
+
+### 未実装（将来のフェーズ）
+- [ ] テンプレート管理画面実装（管理者用CRUD）
+- [ ] 取引先ポータルからのPDF閲覧
+
+---
+
 ## 🎉 実装完了サマリー
 
 ### ✅ Phase 1: 基盤構築 - **完了**

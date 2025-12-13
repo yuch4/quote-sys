@@ -2,8 +2,16 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Download, FileText } from 'lucide-react'
+import { Download, FileText, Stamp, Loader2 } from 'lucide-react'
 import { generateQuotePDF } from '@/lib/pdf/generate-quote-pdf'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
 
 interface PDFGenerateButtonProps {
   quoteId: string
@@ -27,50 +35,77 @@ const formatGeneratedAt = (value?: string | null) => {
 
 export function PDFGenerateButton({ quoteId, approvalStatus, pdfUrl, pdfGeneratedAt }: PDFGenerateButtonProps) {
   const [loading, setLoading] = useState(false)
+  const [loadingType, setLoadingType] = useState<'draft' | 'final' | null>(null)
   const canGenerate = approvalStatus === '承認済み'
-  const restrictionMessage = '承認済みの見積のみ最新PDFを生成できます'
+  const restrictionMessage = '承認済みの見積のみPDFを生成できます'
   const statusMessage = formatGeneratedAt(pdfGeneratedAt)
 
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = async (options: { applyStamps?: boolean; fileType?: 'draft' | 'final' } = {}) => {
     if (!canGenerate) {
-      alert(restrictionMessage)
+      toast.error(restrictionMessage)
       return
     }
 
     setLoading(true)
+    setLoadingType(options.fileType || 'draft')
+    
     try {
-      const result = await generateQuotePDF(quoteId)
+      const result = await generateQuotePDF(quoteId, options)
+      
       if (result.success && result.url) {
-        alert(result.message)
+        toast.success(result.message)
         // 新しいタブでPDFを開く
         window.open(result.url, '_blank')
       } else {
-        alert(result.message)
+        toast.error(result.message)
       }
     } catch (error) {
-      alert('PDF生成に失敗しました')
+      toast.error('PDF生成に失敗しました')
+      console.error('PDF generation error:', error)
     } finally {
       setLoading(false)
+      setLoadingType(null)
     }
   }
 
   return (
     <div className="flex flex-col gap-1 text-left">
       <div className="flex items-center gap-3">
-        <Button
-          onClick={handleGeneratePDF}
-          disabled={loading || !canGenerate}
-          variant="outline"
-          title={!canGenerate ? restrictionMessage : undefined}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          {loading ? 'PDF生成中...' : '最新PDFを生成'}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              disabled={loading || !canGenerate}
+              variant="outline"
+              title={!canGenerate ? restrictionMessage : undefined}
+            >
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              {loading 
+                ? loadingType === 'final' ? '最終版生成中...' : 'PDF生成中...' 
+                : 'PDFを生成'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => handleGeneratePDF({ fileType: 'draft' })}>
+              <FileText className="mr-2 h-4 w-4" />
+              プレビュー版を生成
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleGeneratePDF({ fileType: 'final', applyStamps: true })}>
+              <Stamp className="mr-2 h-4 w-4" />
+              最終版を生成（押印あり）
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {canGenerate && pdfUrl && (
           <Button asChild variant="link" className="px-0 h-auto">
             <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm">
               <Download className="h-4 w-4" />
-              前回生成したPDFを開く
+              前回のPDFを開く
             </a>
           </Button>
         )}
