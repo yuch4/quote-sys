@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Pencil, Trash2, Plus, Copy, Eye, FileCode, Check, X } from 'lucide-react'
+import { Pencil, Trash2, Plus, Copy, Eye, Code, Settings2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   getTemplates,
@@ -25,7 +25,13 @@ import {
   type TemplateFormData,
 } from './actions'
 import { DEFAULT_QUOTE_TEMPLATE_HTML, DEFAULT_QUOTE_TEMPLATE_CSS, QUOTE_TEMPLATE_VARIABLES } from '@/lib/pdf/default-template'
+import { TemplateSettingsForm } from '@/components/settings/template-settings-form'
+import { DEFAULT_TEMPLATE_SETTINGS, deserializeSettings, serializeSettings } from '@/types/template-settings'
+import { generateHTMLFromSettings, generateCSSFromSettings } from '@/lib/pdf/template-generator'
 import type { Template } from '@/types/pdf-templates'
+import type { TemplateSettings } from '@/types/template-settings'
+
+type EditorMode = 'settings' | 'html'
 
 export function TemplateManager() {
   const [templates, setTemplates] = useState<Template[]>([])
@@ -36,6 +42,7 @@ export function TemplateManager() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [previewHtml, setPreviewHtml] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [editorMode, setEditorMode] = useState<EditorMode>('settings')
   
   const [formData, setFormData] = useState<TemplateFormData>({
     name: '',
@@ -46,6 +53,9 @@ export function TemplateManager() {
     is_active: true,
     is_default: false,
   })
+
+  // 設定フォーム用のstate
+  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS)
 
   const loadTemplates = useCallback(async () => {
     setLoading(true)
@@ -58,17 +68,31 @@ export function TemplateManager() {
     loadTemplates()
   }, [loadTemplates])
 
+  // 設定が変更されたらHTML/CSSを再生成
+  const handleSettingsChange = (newSettings: TemplateSettings) => {
+    setTemplateSettings(newSettings)
+    const newHtml = generateHTMLFromSettings(newSettings)
+    const newCss = generateCSSFromSettings(newSettings)
+    setFormData(prev => ({
+      ...prev,
+      html_content: newHtml,
+      css_content: newCss,
+    }))
+  }
+
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
       target_entity: 'quote',
-      html_content: DEFAULT_QUOTE_TEMPLATE_HTML,
-      css_content: DEFAULT_QUOTE_TEMPLATE_CSS,
+      html_content: generateHTMLFromSettings(DEFAULT_TEMPLATE_SETTINGS),
+      css_content: generateCSSFromSettings(DEFAULT_TEMPLATE_SETTINGS),
       is_active: true,
       is_default: false,
     })
+    setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS)
     setSelectedTemplate(null)
+    setEditorMode('settings')
   }
 
   const handleCreate = () => {
@@ -88,6 +112,14 @@ export function TemplateManager() {
       is_active: template.is_active,
       is_default: template.is_default,
     })
+    // settings_jsonがあれば設定を復元、なければHTMLモードで開く
+    if (template.settings_json) {
+      setTemplateSettings(deserializeSettings(template.settings_json))
+      setEditorMode('settings')
+    } else {
+      setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS)
+      setEditorMode('html')
+    }
     setDialogOpen(true)
   }
 
@@ -133,9 +165,15 @@ export function TemplateManager() {
       return
     }
 
+    // 設定モードの場合はsettings_jsonを保存
+    const dataToSave = {
+      ...formData,
+      settings_json: editorMode === 'settings' ? serializeSettings(templateSettings) : null,
+    }
+
     const result = selectedTemplate
-      ? await updateTemplate(formData)
-      : await createTemplate(formData)
+      ? await updateTemplate(dataToSave)
+      : await createTemplate(dataToSave)
 
     if (result.success) {
       toast.success(result.message)
@@ -263,17 +301,43 @@ export function TemplateManager() {
               {selectedTemplate ? 'テンプレートを編集' : '新規テンプレート作成'}
             </DialogTitle>
             <DialogDescription>
-              HTML/CSSでPDFのレイアウトを定義します。Handlebars構文で変数を差し込めます。
+              フォームで設定するか、HTML/CSSを直接編集できます
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden">
+            {/* エディタモード切替 */}
+            <div className="flex items-center gap-2 mb-4">
+              <Button
+                variant={editorMode === 'settings' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setEditorMode('settings')}
+              >
+                <Settings2 className="h-4 w-4 mr-2" />
+                設定フォーム
+              </Button>
+              <Button
+                variant={editorMode === 'html' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setEditorMode('html')}
+              >
+                <Code className="h-4 w-4 mr-2" />
+                HTML/CSS
+              </Button>
+            </div>
+
             <Tabs defaultValue="basic" className="h-full flex flex-col">
               <TabsList>
                 <TabsTrigger value="basic">基本設定</TabsTrigger>
-                <TabsTrigger value="html">HTML</TabsTrigger>
-                <TabsTrigger value="css">CSS</TabsTrigger>
-                <TabsTrigger value="variables">利用可能な変数</TabsTrigger>
+                {editorMode === 'settings' ? (
+                  <TabsTrigger value="layout">レイアウト設定</TabsTrigger>
+                ) : (
+                  <>
+                    <TabsTrigger value="html">HTML</TabsTrigger>
+                    <TabsTrigger value="css">CSS</TabsTrigger>
+                    <TabsTrigger value="variables">利用可能な変数</TabsTrigger>
+                  </>
+                )}
               </TabsList>
 
               <TabsContent value="basic" className="flex-1 overflow-auto space-y-4 p-1">
@@ -337,82 +401,99 @@ export function TemplateManager() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="html" className="flex-1 overflow-hidden p-1">
-                <div className="h-full flex flex-col">
-                  <Label className="mb-2">HTMLテンプレート</Label>
-                  <Textarea
-                    className="flex-1 font-mono text-sm min-h-[400px]"
-                    value={formData.html_content}
-                    onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
-                    placeholder="HTMLテンプレートを入力..."
-                  />
-                </div>
-              </TabsContent>
+              {/* 設定フォームモード */}
+              {editorMode === 'settings' && (
+                <TabsContent value="layout" className="flex-1 overflow-auto p-1">
+                  <ScrollArea className="h-[500px] pr-4">
+                    <TemplateSettingsForm
+                      settings={templateSettings}
+                      onChange={handleSettingsChange}
+                    />
+                  </ScrollArea>
+                </TabsContent>
+              )}
 
-              <TabsContent value="css" className="flex-1 overflow-hidden p-1">
-                <div className="h-full flex flex-col">
-                  <Label className="mb-2">CSSスタイル</Label>
-                  <Textarea
-                    className="flex-1 font-mono text-sm min-h-[400px]"
-                    value={formData.css_content}
-                    onChange={(e) => setFormData({ ...formData, css_content: e.target.value })}
-                    placeholder="CSSスタイルを入力..."
-                  />
-                </div>
-              </TabsContent>
+              {/* HTML/CSSモード */}
+              {editorMode === 'html' && (
+                <>
+                  <TabsContent value="html" className="flex-1 overflow-hidden p-1">
+                    <div className="h-full flex flex-col">
+                      <Label className="mb-2">HTMLテンプレート</Label>
+                      <Textarea
+                        className="flex-1 font-mono text-sm min-h-[400px]"
+                        value={formData.html_content}
+                        onChange={(e) => setFormData({ ...formData, html_content: e.target.value })}
+                        placeholder="HTMLテンプレートを入力..."
+                      />
+                    </div>
+                  </TabsContent>
 
-              <TabsContent value="variables" className="flex-1 overflow-auto p-1">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    以下の変数をHTML内で <code className="bg-muted px-1 rounded">{'{{変数名}}'}</code> の形式で使用できます。
-                  </p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>変数名</TableHead>
-                        <TableHead>型</TableHead>
-                        <TableHead>説明</TableHead>
-                        <TableHead>必須</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {QUOTE_TEMPLATE_VARIABLES.map((variable) => (
-                        <TableRow key={variable.key}>
-                          <TableCell>
-                            <code className="bg-muted px-1 rounded">{`{{${variable.key}}}`}</code>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{variable.type}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {variable.label}
-                            {variable.description && (
-                              <p className="text-xs text-muted-foreground">{variable.description}</p>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {variable.required ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <X className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <div className="mt-4 p-4 bg-muted rounded-lg">
-                    <h4 className="font-medium mb-2">ヘルパー関数</h4>
-                    <ul className="text-sm space-y-1">
-                      <li><code>{'{{formatCurrency amount}}'}</code> - 金額を円表示（¥1,000,000）</li>
-                      <li><code>{'{{formatDate date}}'}</code> - 日付を日本語表示（2024/12/13）</li>
-                      <li><code>{'{{nl2br text}}'}</code> - 改行を&lt;br&gt;に変換</li>
-                      <li><code>{'{{#each items}}...{{/each}}'}</code> - 配列をループ</li>
-                      <li><code>{'{{#if condition}}...{{/if}}'}</code> - 条件分岐</li>
-                    </ul>
-                  </div>
-                </div>
-              </TabsContent>
+                  <TabsContent value="css" className="flex-1 overflow-hidden p-1">
+                    <div className="h-full flex flex-col">
+                      <Label className="mb-2">CSSスタイル</Label>
+                      <Textarea
+                        className="flex-1 font-mono text-sm min-h-[400px]"
+                        value={formData.css_content}
+                        onChange={(e) => setFormData({ ...formData, css_content: e.target.value })}
+                        placeholder="CSSスタイルを入力..."
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="variables" className="flex-1 overflow-auto p-1">
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        以下の変数をHTML内で <code className="bg-muted px-1 rounded">{'{{変数名}}'}</code> の形式で使用できます。
+                      </p>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>変数名</TableHead>
+                            <TableHead>型</TableHead>
+                            <TableHead>説明</TableHead>
+                            <TableHead>必須</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {QUOTE_TEMPLATE_VARIABLES.map((variable) => (
+                            <TableRow key={variable.key}>
+                              <TableCell>
+                                <code className="bg-muted px-1 rounded">{`{{${variable.key}}}`}</code>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{variable.type}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {variable.label}
+                                {variable.description && (
+                                  <p className="text-xs text-muted-foreground">{variable.description}</p>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {variable.required ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <X className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="mt-4 p-4 bg-muted rounded-lg">
+                        <h4 className="font-medium mb-2">ヘルパー関数</h4>
+                        <ul className="text-sm space-y-1">
+                          <li><code>{'{{formatCurrency amount}}'}</code> - 金額を円表示（¥1,000,000）</li>
+                          <li><code>{'{{formatDate date}}'}</code> - 日付を日本語表示（2024/12/13）</li>
+                          <li><code>{'{{nl2br text}}'}</code> - 改行を&lt;br&gt;に変換</li>
+                          <li><code>{'{{#each items}}...{{/each}}'}</code> - 配列をループ</li>
+                          <li><code>{'{{#if condition}}...{{/if}}'}</code> - 条件分岐</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </>
+              )}
             </Tabs>
           </div>
 

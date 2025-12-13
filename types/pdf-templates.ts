@@ -11,6 +11,7 @@ export interface Template {
   target_entity: TemplateTargetEntity
   html_content: string
   css_content: string | null
+  settings_json: string | null
   variables_schema: TemplateVariable[]
   version: number
   is_active: boolean

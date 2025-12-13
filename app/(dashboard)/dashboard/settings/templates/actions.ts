@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { renderTemplate } from '@/lib/pdf/template-engine'
+import { SAMPLE_QUOTE_DATA } from '@/types/pdf-templates'
 import type { Template } from '@/types/pdf-templates'
 
 export interface TemplateFormData {
@@ -11,6 +13,7 @@ export interface TemplateFormData {
   target_entity: 'quote' | 'purchase_order'
   html_content: string
   css_content?: string
+  settings_json?: string | null
   is_active: boolean
   is_default: boolean
 }
@@ -73,6 +76,7 @@ export async function createTemplate(formData: TemplateFormData) {
       target_entity: formData.target_entity,
       html_content: formData.html_content,
       css_content: formData.css_content || null,
+      settings_json: formData.settings_json || null,
       is_active: formData.is_active,
       is_default: formData.is_default,
       created_by: user.id,
@@ -123,6 +127,7 @@ export async function updateTemplate(formData: TemplateFormData) {
       target_entity: formData.target_entity,
       html_content: formData.html_content,
       css_content: formData.css_content || null,
+      settings_json: formData.settings_json || null,
       is_active: formData.is_active,
       is_default: formData.is_default,
       version: newVersion,
@@ -206,20 +211,16 @@ export async function previewTemplate(
   cssContent: string | null,
   targetEntity: 'quote' | 'purchase_order'
 ) {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/pdf/preview`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      htmlTemplate: htmlContent,
-      cssTemplate: cssContent,
-      useSampleData: true,
-    }),
-  })
-
-  if (!response.ok) {
+  try {
+    // 直接renderTemplateを呼び出してHTMLを生成
+    const renderedHtml = renderTemplate(
+      htmlContent,
+      cssContent || '',
+      SAMPLE_QUOTE_DATA
+    )
+    return { success: true, message: 'プレビュー生成完了', html: renderedHtml }
+  } catch (error) {
+    console.error('Preview error:', error)
     return { success: false, message: 'プレビュー生成に失敗しました', html: '' }
   }
-
-  const result = await response.json()
-  return { success: true, message: 'プレビュー生成完了', html: result.html }
 }
