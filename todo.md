@@ -1,5 +1,31 @@
 # 見積システム開発タスク一覧
 
+## ✅ Phase 20 - PDFテンプレート設定機能 & 統合 - **完了**
+
+### 目的
+- 非エンジニアでもPDFテンプレートを簡単に設定できるフォーム型UIを提供
+- 旧帳票レイアウト機能を削除し、新しいPDFテンプレートシステムに統合
+- 見積書・発注書のPDF生成を新テンプレートシステムで統一
+
+### 完了タスク
+- [x] テンプレート設定フォーム実装（components/settings/template-settings-form.tsx）
+- [x] 設定JSON型定義追加（types/template-settings.ts）
+- [x] HTML/CSS自動生成機能（lib/pdf/template-generator.ts）
+- [x] テンプレートマネージャーにフォームモード統合
+- [x] DBマイグレーション（templates.settings_json追加）
+- [x] 旧帳票レイアウトタブ削除（設定画面から完全削除）
+- [x] 旧actions.ts削除（previewDocumentLayout関連）
+- [x] 発注書用デフォルトテンプレート作成（DEFAULT_PURCHASE_ORDER_TEMPLATE_HTML/CSS）
+- [x] 発注書PDF生成をPuppeteer方式にリファクタリング（generate-purchase-order-pdf.ts）
+
+### 変更点
+- 設定画面から「帳票レイアウト」タブを削除
+- 「PDFテンプレート」タブで見積書/発注書テンプレートを一元管理
+- テンプレート編集を「設定フォーム」と「HTML/CSS直接編集」の2モードで提供
+- 発注書PDF生成を@react-pdf/rendererからPuppeteer方式に移行
+
+---
+
 ## ✅ Phase 19 - PDF生成リファクタリング - **完了**
 
 ### 目的

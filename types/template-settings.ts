@@ -209,8 +209,8 @@ export function deserializeSettings(json: string | null): TemplateSettings {
   if (!json) return DEFAULT_TEMPLATE_SETTINGS
 
   try {
-    const parsed = JSON.parse(json)
-    return mergeWithDefaults(parsed, DEFAULT_TEMPLATE_SETTINGS)
+    const parsed = JSON.parse(json) as Partial<TemplateSettings>
+    return mergeWithDefaults(parsed, DEFAULT_TEMPLATE_SETTINGS) as TemplateSettings
   } catch {
     return DEFAULT_TEMPLATE_SETTINGS
   }
@@ -219,25 +219,26 @@ export function deserializeSettings(json: string | null): TemplateSettings {
 /**
  * 部分的な設定をデフォルト値でマージ
  */
-function mergeWithDefaults<T extends Record<string, unknown>>(
+function mergeWithDefaults<T>(
   partial: Partial<T>,
   defaults: T
 ): T {
   const result = { ...defaults }
 
   for (const key in partial) {
-    if (partial[key] !== undefined) {
+    const k = key as keyof T
+    if (partial[k] !== undefined) {
       if (
-        typeof partial[key] === 'object' &&
-        partial[key] !== null &&
-        !Array.isArray(partial[key])
+        typeof partial[k] === 'object' &&
+        partial[k] !== null &&
+        !Array.isArray(partial[k])
       ) {
-        result[key] = mergeWithDefaults(
-          partial[key] as Record<string, unknown>,
-          defaults[key] as Record<string, unknown>
-        ) as T[Extract<keyof T, string>]
+        result[k] = mergeWithDefaults(
+          partial[k] as Partial<T[keyof T]>,
+          defaults[k]
+        ) as T[keyof T]
       } else {
-        result[key] = partial[key] as T[Extract<keyof T, string>]
+        result[k] = partial[k] as T[keyof T]
       }
     }
   }

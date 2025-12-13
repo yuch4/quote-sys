@@ -12,26 +12,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Pencil, Trash2, Plus, LayoutGrid, Table2 } from 'lucide-react'
+import { Pencil, Trash2, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
 import { TemplateManager } from './templates/template-manager'
-import { previewDocumentLayout } from './actions'
-import { DocumentLayoutEditor } from '@/components/settings/document-layout-editor'
-import { VisualLayoutEditor } from '@/components/settings/visual-layout-editor'
-import { LayoutPreview } from '@/components/settings/layout-preview'
-import type {
-  DocumentLayoutConfig,
-  DocumentTargetEntity,
-} from '@/types/document-layout'
-import {
-  getDefaultDocumentLayout,
-  mergeDocumentLayoutConfig,
-  sanitizeDocumentLayoutConfig,
-} from '@/lib/document-layout'
-
-type LayoutEditorMode = 'table' | 'visual'
 
 interface User {
   id: string
@@ -143,19 +128,6 @@ export default function SettingsPage() {
     company_address: '',
   })
   const [companyProfileSaving, setCompanyProfileSaving] = useState(false)
-  const [documentLayouts, setDocumentLayouts] = useState<Record<DocumentTargetEntity, DocumentLayoutConfig>>({
-    quote: getDefaultDocumentLayout('quote'),
-    purchase_order: getDefaultDocumentLayout('purchase_order'),
-  })
-  const [layoutSaving, setLayoutSaving] = useState<Record<DocumentTargetEntity, boolean>>({
-    quote: false,
-    purchase_order: false,
-  })
-  const [previewing, setPreviewing] = useState<Record<DocumentTargetEntity, boolean>>({
-    quote: false,
-    purchase_order: false,
-  })
-  const [layoutEditorMode, setLayoutEditorMode] = useState<LayoutEditorMode>('visual')
 
   // ダイアログ
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -192,11 +164,6 @@ export default function SettingsPage() {
     approver_role: role,
     notes: '',
   })
-
-  const documentTargetLabels: Record<DocumentTargetEntity, string> = {
-    quote: '見積書',
-    purchase_order: '発注書',
-  }
 
   const generateNextCode = (values: (string | null | undefined)[], prefix: string) => {
     const numericValues = values.reduce<number[]>((acc, value) => {
@@ -255,7 +222,6 @@ export default function SettingsPage() {
         routesRes,
         activitySettingsRes,
         companyProfileRes,
-        documentLayoutRes,
       ] = await Promise.all([
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
@@ -267,7 +233,6 @@ export default function SettingsPage() {
           .order('step_order', { ascending: true, foreignTable: 'approval_route_steps' }),
         supabase.from('project_activity_settings').select('*').maybeSingle(),
         supabase.from('company_profile').select('*').maybeSingle(),
-        supabase.from('document_layout_settings').select('*'),
       ])
 
       if (usersRes.data) setUsers(usersRes.data)
@@ -296,28 +261,6 @@ export default function SettingsPage() {
           company_name: companyProfileRes.data.company_name ?? '',
           company_address: companyProfileRes.data.company_address ?? '',
         })
-      }
-
-      if (documentLayoutRes.data) {
-        const nextLayouts: Record<DocumentTargetEntity, DocumentLayoutConfig> = {
-          quote: getDefaultDocumentLayout('quote'),
-          purchase_order: getDefaultDocumentLayout('purchase_order'),
-        }
-
-        for (const layoutRow of documentLayoutRes.data) {
-          if (layoutRow.target_entity === 'quote' || layoutRow.target_entity === 'purchase_order') {
-            const entity: DocumentTargetEntity = layoutRow.target_entity
-            nextLayouts[entity] = mergeDocumentLayoutConfig(entity, {
-              sections: layoutRow.sections,
-              table_columns: layoutRow.table_columns,
-              page: layoutRow.page ?? undefined,
-              styles: layoutRow.styles ?? undefined,
-              tableStyles: layoutRow.table_styles ?? undefined,
-            })
-          }
-        }
-
-        setDocumentLayouts(nextLayouts)
       }
 
       setLoading(false)
@@ -427,82 +370,6 @@ export default function SettingsPage() {
       toast.error('会社情報の更新に失敗しました')
     } finally {
       setCompanyProfileSaving(false)
-    }
-  }
-
-  const handlePreviewLayout = async (target: DocumentTargetEntity) => {
-    if (typeof window === 'undefined') return
-    const previewWindow = window.open('', '_blank')
-    setPreviewing((prev) => ({ ...prev, [target]: true }))
-    try {
-      const result = await previewDocumentLayout(target)
-      if (!result.success || !result.base64) {
-        previewWindow?.close()
-        toast.error(result.message || 'プレビューの生成に失敗しました')
-        return
-      }
-      const binary = atob(result.base64)
-      const len = binary.length
-      const buffer = new Uint8Array(len)
-      for (let i = 0; i < len; i += 1) {
-        buffer[i] = binary.charCodeAt(i)
-      }
-      const blob = new Blob([buffer], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      previewWindow?.location.replace(url)
-      setTimeout(() => {
-        URL.revokeObjectURL(url)
-      }, 60_000)
-    } catch (error) {
-      console.error('帳票プレビュー生成エラー:', error)
-      previewWindow?.close()
-      toast.error('プレビューの生成に失敗しました')
-    } finally {
-      setPreviewing((prev) => ({ ...prev, [target]: false }))
-    }
-  }
-
-  const updateDocumentLayout = (
-    target: DocumentTargetEntity,
-    newLayout: DocumentLayoutConfig,
-  ) => {
-    setDocumentLayouts((prev) => ({
-      ...prev,
-      [target]: newLayout,
-    }))
-  }
-
-  const handleSaveLayout = async (target: DocumentTargetEntity) => {
-    const current = documentLayouts[target]
-    if (!current) return
-
-    setLayoutSaving((prev) => ({ ...prev, [target]: true }))
-    try {
-      const sanitized = sanitizeDocumentLayoutConfig(target, current)
-      const { error } = await supabase
-        .from('document_layout_settings')
-        .upsert({
-          target_entity: target,
-          sections: sanitized.sections,
-          table_columns: sanitized.table_columns,
-          page: sanitized.page ?? null,
-          styles: sanitized.styles ?? null,
-          table_styles: sanitized.tableStyles ?? null,
-          updated_at: new Date().toISOString(),
-        })
-
-      if (error) throw error
-
-      setDocumentLayouts((prev) => ({
-        ...prev,
-        [target]: sanitized,
-      }))
-      toast.success('帳票レイアウトを更新しました')
-    } catch (error) {
-      console.error('帳票レイアウト更新エラー:', error)
-      toast.error('帳票レイアウトの更新に失敗しました')
-    } finally {
-      setLayoutSaving((prev) => ({ ...prev, [target]: false }))
     }
   }
 
@@ -939,7 +806,6 @@ export default function SettingsPage() {
         <TabsList>
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="company">会社情報</TabsTrigger>
-          <TabsTrigger value="documents">帳票レイアウト</TabsTrigger>
           <TabsTrigger value="templates">PDFテンプレート</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
@@ -1055,98 +921,6 @@ export default function SettingsPage() {
               <Button onClick={handleSaveCompanyProfile} disabled={companyProfileSaving}>
                 {companyProfileSaving ? '保存中...' : '設定を保存'}
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>帳票レイアウト</CardTitle>
-                  <CardDescription>見積書・発注書のセクション・明細列・ページ設定・スタイルを調整します。</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={layoutEditorMode === 'visual' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayoutEditorMode('visual')}
-                  >
-                    <LayoutGrid className="h-4 w-4 mr-2" />
-                    ビジュアル
-                  </Button>
-                  <Button
-                    variant={layoutEditorMode === 'table' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setLayoutEditorMode('table')}
-                  >
-                    <Table2 className="h-4 w-4 mr-2" />
-                    テーブル
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="quote" className="space-y-4">
-                <TabsList>
-                  {(
-                    Object.keys(documentTargetLabels) as DocumentTargetEntity[]
-                  ).map((target) => (
-                    <TabsTrigger key={target} value={target}>
-                      {documentTargetLabels[target]}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {(
-                  Object.keys(documentTargetLabels) as DocumentTargetEntity[]
-                ).map((target) => (
-                  <TabsContent key={target} value={target} className="space-y-4">
-                    {layoutEditorMode === 'visual' ? (
-                      <div className="space-y-6">
-                        <VisualLayoutEditor
-                          target={target}
-                          layout={documentLayouts[target]}
-                          onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
-                        />
-                        <div className="border-t pt-4">
-                          <h4 className="font-medium mb-3">リアルタイムプレビュー</h4>
-                          <LayoutPreview
-                            target={target}
-                            layout={documentLayouts[target]}
-                            className="max-h-[500px]"
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => handlePreviewLayout(target)}
-                            disabled={previewing[target]}
-                          >
-                            {previewing[target] ? 'PDF生成中...' : '実際のPDFを確認'}
-                          </Button>
-                          <Button
-                            onClick={() => handleSaveLayout(target)}
-                            disabled={layoutSaving[target]}
-                          >
-                            {layoutSaving[target] ? '保存中...' : '保存'}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <DocumentLayoutEditor
-                        target={target}
-                        layout={documentLayouts[target]}
-                        onLayoutChange={(newLayout) => updateDocumentLayout(target, newLayout)}
-                        onSave={() => handleSaveLayout(target)}
-                        onPreview={() => handlePreviewLayout(target)}
-                        saving={layoutSaving[target]}
-                        previewing={previewing[target]}
-                      />
-                    )}
-                  </TabsContent>
-                ))}
-              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
