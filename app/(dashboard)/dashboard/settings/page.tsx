@@ -16,6 +16,7 @@ import { Pencil, Trash2, Plus, LayoutGrid, Table2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DepartmentManager } from '@/components/settings/department-manager'
+import { TemplateManager } from './templates/template-manager'
 import { previewDocumentLayout } from './actions'
 import { DocumentLayoutEditor } from '@/components/settings/document-layout-editor'
 import { VisualLayoutEditor } from '@/components/settings/visual-layout-editor'
@@ -939,6 +940,7 @@ export default function SettingsPage() {
           <TabsTrigger value="activity">案件活動閾値</TabsTrigger>
           <TabsTrigger value="company">会社情報</TabsTrigger>
           <TabsTrigger value="documents">帳票レイアウト</TabsTrigger>
+          <TabsTrigger value="templates">PDFテンプレート</TabsTrigger>
           <TabsTrigger value="customers">顧客マスタ</TabsTrigger>
           <TabsTrigger value="suppliers">仕入先マスタ</TabsTrigger>
           <TabsTrigger value="departments">部署マスタ</TabsTrigger>
@@ -1145,6 +1147,19 @@ export default function SettingsPage() {
                   </TabsContent>
                 ))}
               </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PDFテンプレート管理 */}
+        <TabsContent value="templates">
+          <Card>
+            <CardHeader>
+              <CardTitle>PDFテンプレート管理</CardTitle>
+              <CardDescription>見積書・発注書のPDF出力に使用するHTML/CSSテンプレートを管理します。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TemplateManager />
             </CardContent>
           </Card>
         </TabsContent>
