@@ -232,8 +232,12 @@ describe('status', () => {
     })
 
     it('実践的なケース: 見積承認済み', () => {
+      // 注: status が null の場合は 'リード' に正規化され、それは手動ステータスなので
+      // 見積の状態による自動推論をテストするには、手動ステータス以外の値を設定する必要がある
+      const NON_MANUAL_STATUS = '自動'
+
       const project = {
-        status: '自動', // null だと 'リード' になるので、手動ステータスでない値を設定
+        status: NON_MANUAL_STATUS,
         quotes: [
           { approval_status: '承認済み' },
         ],
